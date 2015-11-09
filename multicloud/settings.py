@@ -125,8 +125,6 @@ STATIC_ROOT = 'staticfiles'
 
 PROJECT_DIR = os.path.dirname(__file__)
 
-STATICFILES_DIRS = (os.path.join(PROJECT_DIR, 'static'),)
-
 
 from stratosphere.lib.ec2 import Ec2Provider
 from stratosphere.lib.linode import LinodeProvider
