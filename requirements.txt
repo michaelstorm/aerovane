@@ -1,6 +1,7 @@
 Django==1.8.6
 boto==2.38.0
 defusedxml==0.4.1
+dj-database-url==0.3.0
 django-allauth==0.24.0
 django-extensions==1.5.9
 django-polymorphic==0.7.2
