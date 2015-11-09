@@ -38,8 +38,13 @@ INSTALLED_APPS = (
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'django.contrib.sites',
     'django.contrib.staticfiles',
-    'stratosphere', 
+    'stratosphere',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.github',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -73,6 +78,21 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'multicloud.wsgi.application'
 
+AUTHENTICATION_BACKENDS = (
+    # Needed to login by username in Django admin, regardless of `allauth`
+    "django.contrib.auth.backends.ModelBackend",
+    # `allauth` specific authentication methods, such as login by e-mail
+    "allauth.account.auth_backends.AuthenticationBackend"
+)
+
+LOGIN_REDIRECT_URL = '/'
+SOCIALACCOUNT_QUERY_EMAIL = True
+SOCIALACCOUNT_PROVIDERS = {
+    'github': {
+        'SCOPE': ['email'],
+        #'METHOD': 'js_sdk'  # instead of 'oauth2'
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
@@ -118,3 +138,5 @@ CLOUD_PROVIDERS = {
     'aws': Ec2Provider(),
     'linode': LinodeProvider(),
 }
+
+SITE_ID = 2

@@ -1,10 +1,10 @@
-from django.conf import settings
-from django.conf.urls import url
+from django.conf.urls import url, include
 
 from . import views
 
 urlpatterns = [
-    url(r'^$', views.IndexView.as_view()),
-    url(r'^compute/$', views.CreateComputeGroupView.as_view(providers=settings.CLOUD_PROVIDERS)),
-    url(r'^sync/$', views.SyncView.as_view(providers=settings.CLOUD_PROVIDERS)),
+    url(r'^$', views.index),
+    url(r'^compute/$', views.compute),
+    url(r'^sync/$', views.sync),
+    url(r'^accounts/', include('allauth.urls')),
 ]
