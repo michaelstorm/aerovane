@@ -1,0 +1,356 @@
+{% extends "stratosphere/base.html" %}
+{% load staticfiles %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-6">
+            {% csrf_token %}
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <form action="/sync/" method="post">
+                        {% csrf_token %}
+                        Compute groups
+                        <button class="btn btn-warning btn-xs pull-right">Sync</button>
+                    </form>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>CPU</th>
+                            <th>Memory</th>
+                            <th>Instance count</th>
+                            <th>Instance states</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in compute_groups %}
+                            <tr>
+                                <td>{{ group.group.name }}</td>
+                                <td>{{ group.group.cpu }}</td>
+                                <td>{{ group.group.memory }} MB</td>
+                                <td>{{ group.group.instance_count }}</td>
+                                <td>
+                                    {% for provider_name, instance_count in group.providers.items %}
+                                        <img src="/static/stratosphere/{{ provider_name }}_icon.png" style="height: 16px;"> {{ instance_count }}
+                                    {% endfor %}
+                                </td>
+                                <td></td>
+                                <td class="text-right"><button type="button" class="btn btn-danger btn-xs">Delete</button></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="panel panel-primary">
+                <div class="panel-heading">Add Compute Group</div>
+                <div class="panel-body">
+                    <form class="form" action="/compute/" method="post">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>Name</label>
+                                    <input type="text" class="form-control" name="name">
+                                </div>
+                            </div>
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>CPU</label>
+                                    <input id="cpu-slider" name="cpu" type="text" data-slider-min="1" data-slider-max="16" data-slider-step="1" data-slider-value="1">
+                                    <div id="cpu-slider-val">1</div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>Memory</label>
+                                    <input id="memory-slider" name="memory" type="text" data-slider-min="512" data-slider-max="8192" data-slider-step="512" data-slider-value="1024">
+                                    <div><span id="memory-slider-val">1024</span> MB</div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>Instance count</label>
+                                    <input id="instance-count-slider" name="instance_count" type="text" data-slider-min="1" data-slider-max="16" data-slider-step="1" data-slider-value="1">
+                                    <div id="instance-count-slider-val">1</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>Deployment type</label>
+                                    <div class="radio radio-primary">
+                                        <input type="radio" name="deployment_type" id="deployment_type_os" value="os">
+                                        <label for="deployment_type_os">Operating system</label>
+                                    </div>
+                                    <div class="radio radio-primary">
+                                        <input type="radio" name="deployment_type" id="deployment_type_image" value="image">
+                                        <label for="deployment_type_image">Disk image</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-3">
+                                <div class="form-group" id="select-os-container">
+                                    <label>Operating system</label>
+                                    <select class="fancy-select">
+                                        <option value="ubuntu_14">Ubuntu 14.04</option>
+                                        <option value="ubuntu_12">Ubuntu 12.04</option>
+                                        <option value="rhel_7">RHEL 7</option>
+                                        <option value="rhel_6">RHEL 6</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="select-image-container">
+                                    <label>Disk image</label>
+                                    <select class="fancy-select">
+                                        <option value="ubuntu_14">Ubuntu 14.04 (ami-84bba3c1)</option>
+                                        <option value="ubuntu_12">Ubuntu 12.04 (ami-456ad56c)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <label>Providers</label>
+                            </div>
+                        </div>
+                        <div id="providers-list">
+                            <div class="row">
+                                <div class="form-group">
+                                    <div class="col-lg-3 text-center provider" id="provider-aws">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-aws"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/aws_ec2.png" %}" style="margin-top: 25px;">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-center provider" id="provider-azure">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-azure"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/azure.png" %}" style="margin-top: 15px;">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-center provider" id="provider-linode">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-linode"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/linode.png" %}" style="margin-top: 12px;">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-center provider" id="provider-digitalocean">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-digitalocean"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/digitalocean.png" %}">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-center provider" id="provider-softlayer">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-softlayer"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/softlayer.png" %}">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-center provider" id="provider-cloudsigma">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-cloudsigma"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/cloudsigma.png" %}">
+                                        </div>
+                                    </div>
+                                    <div class="col-lg-3 text-center provider" id="provider-google">
+                                        <div class="checkbox checkbox-success">
+                                            <input type="checkbox" name="provider-google"><label></label>
+                                        </div>
+                                        <div class="click-area" style="height: 100%;">
+                                            <img src="{% static "stratosphere/google.png" %}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-4 col-lg-offset-4">
+                                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 20px;">Add</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_script %}
+    var os_supported_providers = {
+        ubuntu_14: ['aws', 'azure', 'digitalocean', 'linode', 'cloudsigma', 'softlayer'],
+        ubuntu_12: ['aws', 'digitalocean', 'linode', 'softlayer', 'google'],
+        rhel_7: ['aws', 'azure', 'linode', 'softlayer'],
+        rhel_6: ['aws', 'linode', 'softlayer'],
+    }
+
+    var image_supported_providers = {
+        ubuntu_14: ['aws', 'azure', 'linode', 'cloudsigma', 'softlayer'],
+        ubuntu_12: ['aws', 'azure', 'linode', 'cloudsigma', 'google'],
+    }
+
+    function hide_unsupported_providers() {
+        $('#providers-list .provider').addClass('disabled');
+        $('#providers-list .provider.disabled input').removeAttr('disabled');
+        $('#providers-list .provider input').removeProp('checked');
+
+        if ($('input[name="deployment_type"]:checked').val() == 'image') {
+            var selected_image = $('#select-image-container select').val();
+            var supported_providers = image_supported_providers[selected_image];
+            supported_providers.forEach(function(provider) {
+                $('#provider-' + provider).removeClass('disabled');
+            });
+        }
+        else {
+            var selected_os = $('#select-os-container select').val();
+            var supported_providers = os_supported_providers[selected_os];
+            supported_providers.forEach(function(provider) {
+                $('#provider-' + provider).removeClass('disabled');
+            });
+        }
+
+        $('#providers-list .provider.disabled input').attr('disabled', 'true');
+        $('#providers-list .provider:not(.disabled) input').prop('checked', 'true');
+
+        $('#providers-list .provider input').each(function() {
+            $(this).triggerHandler('change');
+        });
+    }
+
+    $(document).ready(function() {
+        $("#cpu-slider").slider();
+        $("#cpu-slider").on("slide", function(slideEvt) {
+            $("#cpu-slider-val").text(slideEvt.value);
+        });
+
+        $("#memory-slider").slider();
+        $("#memory-slider").on("slide", function(slideEvt) {
+            $("#memory-slider-val").text(slideEvt.value);
+        });
+
+        $("#instance-count-slider").slider();
+        $("#instance-count-slider").on("slide", function(slideEvt) {
+            $("#instance-count-slider-val").text(slideEvt.value);
+        });
+
+        $('input[name="deployment_type"]').change(function() {
+            if ($(this).val() == 'image') {
+                $('#select-os-container').hide();
+                $('#select-image-container').show();
+            }
+            else {
+                $('#select-image-container').hide();
+                $('#select-os-container').show();
+            }
+
+            $('#providers-list').addClass('providers-selectable');
+
+            hide_unsupported_providers();
+        });
+
+        $('.fancy-select').chosen({
+            width: '100%'
+        });
+
+        $('#select-os-container select, #select-image-container select').on('change', function() {
+            hide_unsupported_providers();
+        });
+
+        $('#providers-list .provider input').change(function() {
+            if (this.checked)
+                $(this).parents(".provider").addClass('bg-success');
+            else
+                $(this).parents(".provider").removeClass('bg-success');
+        });
+
+        $('#providers-list .provider .click-area').click(function() {
+            var input = $(this).parents('.provider').find('input');
+
+            if (input.is(':visible') && !input.is(':disabled')) {
+                if (input.get()[0].checked)
+                    input.removeProp('checked');
+                else
+                    input.prop('checked', 'true');
+
+                input.triggerHandler('change');
+            }
+        });
+    });
+{% endblock %}
+
+{% block style %}
+    .slider-selection {
+        background: #BABABA;
+    }
+    .slider-track-high {
+        background: white;
+        border: 1px solid #BABABA;
+    }
+
+    #select-os-container, #select-image-container {
+        display: none;
+    }
+
+    .radio *, #providers-list * {
+       -ms-user-select: none;
+       -moz-user-select: -moz-none;
+       -khtml-user-select: none;
+       -webkit-user-select: none;
+       user-select: none;
+    }
+
+    #providers-list {
+        margin-top: 5px;
+    }
+
+    #providers-list .provider {
+        height: 100px;
+    }
+
+    #providers-list .checkbox {
+        display: none;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        margin: 0;
+    }
+
+    #providers-list.providers-selectable .checkbox {
+        display: block;
+    }
+
+    #providers-list.providers-selectable .provider:not(.disabled),
+    #providers-list.providers-selectable .provider:not(.disabled) * {
+        cursor: pointer;
+    }
+
+    #providers-list img {
+        /* makes them scale proportionally, height before width */
+        max-width: 100%;
+        max-height: 100px;
+    }
+
+    #providers-list .provider.disabled {
+        background-color: #d8d8d8;
+    }
+
+    #providers-list .provider.disabled img {
+        -webkit-filter: grayscale(100%);
+        filter: grayscale(100%);
+    }
+{% endblock %}

@@ -1,0 +1,226 @@
+[
+  {
+    "pk": 1,
+    "fields": {
+      "memory": 2048,
+      "hour_price": 17,
+      "provider": "aws",
+      "cpu": 1,
+      "name": "t2.micro",
+      "external_id": "t2.micro",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 2,
+    "fields": {
+      "memory": 1024,
+      "hour_price": 34,
+      "provider": "aws",
+      "cpu": 1,
+      "name": "t2.small",
+      "external_id": "t2.small",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 3,
+    "fields": {
+      "memory": 4096,
+      "hour_price": 68,
+      "provider": "aws",
+      "cpu": 2,
+      "name": "t2.medium",
+      "external_id": "t2.medium",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 4,
+    "fields": {
+      "memory": 8192,
+      "hour_price": 136,
+      "provider": "aws",
+      "cpu": 2,
+      "name": "t2.large",
+      "external_id": "t2.large",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 5,
+    "fields": {
+      "memory": 8192,
+      "hour_price": 147,
+      "provider": "aws",
+      "cpu": 2,
+      "name": "m4.large",
+      "external_id": "m4.large",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 6,
+    "fields": {
+      "memory": 16384,
+      "hour_price": 294,
+      "provider": "aws",
+      "cpu": 4,
+      "name": "m4.xlarge",
+      "external_id": "m4.xlarge",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 7,
+    "fields": {
+      "memory": 32768,
+      "hour_price": 588,
+      "provider": "aws",
+      "cpu": 8,
+      "name": "m4.2xlarge",
+      "external_id": "m4.2xlarge",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 8,
+    "fields": {
+      "memory": 65536,
+      "hour_price": 1176,
+      "provider": "aws",
+      "cpu": 16,
+      "name": "m4.4xlarge",
+      "external_id": "m4.4xlarge",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 9,
+    "fields": {
+      "memory": 163840,
+      "hour_price": 2940,
+      "provider": "aws",
+      "cpu": 40,
+      "name": "m4.10xlarge",
+      "external_id": "m4.10xlarge",
+      "attached_storage": 0,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 10,
+    "fields": {
+      "memory": 3840,
+      "hour_price": 77,
+      "provider": "aws",
+      "cpu": 1,
+      "name": "m3.medium",
+      "external_id": "m3.medium",
+      "attached_storage": 4,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 11,
+    "fields": {
+      "memory": 7680,
+      "hour_price": 154,
+      "provider": "aws",
+      "cpu": 2,
+      "name": "m3.large",
+      "external_id": "m3.large",
+      "attached_storage": 32,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 12,
+    "fields": {
+      "memory": 15360,
+      "hour_price": 308,
+      "provider": "aws",
+      "cpu": 4,
+      "name": "m3.xlarge",
+      "external_id": "m3.xlarge",
+      "attached_storage": 80,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 13,
+    "fields": {
+      "memory": 30720,
+      "hour_price": 616,
+      "provider": "aws",
+      "cpu": 8,
+      "name": "m3.2xlarge",
+      "external_id": "m3.2xlarge",
+      "attached_storage": 160,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 14,
+    "fields": {
+      "memory": 1024,
+      "hour_price": 15,
+      "provider": "linode",
+      "cpu": 1,
+      "name": "Linode 1GB",
+      "external_id": "1",
+      "attached_storage": 24,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 15,
+    "fields": {
+      "memory": 2048,
+      "hour_price": 30,
+      "provider": "linode",
+      "cpu": 2,
+      "name": "Linode 2GB",
+      "external_id": "2",
+      "attached_storage": 48,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  },
+  {
+    "pk": 16,
+    "fields": {
+      "memory": 4096,
+      "hour_price": 60,
+      "provider": "linode",
+      "cpu": 4,
+      "name": "Linode 4GB",
+      "external_id": "4",
+      "attached_storage": 96,
+      "polymorphic_ctype": 7
+    },
+    "model": "stratosphere.computeinstancetype"
+  }
+]
