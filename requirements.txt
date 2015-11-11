@@ -4,6 +4,7 @@ defusedxml==0.4.1
 dj-database-url==0.3.0
 django-allauth==0.24.0
 django-extensions==1.5.9
+django-mailgun==0.8.0
 django-polymorphic==0.7.2
 django-storages==1.1.8
 django-storages-redux==1.3
