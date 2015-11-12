@@ -1,0 +1,21 @@
+{% extends "stratosphere/base.html" %}
+{% load staticfiles %}
+{% load bootstrap3 %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-6">
+            <form action="/configure/aws/" method="post">
+                {% csrf_token %}
+                {% bootstrap_form aws %}
+                <input type="submit" value="Submit" class="btn btn-primary" >
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_script %}
+{% endblock %}
+
+{% block style %}
+{% endblock %}

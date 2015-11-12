@@ -1,3 +1,4 @@
+from django.forms import modelform_factory
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.generic import View
@@ -6,7 +7,8 @@ import base64
 import json
 import re
 
-from .models import ComputeGroup, Ec2ComputeInstance
+from .forms import *
+from .models import *
 from .lib.ec2 import Ec2Provider
 
 
@@ -38,6 +40,9 @@ def robots(request):
 
 @basicauth
 def index(request):
+    if not request.user.is_authenticated():
+        return redirect('/accounts/login/')
+
     compute_groups = ComputeGroup.objects.all()
     groups = []
 
@@ -83,3 +88,41 @@ def sync(request):
         provider.sync()
 
     return redirect('/')
+
+
+@basicauth
+def check_configure(request):
+    provider_configurations = request.user.configuration.provider_configurations
+    if len(provider_configurations.all()) == 0:
+        return redirect('/configure')
+    else:
+        return redirect('/')
+
+
+provider_configuration_form_classes = {
+    'aws': Ec2ProviderConfigurationForm,
+}
+
+
+@basicauth
+def configure(request):
+    provider_configurations = request.user.configuration.provider_configurations
+    context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first()) for key, form_class in provider_configuration_form_classes.items()}
+    return render(request, 'stratosphere/configure.html', context=context)
+
+
+@basicauth
+def configure_provider(request, provider_name):
+    context = {}
+    for key, form_class in provider_configuration_form_classes.items():
+        if key == provider_name:
+            provider_form = form_class(request.POST)
+            provider_configuration = provider_form.save()
+            provider_configuration.provider_name = key
+            provider_configuration.user_configuration = request.user.configuration
+            provider_configuration.save()
+            context[key] = provider_form
+        else:
+            context[key] = form_class()
+
+    return render(request, 'stratosphere/configure.html', context=context)

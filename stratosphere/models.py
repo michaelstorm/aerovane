@@ -1,5 +1,8 @@
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 import json
 import math
@@ -16,6 +19,31 @@ PROVIDER_CHOICES = (
     ('cloudsigma', 'CloudSigma'),
     ('google', 'Google App Engine'),
 )
+
+
+class UserConfiguration(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='configuration')
+
+
+class ProviderConfiguration(PolymorphicModel):
+    provider_name = models.CharField(max_length=32)
+    user_configuration = models.ForeignKey(UserConfiguration, null=True, blank=True, related_name='provider_configurations')
+
+
+class Ec2ProviderConfiguration(ProviderConfiguration):
+    access_key_id = models.CharField(max_length=128)
+    secret_access_key = models.CharField(max_length=128)
+
+
+class LinodeProviderConfiguration(ProviderConfiguration):
+    api_key = models.CharField(max_length=128)
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_configuration_for_new_user(sender, created, instance, **kwargs):
+    if created:
+        configuration = UserConfiguration(user=instance)
+        configuration.save()
 
 
 class ComputeInstanceType(PolymorphicModel):
