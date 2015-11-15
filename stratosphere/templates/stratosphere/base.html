@@ -14,7 +14,7 @@
 
     <link href="{% static "stratosphere/bootstrap-slider/css/bootstrap-slider.min.css" %}" rel="stylesheet">
     <link href="{% static "stratosphere/font-awesome/css/font-awesome.min.css" %}" rel="stylesheet">
-    <link href="{% static "stratosphere/chosen/css/chosen.min.css" %}" rel="stylesheet">
+    <link href="{% static "stratosphere/bootstrap-chosen.css" %}" rel="stylesheet">
     <link href="{% static "stratosphere/awesome-bootstrap-checkbox.css" %}" rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
@@ -62,6 +62,10 @@
     <script src="{% static "stratosphere/chosen/js/chosen.jquery.min.js" %}"></script>
 
     <script>
+      $('.fancy-select').chosen({
+          width: '100%'
+      });
+
       {% block body_script %}
       {% endblock %}
     </script>

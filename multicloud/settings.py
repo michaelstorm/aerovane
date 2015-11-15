@@ -32,6 +32,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = (
+    'annoying',
     'polymorphic',
     'django_extensions',
     'django.contrib.admin',
@@ -48,6 +49,7 @@ INSTALLED_APPS = (
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.github',
+    'kombu.transport.django',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -113,6 +115,9 @@ DATABASES = {
     'default': dj_database_url.config(default='sqlite:///%s/db.sqlite3' % os.getcwd())
 }
 
+# Celery
+BROKER_URL = 'django://'
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.8/topics/i18n/
@@ -145,12 +150,8 @@ STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 AWS_STORAGE_BUCKET_NAME = 'stratospherecdn2'
 
 
-from stratosphere.lib.ec2 import Ec2Provider
-from stratosphere.lib.linode import LinodeProvider
+# for whatever reason, saves us from a bunch of deprecation errors related to model loading
+from stratosphere.models import Ec2ComputeInstance
 
-CLOUD_PROVIDERS = {
-    'aws': Ec2Provider(),
-    'linode': LinodeProvider(),
-}
 
 SITE_ID = 2

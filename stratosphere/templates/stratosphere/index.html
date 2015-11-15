@@ -263,24 +263,24 @@
             hide_unsupported_providers();
         });
 
-        $('.fancy-select').chosen({
-            width: '100%'
-        });
-
         $('#select-os-container select, #select-image-container select').on('change', function() {
             hide_unsupported_providers();
         });
 
         $('#providers-list .provider input').change(function() {
+            var providerSelectArea = $(this).parents(".provider");
+
             if (this.checked)
-                $(this).parents(".provider").addClass('bg-success');
+                providerSelectArea.addClass('bg-success');
             else
-                $(this).parents(".provider").removeClass('bg-success');
+                providerSelectArea.removeClass('bg-success');
+
+            // currently unused
+            $('#' + $(providerSelectArea).prop('id') + '-options').toggle(this.checked);
         });
 
         $('#providers-list .provider .click-area').click(function() {
             var input = $(this).parents('.provider').find('input');
-
             if (input.is(':visible') && !input.is(':disabled')) {
                 if (input.get()[0].checked)
                     input.removeProp('checked');
@@ -300,6 +300,10 @@
     .slider-track-high {
         background: white;
         border: 1px solid #BABABA;
+    }
+
+    .provider-options {
+        display: none;
     }
 
     #select-os-container, #select-image-container {

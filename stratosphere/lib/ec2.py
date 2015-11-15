@@ -1,4 +1,4 @@
-import boto.ec2
+import os
 
 from ..models import Ec2ComputeInstance
 
@@ -10,11 +10,9 @@ class Ec2Provider(object):
     default_ami = 'ami-d5ea86b5'
 
     def _get_instances(self):
-        instances = []
-        for region in self.regions:
-            ec2_conn = boto.ec2.connect_to_region(region)
-            instances.extend(ec2_conn.get_only_instances())
-        return instances
+        nodes = self.driver.list_nodes()
+        print('nodes:', nodes)
+        return nodes
 
     def _terminate_instances(self, instance_ids):
         ec2_conn = boto.ec2.connect_to_region(self.default_region)

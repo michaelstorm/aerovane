@@ -1,13 +1,20 @@
+from annoying.fields import JSONField
+
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-import json
-import math
+from libcloud.compute.types import Provider
+from libcloud.compute.providers import get_driver
+
+from multicloud.celery import app
 
 from polymorphic import PolymorphicModel
+
+import json
+import math
 
 
 PROVIDER_CHOICES = (
@@ -21,22 +28,74 @@ PROVIDER_CHOICES = (
 )
 
 
+CLOUD_PROVIDER_DRIVERS = {}
+
+
 class UserConfiguration(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='configuration')
+
+
+class ProviderImage(models.Model):
+    provider_name = models.CharField(max_length=32)
+    image_id = models.CharField(max_length=128)
+
+
+class Image(models.Model):
+    name = models.CharField(max_length=128)
+    provider_images = models.ManyToManyField(ProviderImage)
+
+
+class OperatingSystem(models.Model):
+    name = models.CharField(max_length=128)
+    images = models.ManyToManyField(Image)
 
 
 class ProviderConfiguration(PolymorphicModel):
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey(UserConfiguration, null=True, blank=True, related_name='provider_configurations')
 
+    @property
+    def driver(self):
+        if self.provider_name not in CLOUD_PROVIDER_DRIVERS:
+            CLOUD_PROVIDER_DRIVERS[self.provider_name] = self.create_driver()
+
+        return CLOUD_PROVIDER_DRIVERS[self.provider_name]
+
+    def load_available_images(self):
+        driver_images = self.driver.list_images()
+
+        # TODO remove driver images limit
+        for driver_image in driver_images[:1000]:
+            print('Adding image id: "%s", name: "%s"' % (driver_image.id, driver_image.name))
+
+            provider_image = ProviderImage.objects.filter(provider_name=self.provider_name, image_id=driver_image.id).first()
+
+            if provider_image is None:
+                provider_image = ProviderImage.objects.create(provider_name=self.provider_name, image_id=driver_image.id)
+
+                image_name = driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
+                image = Image.objects.filter(name=image_name).first()
+
+                if image is None:
+                    image = Image.objects.create(name=image_name)
+                    image.provider_images.add(provider_image)
+
 
 class Ec2ProviderConfiguration(ProviderConfiguration):
     access_key_id = models.CharField(max_length=128)
     secret_access_key = models.CharField(max_length=128)
 
+    def create_driver(self):
+        cls = get_driver(Provider.EC2)
+        return cls(self.access_key_id, self.secret_access_key, region='us-west-1')
+
 
 class LinodeProviderConfiguration(ProviderConfiguration):
     api_key = models.CharField(max_length=128)
+
+    def create_driver(self):
+        cls = get_driver(Provider.LINODE)
+        return cls(self.api_key)
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)

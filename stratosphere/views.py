@@ -8,7 +8,7 @@ import json
 import re
 
 from .forms import *
-from .models import *
+#from .models import *
 from .lib.ec2 import Ec2Provider
 
 
@@ -84,8 +84,20 @@ def compute(request):
 
 @basicauth
 def sync(request):
-    for provider in self.providers.values():
-        provider.sync()
+    remote_instances = []
+
+    for provider in settings.CLOUD_PROVIDERS.values():
+        remote_instances.extend(provider.list_nodes())
+
+    print(remote_instances)
+
+        # orphan_local_instances = Ec2ComputeInstance.objects.exclude(external_id__in=[instance.id for instance in ec2_instances])
+        # orphan_local_instances.delete()
+
+        # live_remote_instances = filter(lambda instance: instance.state not in ['shutting-down', 'terminated'], ec2_instances)
+        # orphan_remote_instances = [ec2_instance.id for ec2_instance in live_remote_instances
+        #                            if len(Ec2ComputeInstance.objects.filter(external_id=ec2_instance.id)) > 0]
+        # self._terminate_instances(orphan_remote_instances)
 
     return redirect('/')
 
@@ -108,6 +120,7 @@ provider_configuration_form_classes = {
 def configure(request):
     provider_configurations = request.user.configuration.provider_configurations
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first()) for key, form_class in provider_configuration_form_classes.items()}
+    context['aws_images'] = Image.objects.filter(provider_images__provider_name='aws')
     return render(request, 'stratosphere/configure.html', context=context)
 
 
