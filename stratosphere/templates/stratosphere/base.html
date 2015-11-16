@@ -25,6 +25,10 @@
     <![endif]-->
 
     <style>
+      .navbar {
+        z-index: 1;
+      }
+
       {% block style %}
       {% endblock %}
     </style>
@@ -42,7 +46,10 @@
         </div>
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav navbar-right">
-              <li><a href="/accounts/logout/">Log out</a></li>
+              {% if request.user.is_authenticated %}
+                <li><a href="/settings"><i class="fa fa-cogs"></i> Settings</a></li>
+                <li><a href="/accounts/logout/"><i class="fa fa-sign-out"></i> Log out</a></li>
+              {% endif %}
             </ul>
           </div>
       </div>

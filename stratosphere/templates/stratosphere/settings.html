@@ -1,0 +1,48 @@
+{% extends "stratosphere/base.html" %}
+{% load staticfiles %}
+{% load bootstrap3 %}
+
+{% block content %}
+    <div class="row">
+        <div class="col-lg-12">
+            <h1 style="margin-top: 0; margin-bottom: 20px;">Settings</h1>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="panel-title">AWS</div>
+                </div>
+                <div class="panel-body">
+                    <form action="/configure/aws/" method="post">
+                        {% csrf_token %}
+                        {% bootstrap_form aws %}
+                        <div class="form-group">
+                            <label>Ubuntu 14.04 image</label>
+                            <select class="fancy-select">
+                                {% for image in aws_images %}
+                                    <option value="{{ image.id }}"
+                                        {% if image.id == aws_default_ubuntu_14_04_image %}
+                                            selected
+                                        {% endif %}
+                                    >
+                                        {{ image.name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <input type="submit" value="Save" class="btn btn-primary" >
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_script %}
+{% endblock %}
+
+{% block style %}
+{% endblock %}

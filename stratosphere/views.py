@@ -117,11 +117,12 @@ provider_configuration_form_classes = {
 
 
 @basicauth
-def configure(request):
+def settings(request):
     provider_configurations = request.user.configuration.provider_configurations
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first()) for key, form_class in provider_configuration_form_classes.items()}
     context['aws_images'] = Image.objects.filter(provider_images__provider_name='aws')
-    return render(request, 'stratosphere/configure.html', context=context)
+    context['aws_default_ubuntu_14_04_image'] = 'ami-df6a8b9b'
+    return render(request, 'stratosphere/settings.html', context=context)
 
 
 @basicauth
@@ -138,4 +139,4 @@ def configure_provider(request, provider_name):
         else:
             context[key] = form_class()
 
-    return render(request, 'stratosphere/configure.html', context=context)
+    return render(request, 'stratosphere/settings.html', context=context)
