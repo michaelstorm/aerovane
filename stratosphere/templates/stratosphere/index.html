@@ -128,11 +128,12 @@
                                             <img src="{% static "stratosphere/aws_ec2.png" %}" style="margin-top: 25px;">
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 text-center provider" id="provider-azure">
+                                    <div class="col-lg-3 text-center provider not-available" id="provider-azure">
                                         <div class="checkbox checkbox-success">
                                             <input type="checkbox" name="provider-azure"><label></label>
                                         </div>
-                                        <div class="click-area" style="height: 100%;">
+                                        <div class="click-area" style="height: 100%; position: relative;">
+                                            <div class="coming-soon">COMING SOON</div>
                                             <img src="{% static "stratosphere/azure.png" %}" style="margin-top: 15px;">
                                         </div>
                                     </div>
@@ -144,35 +145,39 @@
                                             <img src="{% static "stratosphere/linode.png" %}" style="margin-top: 12px;">
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 text-center provider" id="provider-digitalocean">
+                                    <div class="col-lg-3 text-center provider not-available" id="provider-digitalocean">
                                         <div class="checkbox checkbox-success">
                                             <input type="checkbox" name="provider-digitalocean"><label></label>
                                         </div>
-                                        <div class="click-area" style="height: 100%;">
+                                        <div class="click-area" style="height: 100%; position: relative;">
+                                            <div class="coming-soon">COMING SOON</div>
                                             <img src="{% static "stratosphere/digitalocean.png" %}">
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 text-center provider" id="provider-softlayer">
+                                    <div class="col-lg-3 text-center provider not-available" id="provider-softlayer">
                                         <div class="checkbox checkbox-success">
                                             <input type="checkbox" name="provider-softlayer"><label></label>
                                         </div>
-                                        <div class="click-area" style="height: 100%;">
+                                        <div class="click-area" style="height: 100%; position: relative;">
+                                            <div class="coming-soon">COMING SOON</div>
                                             <img src="{% static "stratosphere/softlayer.png" %}">
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 text-center provider" id="provider-cloudsigma">
+                                    <div class="col-lg-3 text-center provider not-available" id="provider-cloudsigma">
                                         <div class="checkbox checkbox-success">
                                             <input type="checkbox" name="provider-cloudsigma"><label></label>
                                         </div>
-                                        <div class="click-area" style="height: 100%;">
+                                        <div class="click-area" style="height: 100%; position: relative;">
+                                            <div class="coming-soon">COMING SOON</div>
                                             <img src="{% static "stratosphere/cloudsigma.png" %}">
                                         </div>
                                     </div>
-                                    <div class="col-lg-3 text-center provider" id="provider-google">
+                                    <div class="col-lg-3 text-center provider not-available" id="provider-google">
                                         <div class="checkbox checkbox-success">
                                             <input type="checkbox" name="provider-google"><label></label>
                                         </div>
-                                        <div class="click-area" style="height: 100%;">
+                                        <div class="click-area" style="height: 100%; position: relative;">
+                                            <div class="coming-soon">COMING SOON</div>
                                             <img src="{% static "stratosphere/google.png" %}">
                                         </div>
                                     </div>
@@ -213,14 +218,18 @@
             var selected_image = $('#select-image-container select').val();
             var supported_providers = image_supported_providers[selected_image];
             supported_providers.forEach(function(provider) {
-                $('#provider-' + provider).removeClass('disabled');
+                var provider = $('#provider-' + provider);
+                if (!provider.hasClass('not-available'))
+                    provider.removeClass('disabled');
             });
         }
         else {
             var selected_os = $('#select-os-container select').val();
             var supported_providers = os_supported_providers[selected_os];
             supported_providers.forEach(function(provider) {
-                $('#provider-' + provider).removeClass('disabled');
+                var provider = $('#provider-' + provider);
+                if (!provider.hasClass('not-available'))
+                    provider.removeClass('disabled');
             });
         }
 
@@ -349,11 +358,22 @@
         max-height: 100px;
     }
 
-    #providers-list .provider.disabled {
+    #providers-list .provider .coming-soon {
+        position: absolute;
+        top: 35px;
+        left: 20px;
+        color: red;
+        font-size: 1.5em;
+        z-index: 5;
+    }
+
+    #providers-list .provider.disabled,
+    #providers-list .provider.not-available {
         background-color: #d8d8d8;
     }
 
-    #providers-list .provider.disabled img {
+    #providers-list .provider.disabled img,
+    #providers-list .provider.not-available img {
         -webkit-filter: grayscale(100%);
         filter: grayscale(100%);
     }

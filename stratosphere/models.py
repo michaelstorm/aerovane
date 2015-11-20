@@ -37,7 +37,9 @@ class UserConfiguration(models.Model):
 
 class ProviderImage(models.Model):
     provider_name = models.CharField(max_length=32)
-    image_id = models.CharField(max_length=128)
+    image_id = models.CharField(max_length=256)
+    name = models.CharField(max_length=256)
+    extra = JSONField()
 
 
 class Image(models.Model):

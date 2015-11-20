@@ -13,10 +13,10 @@
         <div class="col-lg-4">
             <div class="panel panel-default">
                 <div class="panel-heading">
-                    <div class="panel-title">AWS</div>
+                    <div class="panel-title"><img src="{% static "/stratosphere/aws_icon.png" %}"><span>AWS</span></div>
                 </div>
                 <div class="panel-body">
-                    <form action="/configure/aws/" method="post">
+                    <form action="/settings/aws/" method="post">
                         {% csrf_token %}
                         {% bootstrap_form aws %}
                         <div class="form-group">
@@ -38,6 +38,21 @@
                 </div>
             </div>
         </div>
+
+        <div class="col-lg-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <div class="panel-title"><img src="{% static "/stratosphere/linode_icon.png" %}"><span>Linode</span></div>
+                </div>
+                <div class="panel-body">
+                    <form action="/settings/linode/" method="post">
+                        {% csrf_token %}
+                        {% bootstrap_form linode %}
+                        <input type="submit" value="Save" class="btn btn-primary" >
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 {% endblock %}
 
@@ -45,4 +60,13 @@
 {% endblock %}
 
 {% block style %}
+    .panel-title img {
+        height: 16px;
+        margin-right: 5px;
+    }
+
+    .panel-title > * {
+        display: inline-block;
+        vertical-align: middle;
+    }
 {% endblock %}

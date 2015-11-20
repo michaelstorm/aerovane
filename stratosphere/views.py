@@ -106,20 +106,23 @@ def sync(request):
 def check_configure(request):
     provider_configurations = request.user.configuration.provider_configurations
     if len(provider_configurations.all()) == 0:
-        return redirect('/configure')
+        return redirect('/settings')
     else:
         return redirect('/')
 
 
 provider_configuration_form_classes = {
     'aws': Ec2ProviderConfigurationForm,
+    'linode': LinodeProviderConfigurationForm,
 }
 
 
 @basicauth
 def settings(request):
     provider_configurations = request.user.configuration.provider_configurations
-    context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first()) for key, form_class in provider_configuration_form_classes.items()}
+    print('instances:', [provider_configurations.filter(provider_name=key).first() for key in provider_configuration_form_classes])
+    context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
+               for key, form_class in provider_configuration_form_classes.items()}
     context['aws_images'] = Image.objects.filter(provider_images__provider_name='aws')
     context['aws_default_ubuntu_14_04_image'] = 'ami-df6a8b9b'
     return render(request, 'stratosphere/settings.html', context=context)
