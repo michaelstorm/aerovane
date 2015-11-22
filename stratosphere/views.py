@@ -44,7 +44,7 @@ def index(request):
         return redirect('/accounts/login/')
 
     compute_groups = ComputeGroup.objects.all()
-    groups = []
+    compute_groups_map = []
 
     for compute_group in compute_groups:
         group = {}
@@ -53,10 +53,18 @@ def index(request):
         providers = compute_group.provider_states()
         group['providers'] = providers
 
-        groups.append(group)
+        compute_groups_map.append(group)
+
+    operating_system_images = OperatingSystemImage.objects.filter(
+                                        disk_images__provider_images__provider_configuration__user_configuration__user=request.user)
+
+    os_images_map = {os_image: ProviderConfiguration.objects.filter(user_configuration__user=request.user,
+                                        provider_images__disk_image__operating_system_images=os_image)
+                     for os_image in operating_system_images}
 
     context = {
-        'compute_groups': groups,
+        'compute_groups_map': compute_groups_map,
+        'os_images_map': os_images_map,
     }
     return render(request, 'stratosphere/index.html', context=context)
 
@@ -77,8 +85,10 @@ def compute(request):
                 provider_policy[provider_name] = 'auto'
 
         provider_policy_str = json.dumps(provider_policy)
-        group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
-                                            instance_count=instance_count, name=name, provider_policy=provider_policy_str)
+        group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
+                                                           instance_count=instance_count, name=name, provider_policy=provider_policy_str)
+
+        group.create_instances()
 
         return redirect('/')
 

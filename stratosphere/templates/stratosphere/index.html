@@ -25,7 +25,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for group in compute_groups %}
+                        {% for group in compute_groups_map %}
                             <tr>
                                 <td>{{ group.group.name }}</td>
                                 <td>{{ group.group.cpu }}</td>
@@ -97,10 +97,9 @@
                                 <div class="form-group" id="select-os-container">
                                     <label>Operating system</label>
                                     <select class="fancy-select">
-                                        <option value="ubuntu_14">Ubuntu 14.04</option>
-                                        <option value="ubuntu_12">Ubuntu 12.04</option>
-                                        <option value="rhel_7">RHEL 7</option>
-                                        <option value="rhel_6">RHEL 6</option>
+                                        {% for image in os_images_map %}
+                                            <option value="{{ image.id }}">{{ image.name }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="form-group" id="select-image-container">
@@ -198,10 +197,17 @@
 
 {% block body_script %}
     var os_supported_providers = {
-        ubuntu_14: ['aws', 'azure', 'digitalocean', 'linode', 'cloudsigma', 'softlayer'],
+        {% for image, provider_configurations in os_images_map.items %}
+            "{{ image.id }}": [
+                {% for provider_configuration in provider_configurations %}
+                    "{{ provider_configuration.provider_name }}",
+                {% endfor %}
+            ],
+        {% endfor %}
+        /*ubuntu_14: ['aws', 'azure', 'digitalocean', 'linode', 'cloudsigma', 'softlayer'],
         ubuntu_12: ['aws', 'digitalocean', 'linode', 'softlayer', 'google'],
         rhel_7: ['aws', 'azure', 'linode', 'softlayer'],
-        rhel_6: ['aws', 'linode', 'softlayer'],
+        rhel_6: ['aws', 'linode', 'softlayer'],*/
     }
 
     var image_supported_providers = {

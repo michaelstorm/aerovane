@@ -52,7 +52,7 @@ class OperatingSystemImage(Image):
 
 class ProviderImage(models.Model):
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_images')
-    disk_image = models.ForeignKey(DiskImage, related_name='provider_images')
+    disk_image = models.ForeignKey(DiskImage, null=True, blank=True, related_name='provider_images') # has to be nullable so we can add after bulk create
     image_id = models.CharField(max_length=256)
     name = models.CharField(max_length=256)
     extra = JSONField()
@@ -111,10 +111,10 @@ class ProviderConfiguration(PolymorphicModel):
 
         provider_images = []
         for driver_image in filtered_driver_images:
-            provider_image = ProviderImage.objects.filter(provider_name=self.provider_name, image_id=driver_image.id).first()
+            provider_image = self.provider_images.filter(image_id=driver_image.id).first()
 
             if provider_image is None:
-                provider_images.append(ProviderImage(provider_name=self.provider_name, image_id=driver_image.id,
+                provider_images.append(ProviderImage(provider_configuration=self, image_id=driver_image.id,
                                                      extra=json.loads(json.dumps(driver_image.extra))))
 
         ProviderImage.objects.bulk_create(provider_images)
@@ -130,14 +130,14 @@ class ProviderConfiguration(PolymorphicModel):
                 disk_image = DiskImage.objects.create(name=image_name)
                 image_count += 1
 
-                provider_image = ProviderImage.objects.filter(provider_name=self.provider_name, image_id=driver_image.id).first()
+                provider_image = self.provider_images.filter(image_id=driver_image.id).first()
                 disk_image.provider_images.add(provider_image)
 
         for os_name in self.default_operating_systems:
             print('os_name:', os_name)
             driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
             if driver_image_id is not None:
-                provider_image = ProviderImage.objects.filter(provider_name=self.provider_name, image_id=driver_image_id).first()
+                provider_image = self.provider_images.filter(image_id=driver_image_id).first()
                 print('provider_image', provider_image)
 
                 os_image = OperatingSystemImage.objects.filter(name=os_name).first()
@@ -218,13 +218,14 @@ class OperatingSystemComputeGroup(ComputeGroup):
             instances_created += provider_instance_count
 
             print('creating %d instances on provider %s' % (provider_instance_count, provider_name))
-            instance_type = ComputeInstanceType.objects.filter(provider=provider_name).order_by('hour_price')[0]
             if provider_instance_count > 0:
-                provider = self.user_configuration.provider_configurations.get(provider_name=provider_name)
+                provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
+                size = provider_configuration.provider_sizes.order_by('price')[0]
                 for i in range(provider_instance_count):
-                    provider_instance_ids = provider.create_instances(provider_instance_count, instance_type.external_id)
-                    instance = provider_instance_models[provider_name].objects.create(external_id=provider_instance_id, provider=provider_name)
-                    self.instances.add(instance)
+                    print(size)
+                    # provider_instance_ids = provider.create_instances(provider_instance_count, instance_type.external_id)
+                    # instance = provider_instance_models[provider_name].objects.create(external_id=provider_instance_id, provider=provider_name)
+                    # self.instances.add(instance)
 
             self.save()
 

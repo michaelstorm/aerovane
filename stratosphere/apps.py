@@ -5,8 +5,9 @@ from .models import ComputeGroup
 
 
 def create_instances_signal_handler(sender, **kwargs):
-    if kwargs['created']:
-        kwargs['instance'].create_instances()
+    pass
+    # if kwargs['created']:
+    #     kwargs['instance'].create_instances()
 
 
 class StratosphereConfig(AppConfig):
