@@ -8,8 +8,6 @@ import json
 import re
 
 from .forms import *
-#from .models import *
-from .lib.ec2 import Ec2Provider
 
 
 def view_or_basicauth(view, request, *args, **kwargs):
@@ -85,8 +83,14 @@ def compute(request):
                 provider_policy[provider_name] = 'auto'
 
         provider_policy_str = json.dumps(provider_policy)
-        group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
-                                                           instance_count=instance_count, name=name, provider_policy=provider_policy_str)
+
+        if request.POST['deployment_type'] == 'os':
+            print(request.POST)
+            os_id = request.POST['operating_system']
+            operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
+            group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
+                                                               instance_count=instance_count, name=name, provider_policy=provider_policy_str,
+                                                               image=operating_system_image)
 
         group.create_instances()
 

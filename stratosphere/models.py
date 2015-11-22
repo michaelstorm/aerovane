@@ -8,6 +8,7 @@ from django.dispatch import receiver
 
 from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
+from libcloud.compute.base import NodeImage, NodeSize
 
 from multicloud.celery import app
 
@@ -57,6 +58,9 @@ class ProviderImage(models.Model):
     name = models.CharField(max_length=256)
     extra = JSONField()
 
+    def to_libcloud_image(self):
+        return NodeImage(id=self.image_id, name=self.name, driver=self.provider_configuration.driver, extra=self.extra)
+
 
 class ProviderSize(models.Model):
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_sizes')
@@ -67,6 +71,13 @@ class ProviderSize(models.Model):
     disk = models.IntegerField()
     bandwidth = models.IntegerField(null=True, blank=True)
     extra = JSONField()
+
+    def __str__(self):
+        return '%s: %s (%s)' % (self.provider_configuration.provider_name, self.name, self.external_id)
+
+    def to_libcloud_size(self):
+        return NodeSize(id=self.external_id, name=self.name, ram=self.ram, disk=self.disk, bandwidth=self.bandwidth, price=self.price,
+                        driver=self.provider_configuration.driver, extra=self.extra)
 
 
 class ProviderConfiguration(PolymorphicModel):
@@ -154,9 +165,80 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
     access_key_id = models.CharField(max_length=128)
     secret_access_key = models.CharField(max_length=128)
 
+    ami_requirements = {
+        't1': {
+            'combos': [('hvm', 'ebs'), ('paravirtual', 'ebs')],
+            '32-bit_available': ['micro'],
+            'current_generation': False,
+        },
+        't2': {
+            'combos': [('hvm', 'ebs')],
+            '32-bit_available': ['micro', 'small'],
+            'current_generation': True,
+        },
+        'm4': {
+            'combos': [('hvm', 'ebs')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'm3': {
+            'combos': [('hvm', 'ebs'), ('hvm', 'instance-store'), ('paravirtual', 'ebs'), ('paravirtual', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'm2': {
+            'combos': [('paravirtual', 'ebs'), ('paravirtual', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': False,
+        },
+        'm1': {
+            'combos': [('paravirtual', 'ebs'), ('paravirtual', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': False,
+        },
+        'c4': {
+            'combos': [('hvm', 'ebs')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'c3': {
+            'combos': [('hvm', 'ebs'), ('hvm', 'instance-store'), ('paravirtual', 'ebs'), ('paravirtual', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'r3': {
+            'combos': [('hvm', 'ebs'), ('hvm', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'g2': {
+            'combos': [('hvm', 'ebs')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'i2': {
+            'combos': [('hvm', 'ebs'), ('hvm', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': True,
+        },
+        'd2': {
+            'combos': [('hvm', 'ebs'), ('hvm', 'instance-store')],
+            '32-bit_available': [],
+            'current_generation': False,
+        },
+    }
+
     def create_driver(self):
         cls = get_driver(Provider.EC2)
         return cls(self.access_key_id, self.secret_access_key, region='us-west-1')
+
+    def create_external_instances(self, instance_count, provider_image, cpu, memory):
+        external_ids = []
+        for i in range(instance_count):
+            libcloud_node = self.driver.create_node(image=provider_image.to_libcloud_image(), size=size.to_libcloud_size())
+            external_ids.append(libcloud_node.id)
+
+        return external_ids
 
 
 class LinodeProviderConfiguration(ProviderConfiguration):
@@ -192,7 +274,7 @@ class ComputeGroup(PolymorphicModel):
         provider_states_map = {}
 
         for provider_name in provider_policy_filtered:
-            provider_instances = self.instances.filter(provider=provider_name)
+            provider_instances = self.instances.filter(provider_image__provider_configuration__provider_name=provider_name)
             if len(provider_instances) > 0:
                 provider_states_map[provider_instances[0].provider] = len(provider_instances)
 
@@ -221,30 +303,15 @@ class OperatingSystemComputeGroup(ComputeGroup):
             if provider_instance_count > 0:
                 provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
                 size = provider_configuration.provider_sizes.order_by('price')[0]
+                provider_image = ProviderImage.objects.get(disk_image__operating_system_images=self.image)
                 for i in range(provider_instance_count):
-                    print(size)
-                    # provider_instance_ids = provider.create_instances(provider_instance_count, instance_type.external_id)
-                    # instance = provider_instance_models[provider_name].objects.create(external_id=provider_instance_id, provider=provider_name)
-                    # self.instances.add(instance)
+                    libcloud_node = provider_configuration.driver.create_node(image=provider_image.to_libcloud_image(), size=size.to_libcloud_size())
+                    ComputeInstance.objects.create(external_id=libcloud_node.id, provider_image=provider_image, group=self)
 
             self.save()
 
 
-class ComputeInstance(PolymorphicModel):
+class ComputeInstance(models.Model):
     external_id = models.CharField(max_length=256)
     provider_image = models.ForeignKey(ProviderImage, related_name='instances')
     group = models.ForeignKey(ComputeGroup, related_name='instances')
-
-
-class Ec2ComputeInstance(ComputeInstance):
-    pass
-
-
-class LinodeComputeInstance(ComputeInstance):
-    pass
-
-
-provider_instance_models = {
-    'aws': Ec2ComputeInstance,
-    'linode': LinodeComputeInstance
-}

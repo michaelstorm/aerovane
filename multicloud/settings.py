@@ -155,7 +155,7 @@ AWS_STORAGE_BUCKET_NAME = 'stratospherecdn2'
 
 
 # for whatever reason, saves us from a bunch of deprecation errors related to model loading
-from stratosphere.models import Ec2ComputeInstance
+from stratosphere.models import ComputeInstance
 
 
 SITE_ID = 2

@@ -96,7 +96,7 @@
                             <div class="col-lg-3">
                                 <div class="form-group" id="select-os-container">
                                     <label>Operating system</label>
-                                    <select class="fancy-select">
+                                    <select class="fancy-select" name="operating_system">
                                         {% for image in os_images_map %}
                                             <option value="{{ image.id }}">{{ image.name }}</option>
                                         {% endfor %}
@@ -204,10 +204,6 @@
                 {% endfor %}
             ],
         {% endfor %}
-        /*ubuntu_14: ['aws', 'azure', 'digitalocean', 'linode', 'cloudsigma', 'softlayer'],
-        ubuntu_12: ['aws', 'digitalocean', 'linode', 'softlayer', 'google'],
-        rhel_7: ['aws', 'azure', 'linode', 'softlayer'],
-        rhel_6: ['aws', 'linode', 'softlayer'],*/
     }
 
     var image_supported_providers = {

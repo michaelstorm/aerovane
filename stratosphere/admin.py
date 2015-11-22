@@ -55,12 +55,15 @@ class ImageParentAdmin(PolymorphicParentModelAdmin):
     search_fields = ['name']
 
 
+class ProviderSizeAdmin(admin.ModelAdmin):
+    model = ProviderSize
+    search_fields = ['external_id', 'name']
+
 admin.site.register(Image, ImageParentAdmin)
 
 admin.site.register(ProviderImage)
-admin.site.register(ProviderSize)
+admin.site.register(ProviderSize, ProviderSizeAdmin)
 admin.site.register(ComputeGroup)
-admin.site.register(Ec2ComputeInstance)
-admin.site.register(LinodeComputeInstance)
+admin.site.register(ComputeInstance)
 admin.site.register(Ec2ProviderConfiguration)
 admin.site.register(UserConfiguration, UserConfigurationAdmin)
