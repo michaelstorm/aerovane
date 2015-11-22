@@ -34,6 +34,8 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = (
     'annoying',
     'polymorphic',
+    'bootstrap3',
+    'django_admin_bootstrapped',
     'django_extensions',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -42,7 +44,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.sites',
     'django.contrib.staticfiles',
-    'bootstrap3',
     'storages',
     'stratosphere',
     'allauth',
@@ -108,6 +109,8 @@ SOCIALACCOUNT_PROVIDERS = {
 EMAIL_BACKEND = 'django_mailgun.MailgunBackend'
 MAILGUN_ACCESS_KEY = os.environ['MAILGUN_ACCESS_KEY']
 MAILGUN_SERVER_NAME = os.environ['MAILGUN_SERVER_NAME']
+
+DAB_FIELD_RENDERER = 'django_admin_bootstrapped.renderers.BootstrapFieldRenderer'
 
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases

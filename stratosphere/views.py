@@ -77,7 +77,8 @@ def compute(request):
                 provider_policy[provider_name] = 'auto'
 
         provider_policy_str = json.dumps(provider_policy)
-        group = ComputeGroup.objects.create(cpu=cpu, memory=memory, instance_count=instance_count, name=name, provider_policy=provider_policy_str)
+        group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
+                                            instance_count=instance_count, name=name, provider_policy=provider_policy_str)
 
         return redirect('/')
 
@@ -123,8 +124,8 @@ def settings(request):
     print('instances:', [provider_configurations.filter(provider_name=key).first() for key in provider_configuration_form_classes])
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                for key, form_class in provider_configuration_form_classes.items()}
-    context['aws_images'] = Image.objects.filter(provider_images__provider_name='aws')
-    context['aws_default_ubuntu_14_04_image'] = 'ami-df6a8b9b'
+    # context['aws_images'] = DiskImage.objects.filter(provider_images__provider_name='aws')
+    # context['aws_default_ubuntu_14_04_image'] = 'ami-df6a8b9b'
     return render(request, 'stratosphere/settings.html', context=context)
 
 
