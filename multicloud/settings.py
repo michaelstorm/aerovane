@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 import dj_database_url
+import psycopg2.extensions
+
+from datetime import timedelta
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -82,6 +85,32 @@ TEMPLATES = [
     },
 ]
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'formatters': {
+        'simple': {
+            'format': '%(levelname)s %(name)s - %(message)s',
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console'],
+            'level': os.getenv('LOG_LEVEL', 'DEBUG'),
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        },
+    },
+}
+
 WSGI_APPLICATION = 'multicloud.wsgi.application'
 
 AUTHENTICATION_BACKENDS = (
@@ -96,6 +125,8 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_SIGNUP_PASSWORD_VERIFICATION = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
+
+
 
 LOGIN_REDIRECT_URL = '/check_configure'
 SOCIALACCOUNT_QUERY_EMAIL = True
@@ -115,12 +146,24 @@ DAB_FIELD_RENDERER = 'django_admin_bootstrapped.renderers.BootstrapFieldRenderer
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 
+default_db_config = dj_database_url.config(default='postgres://postgres:password@localhost:5432/aerovane')
+db_options = default_db_config['OPTIONS'] if 'OPTIONS' in default_db_config else {}
+db_options['isolation_level'] = psycopg2.extensions.ISOLATION_LEVEL_REPEATABLE_READ
+default_db_config['OPTIONS'] = db_options
+
 DATABASES = {
-    'default': dj_database_url.config(default='sqlite:///%s/db.sqlite3' % os.getcwd())
+    'default': default_db_config
 }
 
 # Celery
 BROKER_URL = 'django://'
+# CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
+# CELERYBEAT_SCHEDULE = {
+#     'schedule-name': {
+#         'task': 'stratosphere.tasks.update_instances_statuses',
+#         'schedule': timedelta(seconds=30),
+#     },
+# }
 
 
 # Internationalization

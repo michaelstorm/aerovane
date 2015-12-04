@@ -2,34 +2,43 @@ from annoying.fields import JSONField
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
-from libcloud.compute.base import NodeImage, NodeSize
+from libcloud.compute.base import Node, NodeImage, NodeSize
+from libcloud.compute.types import NodeState
+
+import logging
 
 from multicloud.celery import app
 
 from polymorphic import PolymorphicModel
 
+from .util import *
+
 import json
 import math
 
-
-PROVIDER_CHOICES = (
-    ('aws', 'Amazon Web Services'),
-    ('azure', 'Microsoft Azure'),
-    ('linode', 'Linode'),
-    ('digitalocean', 'DigitalOcean'),
-    ('softlayer', 'SoftLayer'),
-    ('cloudsigma', 'CloudSigma'),
-    ('google', 'Google App Engine'),
-)
+import traceback
 
 
 CLOUD_PROVIDER_DRIVERS = {}
+
+SIMULATED_FAILURE_DRIVER = SimulatedFailureDriver()
+
+
+class HasLogger(object):
+    _logger = None
+
+    @property
+    def logger(self):
+        if self._logger is None:
+            self._logger = logging.getLogger(self.__class__.__name__)
+
+        return self._logger
 
 
 class UserConfiguration(models.Model):
@@ -70,6 +79,7 @@ class ProviderSize(models.Model):
     ram = models.IntegerField()
     disk = models.IntegerField()
     bandwidth = models.IntegerField(null=True, blank=True)
+    vcpus = models.IntegerField(null=True, blank=True)
     extra = JSONField()
 
     def __str__(self):
@@ -80,9 +90,10 @@ class ProviderSize(models.Model):
                         driver=self.provider_configuration.driver, extra=self.extra)
 
 
-class ProviderConfiguration(PolymorphicModel):
+class ProviderConfiguration(PolymorphicModel, HasLogger):
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey(UserConfiguration, null=True, blank=True, related_name='provider_configurations')
+    simulated_failure = models.BooleanField(default=False)
 
     default_operating_systems = {
         'Ubuntu 14.04': {
@@ -93,17 +104,57 @@ class ProviderConfiguration(PolymorphicModel):
 
     @property
     def driver(self):
-        if self.provider_name not in CLOUD_PROVIDER_DRIVERS:
-            CLOUD_PROVIDER_DRIVERS[self.provider_name] = self.create_driver()
+        if self.simulated_failure:
+            return SIMULATED_FAILURE_DRIVER
+        else:
+            if self.provider_name not in CLOUD_PROVIDER_DRIVERS:
+                CLOUD_PROVIDER_DRIVERS[self.provider_name] = self.create_driver()
 
-        return CLOUD_PROVIDER_DRIVERS[self.provider_name]
+            return CLOUD_PROVIDER_DRIVERS[self.provider_name]
+
+    def simulate_restore(self):
+        self.logger.info('Simulating restore')
+        self.simulated_failure = False
+        self.save()
+
+    def simulate_failure(self):
+        self.logger.info('Simulating failure')
+        self.simulated_failure = True
+        self.save()
+
+    def update_instance_statuses(self):
+        instances = ComputeInstance.objects.filter(provider_image__provider_configuration=self)
+
+        try:
+            libcloud_nodes = self.driver.list_nodes()
+        except Exception as e:
+            print('Error listing nodes of %s' % self)
+
+            traceback.print_exc()
+            for instance in instances:
+                instance.state = ComputeInstance.UNKNOWN
+                instance.save()
+
+            return
+
+        for libcloud_node in libcloud_nodes:
+            instance = instances.filter(external_id=libcloud_node.id).first()
+
+            if instance is not None:
+                new_state = NodeState.tostring(libcloud_node.state)
+                if instance.state != new_state:
+                    print('Updating state of %s from %s to %s' % (instance, instance.state, new_state))
+
+                instance.state = new_state
+                instance.save()
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
         for driver_size in driver_sizes:
             if ProviderSize.objects.filter(provider_configuration=self, external_id=driver_size.id).first() is None:
+                vcpus = driver_size.extra.get('vcpus')
                 ProviderSize.objects.create(provider_configuration=self, external_id=driver_size.id, name=driver_size.name, price=driver_size.price,
-                                            ram=driver_size.ram, disk=driver_size.disk, bandwidth=driver_size.bandwidth,
+                                            ram=driver_size.ram, disk=driver_size.disk, bandwidth=driver_size.bandwidth, vcpus=vcpus,
                                             extra=json.loads(json.dumps(driver_size.extra)))
 
     def load_available_images(self):
@@ -145,19 +196,15 @@ class ProviderConfiguration(PolymorphicModel):
                 disk_image.provider_images.add(provider_image)
 
         for os_name in self.default_operating_systems:
-            print('os_name:', os_name)
             driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
             if driver_image_id is not None:
                 provider_image = self.provider_images.filter(image_id=driver_image_id).first()
-                print('provider_image', provider_image)
 
                 os_image = OperatingSystemImage.objects.filter(name=os_name).first()
-                print('os_image', os_image)
                 if os_image is None:
                     os_image = OperatingSystemImage.objects.create(name=os_name)
 
                 disk_image = provider_image.disk_image
-                print('disk_image', disk_image)
                 os_image.disk_images.add(disk_image)
 
 
@@ -228,25 +275,42 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         },
     }
 
+    def pretty_name(self):
+        return 'AWS'
+
     def create_driver(self):
         cls = get_driver(Provider.EC2)
         return cls(self.access_key_id, self.secret_access_key, region='us-west-1')
 
-    def create_external_instances(self, instance_count, provider_image, cpu, memory):
-        external_ids = []
-        for i in range(instance_count):
-            libcloud_node = self.driver.create_node(image=provider_image.to_libcloud_image(), size=size.to_libcloud_size())
-            external_ids.append(libcloud_node.id)
+    def get_available_sizes(self, provider_image, cpu, memory):
+        sizes = self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
 
-        return external_ids
+        def filter_size(size):
+            virtualization_type = provider_image.extra['virtualization_type']
+            root_device_type = provider_image.extra['root_device_type']
+
+            size_category = size.external_id.split('.')[0]
+            try:
+                size_combos = self.ami_requirements[size_category]['combos']
+                return (virtualization_type, root_device_type) in size_combos
+            except KeyError:
+                return False
+
+        return list(filter(filter_size, sizes))
 
 
 class LinodeProviderConfiguration(ProviderConfiguration):
     api_key = models.CharField(max_length=128)
 
+    def pretty_name(self):
+        return 'Linode'
+
     def create_driver(self):
         cls = get_driver(Provider.LINODE)
         return cls(self.api_key)
+
+    def get_available_sizes(self, provider_image, cpu, memory):
+        return self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
@@ -255,19 +319,32 @@ def create_configuration_for_new_user(sender, created, instance, **kwargs):
         UserConfiguration.objects.create(user=instance)
 
 
-class ComputeGroup(PolymorphicModel):
+class ComputeGroup(PolymorphicModel, HasLogger):
+    PENDING = 'PENDING'
+    RUNNING = 'RUNNING'
+    STOPPED = 'STOPPED'
+    TERMINATED = 'TERMINATED'
+
+    STATE_CHOICES = (
+        (PENDING, 'Pending'),
+        (RUNNING, 'Running'),
+        (STOPPED, 'Stopped'),
+        (TERMINATED, 'Terminated'),
+    )
+
     user_configuration = models.ForeignKey(UserConfiguration, related_name='compute_groups')
     instance_count = models.IntegerField()
     cpu = models.IntegerField()
     memory = models.IntegerField()
     name = models.CharField(max_length=128)
     provider_policy = models.TextField()
+    updating_distribution = models.BooleanField(default=False)
+    terminated = models.BooleanField(default=False)
+    state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
 
     def _provider_policy_filtered(self):
         provider_policy_deserialized = json.loads(self.provider_policy)
         return provider_policy_deserialized
-        # return {provider_name: provider_policy_deserialized[provider_name] for provider_name in provider_policy_deserialized
-        #         if provider_name in settings.CLOUD_PROVIDERS}
 
     def provider_states(self):
         provider_policy_filtered = self._provider_policy_filtered()
@@ -276,9 +353,84 @@ class ComputeGroup(PolymorphicModel):
         for provider_name in provider_policy_filtered:
             provider_instances = self.instances.filter(provider_image__provider_configuration__provider_name=provider_name)
             if len(provider_instances) > 0:
-                provider_states_map[provider_instances[0].provider] = len(provider_instances)
+                provider_states_map[provider_name] = len(provider_instances)
 
         return provider_states_map
+
+    def check_instance_distribution(self):
+        try:
+            with transaction.atomic():
+                if self.updating_distribution:
+                    return
+                else:
+                    self.updating_distribution = True
+                    self.save()
+
+        except OperationalError as e:
+            print('OperationalError', e)
+            return
+
+        try:
+            instances_flat = list(self.instances.all())
+            created_count = len(instances_flat)
+            unknown_count = len(list(filter(lambda i: i.state == ComputeInstance.UNKNOWN, instances_flat)))
+            running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
+            non_terminated_instances_count = len(list(filter(lambda i: i.state != ComputeInstance.TERMINATED, instances_flat)))
+            non_running_instances = list(filter(lambda i: i.state != ComputeInstance.RUNNING, instances_flat))
+
+            self.logger.debug('|created_count|unknown_count|running_count|non_terminated_instances_count|non_running_instances|')
+            self.logger.debug('|%d|%d|%d|%d|%d|' % (created_count, unknown_count, running_count, non_terminated_instances_count,
+                              len(non_running_instances)))
+
+            if self.terminated:
+                if non_terminated_instances_count == 0:
+                    print(self.delete())
+            else:
+                if created_count >= self.instance_count and created_count - unknown_count < self.instance_count:
+                    bad_provider_ids = set([instance.provider_image.provider_configuration.pk for instance in self.instances.all()])
+                    good_provider_ids = [provider.pk for provider in ProviderConfiguration.objects.exclude(pk__in=bad_provider_ids)]
+
+                    new_size = self._get_best_size(good_provider_ids)
+                    self._create_compute_instances(selected_size)
+
+                if running_count >= self.instance_count:
+                    for instance in non_running_instances:
+                        self._destroy_instance(instance)
+
+        finally:
+            saved = False
+
+            while not saved:
+                try:
+                    # don't re-save if deleted earlier
+                    if ComputeGroup.objects.filter(pk=self.pk).exists():
+                        self.updating_distribution = False
+                        self.save()
+
+                    saved = True
+
+                except OperationalError:
+                    pass
+
+    def _create_compute_instance_entry(self, provider_image, provider_size, libcloud_node):
+        return ComputeInstance.objects.create(external_id=libcloud_node.id, provider_image=provider_image, group=self, name=libcloud_node.name,
+                                              state=NodeState.tostring(libcloud_node.state), public_ips=json.loads(json.dumps(libcloud_node.public_ips)),
+                                              private_ips=json.loads(json.dumps(libcloud_node.private_ips)), size=provider_size,
+                                              extra=json.loads(json.dumps(libcloud_node.extra, cls=NodeJSONEncoder)))
+
+    def _destroy_instance(self, instance):
+        pass
+
+    def create_instances(self):
+        selected_size = self._get_best_size()
+        self._create_compute_instances(selected_size)
+
+    def terminate(self):
+        self.state = self.TERMINATED
+        self.save()
+
+        for instance in self.instances.all():
+            instance.provider_image.provider_configuration.driver.destroy_node(instance.to_libcloud_node())
 
 
 class ImageComputeGroup(ComputeGroup):
@@ -288,30 +440,73 @@ class ImageComputeGroup(ComputeGroup):
 class OperatingSystemComputeGroup(ComputeGroup):
     image = models.ForeignKey(OperatingSystemImage, related_name='compute_groups')
 
-    def create_instances(self):
+    def _get_best_size(self, allowed_provider_ids=None):
         provider_policy_filtered = self._provider_policy_filtered()
-        instances_created = 0
 
+        available_sizes = []
+        print('provider_policy_filtered:', provider_policy_filtered)
         for provider_name in provider_policy_filtered:
-            policy = provider_policy_filtered[provider_name]
-            provider_instance_count = math.ceil(float(self.instance_count) / float(len(provider_policy_filtered)))
-            if instances_created + provider_instance_count > self.instance_count:
-                provider_instance_count = self.instance_count - instances_created
-            instances_created += provider_instance_count
+            provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
 
-            print('creating %d instances on provider %s' % (provider_instance_count, provider_name))
-            if provider_instance_count > 0:
-                provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
-                size = provider_configuration.provider_sizes.order_by('price')[0]
-                provider_image = ProviderImage.objects.get(disk_image__operating_system_images=self.image)
-                for i in range(provider_instance_count):
-                    libcloud_node = provider_configuration.driver.create_node(image=provider_image.to_libcloud_image(), size=size.to_libcloud_size())
-                    ComputeInstance.objects.create(external_id=libcloud_node.id, provider_image=provider_image, group=self)
+            print('allowed_provider_ids:', allowed_provider_ids, 'provider_configuration.pk:', provider_configuration.pk)
+            if allowed_provider_ids is None or provider_configuration.pk in allowed_provider_ids:
+                provider_image = provider_configuration.provider_images.get(disk_image__operating_system_images=self.image)
+                available_sizes.extend(provider_configuration.get_available_sizes(provider_image=provider_image, cpu=self.cpu, memory=self.memory))
 
-            self.save()
+        available_sizes.sort(key=lambda s: s.price)
+        return available_sizes[0]
+
+    def _create_compute_instances(self, selected_size):
+        provider_configuration = selected_size.provider_configuration
+        provider_image = provider_configuration.provider_images.get(disk_image__operating_system_images=self.image)
+
+        for i in range(self.instance_count):
+            libcloud_node = provider_configuration.driver.create_node(name='%s-%d' % (self.name, i), image=provider_image.to_libcloud_image(),
+                                                                      size=selected_size.to_libcloud_size())
+            self._create_compute_instance_entry(provider_image, selected_size, libcloud_node)
 
 
 class ComputeInstance(models.Model):
+    RUNNING = 'RUNNING'
+    REBOOTING = 'REBOOTING'
+    TERMINATED = 'TERMINATED'
+    PENDING = 'PENDING'
+    STOPPED = 'STOPPED'
+    SUSPENDED = 'SUSPENDED'
+    PAUSED = 'PAUSED'
+    ERROR = 'ERROR'
+    UNKNOWN = 'UNKNOWN'
+
+    STATE_CHOICES = (
+        (RUNNING, 'Running'),
+        (REBOOTING, 'Rebooting'),
+        (TERMINATED, 'Terminated'),
+        (PENDING, 'Pending'),
+        (STOPPED, 'Stopped'),
+        (SUSPENDED, 'Suspended'),
+        (PAUSED, 'Paused'),
+        (ERROR, 'Error'),
+        (UNKNOWN, 'Unknown'),
+    )
+
     external_id = models.CharField(max_length=256)
     provider_image = models.ForeignKey(ProviderImage, related_name='instances')
     group = models.ForeignKey(ComputeGroup, related_name='instances')
+    name = models.CharField(max_length=256)
+    state = models.CharField(max_length=16, choices=STATE_CHOICES, default=UNKNOWN)
+    public_ips = JSONField()
+    private_ips = JSONField()
+    size = models.ForeignKey(ProviderSize, related_name='instances')
+    extra = JSONField()
+
+    def to_libcloud_node(self):
+        return Node(id=self.external_id, name=self.name, state=NodeState.fromstring(self.state), public_ips=self.public_ips,
+                    private_ips=self.private_ips, driver=self.provider_image.provider_configuration.driver, size=self.size.to_libcloud_size(),
+                    image=self.provider_image.to_libcloud_image(), extra=decode_node_extra(self.extra))
+
+
+@receiver(post_save, sender=ComputeInstance)
+def check_instance_distribution(sender, created, instance, **kwargs):
+    compute_group = instance.group
+    if not compute_group.updating_distribution:
+        compute_group.check_instance_distribution()

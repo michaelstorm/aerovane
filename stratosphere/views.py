@@ -1,5 +1,5 @@
 from django.forms import modelform_factory
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.generic import View
 
@@ -41,18 +41,6 @@ def index(request):
     if not request.user.is_authenticated():
         return redirect('/accounts/login/')
 
-    compute_groups = ComputeGroup.objects.all()
-    compute_groups_map = []
-
-    for compute_group in compute_groups:
-        group = {}
-        group['group'] = compute_group
-
-        providers = compute_group.provider_states()
-        group['providers'] = providers
-
-        compute_groups_map.append(group)
-
     operating_system_images = OperatingSystemImage.objects.filter(
                                         disk_images__provider_images__provider_configuration__user_configuration__user=request.user)
 
@@ -60,33 +48,87 @@ def index(request):
                                         provider_images__disk_image__operating_system_images=os_image)
                      for os_image in operating_system_images}
 
+    providers = ProviderConfiguration.objects.all()
+
+    possible_providers = [
+        {
+            'name': 'aws',
+            'available': True,
+            'image_top_margin': '25px',
+        },
+        {
+            'name': 'linode',
+            'available': True,
+            'image_top_margin': '12px',
+        },
+        {
+            'name': 'azure',
+            'available': False,
+            'image_top_margin': '15px',
+        },
+        {
+            'name': 'digitalocean',
+            'available': False,
+            'image_top_margin': '0',
+        },
+        {
+            'name': 'softlayer',
+            'available': False,
+            'image_top_margin': '0',
+        },
+        {
+            'name': 'cloudsigma',
+            'available': False,
+            'image_top_margin': '0',
+        },
+        {
+            'name': 'google',
+            'available': False,
+            'image_top_margin': '0',
+        },
+    ]
+
     context = {
-        'compute_groups_map': compute_groups_map,
         'os_images_map': os_images_map,
+        'providers': providers,
+        'possible_providers': possible_providers,
     }
     return render(request, 'stratosphere/index.html', context=context)
 
 
 @basicauth
-def compute(request):
-    if request.method == 'POST':
-        cpu = int(request.POST['cpu'])
-        memory = int(request.POST['memory'])
-        instance_count = int(request.POST['instance_count'])
-        name = request.POST['name']
+def compute(request, group_id=None):
+    if request.method == 'GET':
+        compute_groups = [{'id': group.id, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
+                           'instance_count': group.instance_count, 'providers': group.provider_states(),
+                           'state': group.state} for group in ComputeGroup.objects.all()]
+
+        return JsonResponse(compute_groups, safe=False)
+
+    elif request.method == 'DELETE':
+        group = ComputeGroup.objects.get(pk=group_id)
+        group.terminate()
+        return HttpResponse('')
+
+    elif request.method == 'POST':
+        params = json.loads(request.body.decode('utf-8'))
+        print('params', params)
+        cpu = int(params['cpu'])
+        memory = int(params['memory'])
+        instance_count = int(params['instance_count'])
+        name = params['name']
 
         provider_policy = {}
-        for key in request.POST:
-            match = re.match(r'provider-(.+)', key)
+        for key in params:
+            match = re.match(r'provider_choice_(.+)', key)
             if match is not None:
                 provider_name = match.group(1)
                 provider_policy[provider_name] = 'auto'
 
         provider_policy_str = json.dumps(provider_policy)
 
-        if request.POST['deployment_type'] == 'os':
-            print(request.POST)
-            os_id = request.POST['operating_system']
+        if params['deployment_type'] == 'os':
+            os_id = params['operating_system']
             operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
             group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
                                                                instance_count=instance_count, name=name, provider_policy=provider_policy_str,
@@ -95,26 +137,6 @@ def compute(request):
         group.create_instances()
 
         return redirect('/')
-
-
-@basicauth
-def sync(request):
-    remote_instances = []
-
-    for provider in settings.CLOUD_PROVIDERS.values():
-        remote_instances.extend(provider.list_nodes())
-
-    print(remote_instances)
-
-        # orphan_local_instances = Ec2ComputeInstance.objects.exclude(external_id__in=[instance.id for instance in ec2_instances])
-        # orphan_local_instances.delete()
-
-        # live_remote_instances = filter(lambda instance: instance.state not in ['shutting-down', 'terminated'], ec2_instances)
-        # orphan_remote_instances = [ec2_instance.id for ec2_instance in live_remote_instances
-        #                            if len(Ec2ComputeInstance.objects.filter(external_id=ec2_instance.id)) > 0]
-        # self._terminate_instances(orphan_remote_instances)
-
-    return redirect('/')
 
 
 @basicauth
@@ -135,7 +157,6 @@ provider_configuration_form_classes = {
 @basicauth
 def settings(request):
     provider_configurations = request.user.configuration.provider_configurations
-    print('instances:', [provider_configurations.filter(provider_name=key).first() for key in provider_configuration_form_classes])
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                for key, form_class in provider_configuration_form_classes.items()}
     # context['aws_images'] = DiskImage.objects.filter(provider_images__provider_name='aws')
@@ -158,3 +179,17 @@ def configure_provider(request, provider_name):
             context[key] = form_class()
 
     return render(request, 'stratosphere/settings.html', context=context)
+
+
+@basicauth
+def provider_action(request, provider_name, action):
+    provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name)
+
+    if action == 'restore':
+        provider_configuration.simulate_restore()
+    elif action == 'fail':
+        provider_configuration.simulate_failure()
+    else:
+        return HttpResponse(status=422)
+
+    return HttpResponse('')

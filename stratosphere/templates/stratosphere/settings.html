@@ -19,20 +19,6 @@
                     <form action="/settings/aws/" method="post">
                         {% csrf_token %}
                         {% bootstrap_form aws %}
-                        <div class="form-group">
-                            <label>Ubuntu 14.04 image</label>
-                            <select class="fancy-select">
-                                {% for image in aws_images %}
-                                    <option value="{{ image.id }}"
-                                        {% if image.id == aws_default_ubuntu_14_04_image %}
-                                            selected
-                                        {% endif %}
-                                    >
-                                        {{ image.name }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
                         <input type="submit" value="Save" class="btn btn-primary" >
                     </form>
                 </div>
