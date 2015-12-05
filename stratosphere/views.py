@@ -96,12 +96,16 @@ def index(request):
     return render(request, 'stratosphere/index.html', context=context)
 
 
+def _compute_group_to_json(group):
+    return {'id': group.id, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
+            'instance_count': group.instance_count, 'providers': group.provider_states(),
+            'state': group.state}
+
+
 @basicauth
 def compute(request, group_id=None):
     if request.method == 'GET':
-        compute_groups = [{'id': group.id, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
-                           'instance_count': group.instance_count, 'providers': group.provider_states(),
-                           'state': group.state} for group in ComputeGroup.objects.all()]
+        compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
 
         return JsonResponse(compute_groups, safe=False)
 
@@ -136,7 +140,7 @@ def compute(request, group_id=None):
 
         group.create_instances()
 
-        return redirect('/')
+        return JsonResponse(_compute_group_to_json(group))
 
 
 @basicauth

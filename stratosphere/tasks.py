@@ -13,7 +13,7 @@ def load_available_images(provider_configuration_id):
     provider_configuration.load_available_images()
 
 
-@periodic_task(run_every=timedelta(seconds=30))
+@periodic_task(run_every=timedelta(seconds=10))
 def update_instance_statuses():
     for provider_configuration in ProviderConfiguration.objects.all():
         provider_configuration.update_instance_statuses()

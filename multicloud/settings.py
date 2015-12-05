@@ -113,6 +113,7 @@ LOGGING = {
 
 WSGI_APPLICATION = 'multicloud.wsgi.application'
 
+
 AUTHENTICATION_BACKENDS = (
     # Needed to login by username in Django admin, regardless of `allauth`
     "django.contrib.auth.backends.ModelBackend",
@@ -125,8 +126,6 @@ ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_SIGNUP_PASSWORD_VERIFICATION = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
-
-
 
 LOGIN_REDIRECT_URL = '/check_configure'
 SOCIALACCOUNT_QUERY_EMAIL = True
@@ -157,6 +156,7 @@ DATABASES = {
 
 # Celery
 BROKER_URL = 'django://'
+CELERYD_HIJACK_ROOT_LOGGER = True
 # CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
 # CELERYBEAT_SCHEDULE = {
 #     'schedule-name': {

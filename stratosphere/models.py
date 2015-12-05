@@ -2,7 +2,7 @@ from annoying.fields import JSONField
 
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.db import models, transaction
+from django.db import models, transaction, OperationalError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -112,11 +112,13 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
 
             return CLOUD_PROVIDER_DRIVERS[self.provider_name]
 
+    @retry(OperationalError)
     def simulate_restore(self):
         self.logger.info('Simulating restore')
         self.simulated_failure = False
         self.save()
 
+    @retry(OperationalError)
     def simulate_failure(self):
         self.logger.info('Simulating failure')
         self.simulated_failure = True
@@ -137,16 +139,19 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
 
             return
 
-        for libcloud_node in libcloud_nodes:
-            instance = instances.filter(external_id=libcloud_node.id).first()
+        for instance in ComputeInstance.objects.filter(provider_image__provider_configuration=self):
+            nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
+            self.logger.debug('%s nodes: %s' % (instance.external_id, nodes))
 
-            if instance is not None:
-                new_state = NodeState.tostring(libcloud_node.state)
+            if len(nodes) == 0:
+                instance.state = ComputeInstance.UNKNOWN
+            else:
+                new_state = NodeState.tostring(nodes[0].state)
                 if instance.state != new_state:
-                    print('Updating state of %s from %s to %s' % (instance, instance.state, new_state))
+                    self.logger.info('Updating state of %s from %s to %s' % (instance, instance.state, new_state))
+                    instance.state = new_state
 
-                instance.state = new_state
-                instance.save()
+            instance.save()
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
@@ -339,7 +344,6 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     name = models.CharField(max_length=128)
     provider_policy = models.TextField()
     updating_distribution = models.BooleanField(default=False)
-    terminated = models.BooleanField(default=False)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
 
     def _provider_policy_filtered(self):
@@ -352,8 +356,17 @@ class ComputeGroup(PolymorphicModel, HasLogger):
 
         for provider_name in provider_policy_filtered:
             provider_instances = self.instances.filter(provider_image__provider_configuration__provider_name=provider_name)
+            running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, provider_instances)))
+            pending_count = len(list(filter(lambda i: i.state in (ComputeInstance.PENDING, ComputeInstance.REBOOTING), provider_instances)))
+            other_count = len(list(filter(lambda i: i.state not in (ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING),
+                                                    provider_instances)))
+
             if len(provider_instances) > 0:
-                provider_states_map[provider_name] = len(provider_instances)
+                provider_states_map[provider_name] = {
+                    'running': running_count,
+                    'pending': pending_count,
+                    'other': other_count,
+                }
 
         return provider_states_map
 
@@ -371,21 +384,31 @@ class ComputeGroup(PolymorphicModel, HasLogger):
             return
 
         try:
+            self.logger.debug('%s state: %s' % (self.name, self.state))
+
             instances_flat = list(self.instances.all())
             created_count = len(instances_flat)
             unknown_count = len(list(filter(lambda i: i.state == ComputeInstance.UNKNOWN, instances_flat)))
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
-            non_terminated_instances_count = len(list(filter(lambda i: i.state != ComputeInstance.TERMINATED, instances_flat)))
+            non_pending_count = len(list(filter(lambda i: i.state != ComputeInstance.PENDING, instances_flat)))
+            non_terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.TERMINATED, ComputeInstance.UNKNOWN), instances_flat)))
             non_running_instances = list(filter(lambda i: i.state != ComputeInstance.RUNNING, instances_flat))
 
-            self.logger.debug('|created_count|unknown_count|running_count|non_terminated_instances_count|non_running_instances|')
-            self.logger.debug('|%d|%d|%d|%d|%d|' % (created_count, unknown_count, running_count, non_terminated_instances_count,
-                              len(non_running_instances)))
-
-            if self.terminated:
-                if non_terminated_instances_count == 0:
+            if self.state == self.TERMINATED:
+                self.logger.info('Compute group state is TERMINATED. Remaining non-terminated instances: %d' % non_terminated_count)
+                if non_terminated_count == 0:
+                    self.logger.info('Deleting self.')
                     print(self.delete())
             else:
+                if self.state == self.PENDING and non_pending_count >= self.instance_count:
+                    self.state = self.RUNNING
+
+                self.logger.debug('created_count >= self.instance_count: %d >= %d: %s'
+                                  % (created_count, self.instance_count, created_count >= self.instance_count))
+
+                self.logger.debug('created_count - unknown_count < self.instance_count: %d - %d < %d: %s'
+                                  % (created_count, unknown_count, self.instance_count, created_count - unknown_count < self.instance_count))
+
                 if created_count >= self.instance_count and created_count - unknown_count < self.instance_count:
                     bad_provider_ids = set([instance.provider_image.provider_configuration.pk for instance in self.instances.all()])
                     good_provider_ids = [provider.pk for provider in ProviderConfiguration.objects.exclude(pk__in=bad_provider_ids)]

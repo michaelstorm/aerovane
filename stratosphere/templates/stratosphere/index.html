@@ -3,6 +3,10 @@
 
 {% block content %}
     <script type="text/javascript">
+        String.prototype.toProperCase = function () {
+            return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+        };
+
         var dashboardApp = angular.module('dashboardApp', ['ngResource']).config(function($interpolateProvider) {
             $interpolateProvider.startSymbol('{$');
             $interpolateProvider.endSymbol('$}');
@@ -22,42 +26,53 @@
             return $resource('/compute/:id');
         });
 
-        dashboardApp.controller('ComputeGroupListCtrl', function ($scope, Group) {
+        dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval',
+                                                         function ($scope, Group, $timeout, $interval) {
             Group.query(function(data) {
                 $scope.groups = data;
             });
+
+            $interval(function() {
+                console.log('updating');
+                Group.query(function(data) {
+                    $scope.groups = data;
+                });
+            }, 1000);
 
             $scope.deleteEntry = function(id) {
                 Group.delete({id: id}, function() {
                     for(var i = $scope.groups.length - 1; i >= 0; i--) {
                         if ($scope.groups[i].id == id) {
-                            $scope.groups.splice(i, 1);
+                            $scope.groups[i].state = 'TERMINATED';
                         }
                     }
                 });
             }
 
+            $scope.$watch('groups', function() {
+                $timeout(function() {
+                    $('.group button').removeAttr('disabled');
+                    $('.group-TERMINATED button').attr('disabled', true);
+                });
+            }, true);
+
             $scope.group = {};
 
             $scope.update = function(group) {
                 $scope.group = new Group(angular.copy(group));
-                Group.save($scope.group, function() {
-                    $scope.groups.push($scope.group);
+                Group.save($scope.group, function(data) {
+                    // $scope.groups.push(new Group(data));
                 });
             }
-        });
+        }]);
 
-        dashboardApp.directive('avGroup', ['$timeout', function($timeout) {
+        dashboardApp.directive('avGroup', ['$timeout', '$compile', function($timeout, $compile) {
             return {
                 link: function($scope, element) {
-                    // $timeout causes it to run after render, when .group-{$ state $} has been compiled
-                    $timeout(function() {
-                        if ($(element[0]).hasClass('group-TERMINATED')) {
-                            $(element[0]).find('button').attr('disabled', 'true');
-                        } else {
-                            $(element[0]).find('button').removeAttr('disabled');
-                        }
-                    });
+                    var name_cell = $(element).find('.group-name');
+                    var state_name = name_cell.find('.state-name');
+                    state_name.text('({$ group.state.toProperCase() $})');
+                    name_cell.html($compile(name_cell.html())($scope));
                 }
             }
         }]);
@@ -70,7 +85,7 @@
                 <div class="panel-heading">
                     Compute groups
                 </div>
-                <table class="table">
+                <table class="table" style="table-layout: fixed;">
                     <thead>
                         <tr>
                             <th>Name</th>
@@ -82,18 +97,21 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr ng-repeat="group in groups" class="group group-{$ group.state $}" ng-cloak av-group>
-                            <td>{$ group.name $}</td>
+                        <tr ng-repeat="group in groups track by group.id" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+                            <td class="group-name">
+                                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
+                                <span>{$ group.name $} <small class="state-name"></small></span>
+                            </td>
                             <td>{$ group.cpu $}</td>
                             <td>{$ group.memory $} MB</td>
                             <td>{$ group.instance_count $}</td>
-                            <td>
-                                <div ng-repeat="(provider_name, instance_count) in group.providers">
+                            <td class="group-providers">
+                                <div ng-repeat="(provider_name, counts) in group.providers">
                                     <img ng-src="/static/stratosphere/{$ provider_name $}_icon.png" style="height: 16px;">
-                                    {$ instance_count $}
+                                    <span class="group-running-instances" ng-if="counts.running > 0">{$ counts.running $}</span><span class="group-pending-instances" ng-if="counts.pending > 0">{$ counts.pending $}</span><span class="group-other-instances" ng-if="counts.other > 0">{$ counts.other $}</span>
                                 </div>
                             </td>
-                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs delete-group" ng-click="deleteEntry(group.id)">Delete</button></td>
+                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
                         </tr>
                     </tbody>
                 </table>
@@ -252,7 +270,7 @@
         }
         else {
             var select_element = $('#select-os-container select');
-            angular.element(select_element).triggerHandler('change');
+            // angular.element(select_element).triggerHandler('change');
 
             var selected_os = select_element.val();
             if (selected_os.length) {
@@ -295,7 +313,6 @@
                 selected_image_or_os = $('#select-os-container select').val().length > 0;
 
             var add_button = $('#add-group-button');
-            console.log(name.length > 0, selected_provider_count > 0, selected_image_or_os);
             if (name.length > 0 && selected_provider_count > 0 && selected_image_or_os) {
                 add_button.removeAttr('disabled');
             }
@@ -320,10 +337,6 @@
                 button.hide();
                 $('button.restore-button[provider="' + button.attr('provider') + '"]').show();
             });
-        });
-
-        $('.fail-button').click(function() {
-            $.post('/provider/' + $(this).attr('provider') + '/fail/');
         });
 
         var createSlider = function(inputElement, valueElement) {
@@ -397,8 +410,30 @@
 {% endblock %}
 
 {% block style %}
+    .group-running-instances {
+        background-color: #5cb85c;
+        color: white;
+        padding: 3px 5px;
+    }
+
+    .group-pending-instances {
+        background-color: #f0ad4e;
+        color: white;
+        padding: 3px 5px;
+    }
+
+    .group-other-instances {
+        background-color: #d9534f;
+        color: white;
+        padding: 3px 5px;
+    }
+
     .group-TERMINATED {
         background-color: #eee;
+    }
+
+    .state-name {
+        font-style: italic;
     }
 
     footer {

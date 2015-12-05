@@ -17,6 +17,9 @@
     <link href="{% static "stratosphere/bootstrap-chosen.css" %}" rel="stylesheet">
     <link href="{% static "stratosphere/awesome-bootstrap-checkbox.css" %}" rel="stylesheet">
 
+    <!-- load before Angular so that all selectors can be used -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
     <script src="{% static "stratosphere/angular.js" %}"></script>
     <script src="{% static "stratosphere/angular-resource.js" %}"></script>
 
@@ -66,8 +69,6 @@
     {% block footer %}
     {% endblock %}
 
-    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="{% static "stratosphere/bootstrap/js/bootstrap.min.js" %}"></script>
 
