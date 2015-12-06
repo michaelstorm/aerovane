@@ -7,7 +7,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-    <title>Stratosphere</title>
+    <title>Aerovane</title>
 
     <!-- Bootstrap -->
     <link href="{% static "stratosphere/bootstrap/css/bootstrap.min.css" %}" rel="stylesheet">
@@ -16,6 +16,8 @@
     <link href="{% static "stratosphere/font-awesome/css/font-awesome.min.css" %}" rel="stylesheet">
     <link href="{% static "stratosphere/bootstrap-chosen.css" %}" rel="stylesheet">
     <link href="{% static "stratosphere/awesome-bootstrap-checkbox.css" %}" rel="stylesheet">
+
+    <link rel="shortcut icon" type="image/x-icon" href="{% static "stratosphere/a-logo-blue.png" %}" />
 
     <!-- load before Angular so that all selectors can be used -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
@@ -35,6 +37,10 @@
         z-index: 1;
       }
 
+      .navbar-brand img {
+        height: 20px;
+      }
+
       {% block style %}
       {% endblock %}
     </style>
@@ -44,15 +50,16 @@
       <div class="container-fluid">
         <div class="navbar-header">
           <a class="navbar-brand" href="/">
-            <img alt="Brand" src="{% static "stratosphere/s_logo.png" %}" style="height: 20px;">
+            <img alt="Brand" src="{% static "stratosphere/a-logo-blue.png" %}">
           </a>
           <a class="navbar-brand" href="/">
-            Stratosphere
+            Aerovane
           </a>
         </div>
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav navbar-right">
               {% if request.user.is_authenticated %}
+                <li><a><img src="{{ request.user.configuration.avatar_url }}"></a></li>
                 <li><a href="/settings"><i class="fa fa-cogs"></i> Settings</a></li>
                 <li><a href="/accounts/logout/"><i class="fa fa-sign-out"></i> Log out</a></li>
               {% endif %}

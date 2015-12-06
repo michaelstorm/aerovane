@@ -4,22 +4,12 @@ from django.forms.models import modelform_factory
 from .models import *
 
 
-class Ec2ProviderConfigurationForm(ModelForm):
-    class Meta:
-        model = Ec2ProviderConfiguration
-        fields = ['access_key_id', 'secret_access_key']
+Ec2ProviderConfigurationForm = modelform_factory(Ec2ProviderConfiguration, fields=('access_key_id', 'secret_access_key'), widgets={'secret_access_key': PasswordInput})
 
-
-class LinodeProviderConfigurationForm(ModelForm):
-    class Meta:
-        model = LinodeProviderConfiguration
-        fields = ['api_key']
-
+LinodeProviderConfigurationForm = modelform_factory(LinodeProviderConfiguration, fields=('api_key',), widgets={'api_key': PasswordInput})
 
 PasswordAuthenticationMethodForm = modelform_factory(PasswordAuthenticationMethod, fields=('name', 'password'), widgets={'password': PasswordInput})
 
+KeyAuthenticationMethodForm = modelform_factory(KeyAuthenticationMethod, fields=('name', 'key'))
 
-class KeyAuthenticationMethodForm(ModelForm):
-    class Meta:
-        model = KeyAuthenticationMethod
-        fields = ['name', 'key']
+DeploymentScriptForm = modelform_factory(DeploymentScript, fields=('name', 'code'))

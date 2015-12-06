@@ -142,9 +142,13 @@
                 });
             }, true);
 
-            $scope.group = {};
-
             $scope.update = function(group) {
+                console.log(group);
+                {% for provider in possible_providers %}
+                    if (!$('input[name="provider_choice_{{ provider.name }}"]').is(':checked'))
+                        delete group.provider_choice_{{ provider.name }};
+                {% endfor %}
+                console.log(group);
                 $scope.group = new Group(angular.copy(group));
                 Group.save($scope.group);
             }
@@ -202,7 +206,7 @@
             <div class="panel panel-primary">
                 <div class="panel-heading">Add Compute Group</div>
                 <div class="panel-body">
-                    <form class="form" name="form1">
+                    <form class="form">
                         {% csrf_token %}
                         <div class="row">
                             <div class="col-lg-3">
@@ -241,6 +245,17 @@
                                         <option></option>
                                         {% for method in authentication_methods %}
                                             <option value="{{ method.pk }}">{{ method.pretty_type }}: {{ method.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>Deployment script</label>
+                                    <select class="fancy-select" ng-model="group.deployment_script" name="deployment_script">
+                                        <option></option>
+                                        {% for script in deployment_scripts %}
+                                            <option value="{{ script.pk }}">{{ script.name }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -325,9 +340,9 @@
 
 {% block footer %}
     <footer>
-        {% for provider in possible_providers %}
-            <button class="btn btn-success restore-button" provider="{{ provider.name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
-            <button class="btn btn-warning fail-button" provider="{{ provider.name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
+        {% for provider in providers %}
+            <button class="btn btn-success restore-button" provider="{{ provider.provider_name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
+            <button class="btn btn-warning fail-button" provider="{{ provider.provider_name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
         {% endfor %}
     </footer>
 {% endblock %}
@@ -537,10 +552,6 @@
         width: 99%;
     }
 
-    .group-TERMINATED {
-        background-color: #eee;
-    }
-
     .state-name {
         font-style: italic;
     }
@@ -617,6 +628,9 @@
         left: 20px;
         color: red;
         font-size: 1.5em;
+        font-weight: 700;
+        background-color: white;
+        padding: 0 5px;
         z-index: 5;
     }
 

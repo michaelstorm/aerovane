@@ -93,6 +93,7 @@ def index(request):
         'providers': providers,
         'possible_providers': possible_providers,
         'authentication_methods': AuthenticationMethod.objects.all(),
+        'deployment_scripts': DeploymentScript.objects.all(),
     }
     return render(request, 'stratosphere/index.html', context=context)
 
@@ -112,8 +113,26 @@ def authentication_methods(request, method_id=None):
             form = PasswordAuthenticationMethodForm(request.POST)
 
         method = form.save()
+
+        method.user_configuration = request.user.configuration
+        method.save()
+
     elif request.method == 'DELETE':
         AuthenticationMethod.objects.filter(id=method_id).delete()
+
+    return redirect('/settings')
+
+
+@basicauth
+def deployment_scripts(request, script_id=None):
+    if request.method == 'POST':
+        form = DeploymentScriptForm(request.POST)
+        script = form.save()
+
+        script.user_configuration = request.user.configuration
+        script.save()
+    elif request.method == 'DELETE':
+        DeploymentScript.objects.filter(id=script_id).delete()
 
     return redirect('/settings')
 
@@ -135,26 +154,36 @@ def compute(request, group_id=None):
         memory = int(params['memory'])
         instance_count = int(params['instance_count'])
         name = params['name']
-        authentication_method_id = params['authentication_method']
 
+        authentication_method_id = params['authentication_method']
         authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
-        print(authentication_method)
+
+        if 'deployment_script' in params:
+            deployment_script_id = params['deployment_script']
+            deployment_script = DeploymentScript.objects.get(pk=deployment_script_id)
+        else:
+            deployment_script = None
+
+        print(params)
 
         provider_policy = {}
         for key in params:
             match = re.match(r'provider_choice_(.+)', key)
+            print(key, match)
             if match is not None:
                 provider_name = match.group(1)
                 provider_policy[provider_name] = 'auto'
 
         provider_policy_str = json.dumps(provider_policy)
+        print(provider_policy_str)
 
         if params['deployment_type'] == 'os':
             os_id = params['operating_system']
             operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
             group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
                                                                instance_count=instance_count, name=name, provider_policy=provider_policy_str,
-                                                               image=operating_system_image, authentication_method=authentication_method)
+                                                               image=operating_system_image, authentication_method=authentication_method,
+                                                               deployment_script=deployment_script)
 
         group.create_instances()
 
@@ -181,10 +210,15 @@ def settings(request):
     provider_configurations = request.user.configuration.provider_configurations
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                for key, form_class in provider_configuration_form_classes.items()}
+
     context['key_methods'] = KeyAuthenticationMethod.objects.all()
     context['password_methods'] = PasswordAuthenticationMethod.objects.all()
     context['add_key_method'] = KeyAuthenticationMethodForm()
     context['add_password_method'] = PasswordAuthenticationMethodForm()
+
+    context['deployment_scripts'] = DeploymentScript.objects.all()
+    context['add_deployment_script'] = DeploymentScriptForm()
+
     return render(request, 'stratosphere/settings.html', context=context)
 
 
