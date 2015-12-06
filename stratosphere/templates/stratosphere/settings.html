@@ -12,7 +12,6 @@
     <ul class="nav nav-tabs" role="tablist">
         <li role="presentation" class="active"><a href="#providers" aria-controls="providers" role="tab" data-toggle="tab">Providers</a></li>
         <li role="presentation"><a href="#authentication" aria-controls="authentication" role="tab" data-toggle="tab">Authentication</a></li>
-        <li role="presentation"><a href="#deployment" aria-controls="deployment" role="tab" data-toggle="tab">Deployment</a></li>
     </ul>
 
     <div class="tab-content">
@@ -127,45 +126,6 @@
                 </div>
             </div>
         </div>
-        <div role="tabpanel" class="tab-pane fade" id="deployment">
-            <div class="row">
-                <div class="col-lg-12">
-                    <h3>Deployment</h3>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-lg-6">
-                    <div class="panel panel-primary">
-                        <div class="panel-heading">
-                            <div class="panel-title">Deployment Scripts</div>
-                        </div>
-                        <div class="panel-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for script in deployment_scripts %}
-                                        <tr>
-                                            <td style="width: 99%;">{{ script.name }}</td>
-                                            <td><button class="btn btn-danger btn-xs delete-script-button" script-id="{{ script.pk }}">Delete</button></td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                            <form action="/deployment_scripts/" method="post">
-                                {% csrf_token %}
-                                {% bootstrap_form add_deployment_script %}
-                                <input type="submit" value="Add" class="btn btn-primary" >
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 {% endblock %}
 
@@ -174,16 +134,6 @@
         $('.delete-method-button').click(function() {
             $.ajax({
                 url: '/authentication_methods/' + $(this).attr('method-id') + '/',
-                method: 'DELETE',
-                success: function() {
-                    location.reload();
-                },
-            });
-        });
-
-        $('.delete-script-button').click(function() {
-            $.ajax({
-                url: '/deployment_scripts/' + $(this).attr('script-id') + '/',
                 method: 'DELETE',
                 success: function() {
                     location.reload();

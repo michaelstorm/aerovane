@@ -93,7 +93,6 @@ def index(request):
         'providers': providers,
         'possible_providers': possible_providers,
         'authentication_methods': AuthenticationMethod.objects.all(),
-        'deployment_scripts': DeploymentScript.objects.all(),
     }
     return render(request, 'stratosphere/index.html', context=context)
 
@@ -122,20 +121,6 @@ def authentication_methods(request, method_id=None):
 
     return redirect('/settings')
 
-
-@basicauth
-def deployment_scripts(request, script_id=None):
-    if request.method == 'POST':
-        form = DeploymentScriptForm(request.POST)
-        script = form.save()
-
-        script.user_configuration = request.user.configuration
-        script.save()
-    elif request.method == 'DELETE':
-        DeploymentScript.objects.filter(id=script_id).delete()
-
-    return redirect('/settings')
-
 @basicauth
 def compute(request, group_id=None):
     if request.method == 'GET':
@@ -158,12 +143,6 @@ def compute(request, group_id=None):
         authentication_method_id = params['authentication_method']
         authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
 
-        if 'deployment_script' in params:
-            deployment_script_id = params['deployment_script']
-            deployment_script = DeploymentScript.objects.get(pk=deployment_script_id)
-        else:
-            deployment_script = None
-
         print(params)
 
         provider_policy = {}
@@ -182,8 +161,7 @@ def compute(request, group_id=None):
             operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
             group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
                                                                instance_count=instance_count, name=name, provider_policy=provider_policy_str,
-                                                               image=operating_system_image, authentication_method=authentication_method,
-                                                               deployment_script=deployment_script)
+                                                               image=operating_system_image, authentication_method=authentication_method)
 
         group.create_instances()
 
@@ -215,9 +193,6 @@ def settings(request):
     context['password_methods'] = PasswordAuthenticationMethod.objects.all()
     context['add_key_method'] = KeyAuthenticationMethodForm()
     context['add_password_method'] = PasswordAuthenticationMethodForm()
-
-    context['deployment_scripts'] = DeploymentScript.objects.all()
-    context['add_deployment_script'] = DeploymentScriptForm()
 
     return render(request, 'stratosphere/settings.html', context=context)
 

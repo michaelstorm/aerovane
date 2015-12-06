@@ -11,5 +11,3 @@ LinodeProviderConfigurationForm = modelform_factory(LinodeProviderConfiguration,
 PasswordAuthenticationMethodForm = modelform_factory(PasswordAuthenticationMethod, fields=('name', 'password'), widgets={'password': PasswordInput})
 
 KeyAuthenticationMethodForm = modelform_factory(KeyAuthenticationMethod, fields=('name', 'key'))
-
-DeploymentScriptForm = modelform_factory(DeploymentScript, fields=('name', 'code'))

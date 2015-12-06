@@ -101,12 +101,6 @@ class ProviderSize(models.Model):
                         driver=self.provider_configuration.driver, extra=self.extra)
 
 
-class DeploymentScript(models.Model):
-    user_configuration = models.ForeignKey(UserConfiguration, related_name='deployment_scripts')
-    name = models.CharField(max_length=64)
-    code = models.TextField()
-
-
 class ProviderConfiguration(PolymorphicModel, HasLogger):
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey(UserConfiguration, null=True, blank=True, related_name='provider_configurations')
@@ -164,8 +158,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
             nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
             self.logger.debug('%s nodes: %s' % (instance.external_id, nodes))
 
-            deploy = False
-
             if len(nodes) == 0:
                 instance.state = ComputeInstance.UNKNOWN
             else:
@@ -173,11 +165,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
 
                 new_state = NodeState.tostring(node.state)
                 if instance.state != new_state:
-                    if instance.state == ComputeInstance.PENDING and new_state == ComputeInstance.RUNNING:
-                        if instance.group.deployment_script is not None:
-                            new_state = ComputeInstance.DEPLOYING
-                            deploy = True
-
                     self.logger.info('Updating state of %s from %s to %s' % (instance, instance.state, new_state))
                     instance.state = new_state
 
@@ -185,9 +172,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
                 instance.public_ips = node.public_ips
 
             instance.save()
-
-            if deploy:
-                tasks.deploy_script.apply_async(instance.pk)
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
@@ -400,7 +384,6 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     updating_distribution = models.BooleanField(default=False)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
     authentication_method = models.ForeignKey(AuthenticationMethod, related_name='compute_groups')
-    deployment_script = models.ForeignKey(DeploymentScript, null=True, blank=True, related_name='compute_groups')
 
     def _provider_policy_filtered(self):
         provider_policy_deserialized = json.loads(self.provider_policy)
@@ -445,9 +428,9 @@ class ComputeGroup(PolymorphicModel, HasLogger):
 
             instances_flat = list(self.instances.all())
             created_count = len(instances_flat)
-            unknown_count = len(list(filter(lambda i: i.state not in (ComputeInstance.PENDING, ComputeInstance.DEPLOYING, ComputeInstance.RUNNING), instances_flat)))
+            unknown_count = len(list(filter(lambda i: i.state not in (ComputeInstance.PENDING, ComputeInstance.RUNNING), instances_flat)))
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
-            non_pending_count = len(list(filter(lambda i: i.state not in (ComputeInstance.PENDING, ComputeInstance.DEPLOYING), instances_flat)))
+            non_pending_count = len(list(filter(lambda i: i.state != ComputeInstance.PENDING, instances_flat)))
             non_terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.TERMINATED, ComputeInstance.UNKNOWN), instances_flat)))
             non_running_instances = list(filter(lambda i: i.state != ComputeInstance.RUNNING, instances_flat))
 
@@ -565,7 +548,6 @@ class ComputeInstance(models.Model):
     PAUSED = 'PAUSED'
     ERROR = 'ERROR'
     UNKNOWN = 'UNKNOWN'
-    DEPLOYING = 'DEPLOYING'
 
     STATE_CHOICES = (
         (RUNNING, 'Running'),
@@ -588,14 +570,6 @@ class ComputeInstance(models.Model):
     private_ips = JSONField()
     size = models.ForeignKey(ProviderSize, related_name='instances')
     extra = JSONField()
-
-    def deploy(self):
-        self._connect_and_run_deployment_script(
-            task=kwargs['deploy'], node=node,
-            ssh_hostname=ip_addresses[0], ssh_port=ssh_port,
-            ssh_username=username, ssh_password=password,
-            ssh_key_file=ssh_key_file, ssh_timeout=ssh_timeout,
-            timeout=timeout, max_tries=max_tries)
 
     def to_libcloud_node(self):
         return Node(id=self.external_id, name=self.name, state=NodeState.fromstring(self.state), public_ips=self.public_ips,
