@@ -92,6 +92,7 @@ def index(request):
         'os_images_map': os_images_map,
         'providers': providers,
         'possible_providers': possible_providers,
+        'authentication_methods': AuthenticationMethod.objects.all(),
     }
     return render(request, 'stratosphere/index.html', context=context)
 
@@ -101,6 +102,20 @@ def _compute_group_to_json(group):
             'instance_count': group.instance_count, 'providers': group.provider_states(),
             'state': group.state}
 
+
+@basicauth
+def authentication_methods(request, method_id=None):
+    if request.method == 'POST':
+        if 'key' in request.POST:
+            form = KeyAuthenticationMethodForm(request.POST)
+        else:
+            form = PasswordAuthenticationMethodForm(request.POST)
+
+        method = form.save()
+    elif request.method == 'DELETE':
+        AuthenticationMethod.objects.filter(id=method_id).delete()
+
+    return redirect('/settings')
 
 @basicauth
 def compute(request, group_id=None):
@@ -116,11 +131,14 @@ def compute(request, group_id=None):
 
     elif request.method == 'POST':
         params = json.loads(request.body.decode('utf-8'))
-        print('params', params)
         cpu = int(params['cpu'])
         memory = int(params['memory'])
         instance_count = int(params['instance_count'])
         name = params['name']
+        authentication_method_id = params['authentication_method']
+
+        authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
+        print(authentication_method)
 
         provider_policy = {}
         for key in params:
@@ -136,7 +154,7 @@ def compute(request, group_id=None):
             operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
             group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
                                                                instance_count=instance_count, name=name, provider_policy=provider_policy_str,
-                                                               image=operating_system_image)
+                                                               image=operating_system_image, authentication_method=authentication_method)
 
         group.create_instances()
 
@@ -163,8 +181,10 @@ def settings(request):
     provider_configurations = request.user.configuration.provider_configurations
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                for key, form_class in provider_configuration_form_classes.items()}
-    # context['aws_images'] = DiskImage.objects.filter(provider_images__provider_name='aws')
-    # context['aws_default_ubuntu_14_04_image'] = 'ami-df6a8b9b'
+    context['key_methods'] = KeyAuthenticationMethod.objects.all()
+    context['password_methods'] = PasswordAuthenticationMethod.objects.all()
+    context['add_key_method'] = KeyAuthenticationMethodForm()
+    context['add_password_method'] = PasswordAuthenticationMethodForm()
     return render(request, 'stratosphere/settings.html', context=context)
 
 

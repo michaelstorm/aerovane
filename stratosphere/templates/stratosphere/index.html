@@ -1,7 +1,13 @@
 {% extends "stratosphere/base.html" %}
 {% load staticfiles %}
 
+{% block angular-app-name %}dashboardApp{% endblock %}
+
 {% block content %}
+    <script type="text/javascript" language="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.js"></script>
+    <script type="text/javascript" language="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.stack.js"></script>
+    <script type="text/javascript" language="javascript" src="/static/stratosphere/jquery.flot.tooltip.min.js"></script>
+
     <script type="text/javascript">
         String.prototype.toProperCase = function () {
             return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
@@ -33,7 +39,6 @@
             });
 
             $interval(function() {
-                console.log('updating');
                 Group.query(function(data) {
                     $scope.groups = data;
                 });
@@ -49,10 +54,91 @@
                 });
             }
 
-            $scope.$watch('groups', function() {
+            $scope.$watch('groups', function(newValue, oldValue) {
                 $timeout(function() {
                     $('.group button').removeAttr('disabled');
                     $('.group-TERMINATED button').attr('disabled', true);
+
+                    if (typeof newValue !== 'undefined') {
+                        for (var i = 0; i < newValue.length; i++) {
+                            var series = [{
+                                data: [],
+                                label: "Running",
+                                lineWidth: 0,
+                                color: "#5cb85c",
+                                fill: 1,
+                            },
+                            {
+                                data: [],
+                                label: "Pending",
+                                color: "#f0ad4e",
+                                lineWidth: 0,
+                                fill: 1,
+                            },
+                            {
+                                data: [],
+                                label: "Terminated",
+                                color: "#d9534f",
+                                lineWidth: 0,
+                                fill: 1,
+                            }];
+
+                            var yaxis_ticks = [];
+
+                            var j = 0;
+                            var providers = newValue[i].providers;
+                            var provider_names = Object.keys(providers);
+                            provider_names.sort();
+                            provider_names.forEach(function (provider_name) {
+                                var provider = providers[provider_name];
+
+                                yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="/static/stratosphere/' + provider_name + '_icon.png">']);
+
+                                series[0].data.push([provider.running, j]);
+                                series[1].data.push([provider.pending, j]);
+                                series[2].data.push([provider.terminated, j]);
+                                j++;
+                            });
+
+                            var options = {
+                                xaxis: {
+                                    tickLength: 0,
+                                    tickFormatter: function() { return ''; },
+                                },
+                                yaxis: {
+                                    ticks: yaxis_ticks,
+                                    tickLength: 0,
+                                },
+                                series: {
+                                    bars: {
+                                        show: true,
+                                        barWidth: .7,
+                                        align: "center",
+                                        horizontal: true,
+                                        lineWidth: 0,
+                                        fill: 1,
+                                    },
+                                    stack: true,
+                                },
+                                legend: {
+                                    show: false,
+                                },
+                                grid: {
+                                    borderWidth: 0,
+                                    hoverable: true,
+                                },
+                                tooltip: {
+                                    show: true,
+                                    content: function(label, x, y, flotItem) {
+                                        return label + ': ' + x;
+                                    },
+                                },
+                            };
+
+                            var placeholder = $('tr[group-id="' + newValue[i].id + '"] .graph-placeholder');
+                            placeholder.plot(series, options);
+                        }
+                    }
                 });
             }, true);
 
@@ -60,9 +146,7 @@
 
             $scope.update = function(group) {
                 $scope.group = new Group(angular.copy(group));
-                Group.save($scope.group, function(data) {
-                    // $scope.groups.push(new Group(data));
-                });
+                Group.save($scope.group);
             }
         }]);
 
@@ -85,19 +169,19 @@
                 <div class="panel-heading">
                     Compute groups
                 </div>
-                <table class="table" style="table-layout: fixed;">
+                <table class="table table-striped compute-groups-table">
                     <thead>
                         <tr>
                             <th>Name</th>
                             <th>CPU</th>
                             <th>Memory</th>
-                            <th>Instance count</th>
+                            <th>Instances</th>
                             <th>Instance states</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr ng-repeat="group in groups track by group.id" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+                        <tr ng-repeat="group in groups track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
                             <td class="group-name">
                                 <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
                                 <span>{$ group.name $} <small class="state-name"></small></span>
@@ -105,11 +189,8 @@
                             <td>{$ group.cpu $}</td>
                             <td>{$ group.memory $} MB</td>
                             <td>{$ group.instance_count $}</td>
-                            <td class="group-providers">
-                                <div ng-repeat="(provider_name, counts) in group.providers">
-                                    <img ng-src="/static/stratosphere/{$ provider_name $}_icon.png" style="height: 16px;">
-                                    <span class="group-running-instances" ng-if="counts.running > 0">{$ counts.running $}</span><span class="group-pending-instances" ng-if="counts.pending > 0">{$ counts.pending $}</span><span class="group-other-instances" ng-if="counts.other > 0">{$ counts.other $}</span>
-                                </div>
+                            <td class="group-providers-graph-cell">
+                                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
                             </td>
                             <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
                         </tr>
@@ -146,9 +227,22 @@
                             </div>
                             <div class="col-lg-3">
                                 <div class="form-group">
-                                    <label>Instance count</label>
+                                    <label>Instances</label>
                                     <input id="instance-count-slider" name="instance_count" type="text" data-slider-min="1" data-slider-max="16" data-slider-step="1" data-slider-value="1" ng-init="group.instance_count='1'" ng-model="group.instance_count">
                                     <div id="instance-count-slider-val">1</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-3">
+                                <div class="form-group">
+                                    <label>Authentication method</label>
+                                    <select class="fancy-select" ng-model="group.authentication_method" name="authentication_method">
+                                        <option></option>
+                                        {% for method in authentication_methods %}
+                                            <option value="{{ method.pk }}">{{ method.pretty_type }}: {{ method.name }}</option>
+                                        {% endfor %}
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -172,7 +266,7 @@
                                     <select class="fancy-select" ng-model="group.operating_system" name="operating_system">
                                         <option></option>
                                         {% for image in os_images_map %}
-                                            <option value="{{ image.id }}">{{ image.name }}</option>
+                                            <option value="{{ image.pk }}">{{ image.name }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
@@ -231,9 +325,9 @@
 
 {% block footer %}
     <footer>
-        {% for provider in providers %}
-            <button class="btn btn-success restore-button" provider="{{ provider.provider_name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
-            <button class="btn btn-warning fail-button" provider="{{ provider.provider_name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
+        {% for provider in possible_providers %}
+            <button class="btn btn-success restore-button" provider="{{ provider.name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
+            <button class="btn btn-warning fail-button" provider="{{ provider.name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
         {% endfor %}
     </footer>
 {% endblock %}
@@ -275,8 +369,9 @@
             var selected_os = select_element.val();
             if (selected_os.length) {
                 var supported_providers = os_supported_providers[selected_os];
-                supported_providers.forEach(function(provider) {
-                    var provider = $('#provider_choice_' + provider);
+                supported_providers.forEach(function(provider_name) {
+                    var provider = $('#provider_choice_' + provider_name);
+                    console.log(provider_name, provider);
                     if (!provider.hasClass('not-available'))
                         provider.removeClass('disabled');
                 });
@@ -410,22 +505,36 @@
 {% endblock %}
 
 {% block style %}
-    .group-running-instances {
-        background-color: #5cb85c;
-        color: white;
-        padding: 3px 5px;
+    .flot-tick-label.tickLabel > * {
+        display: inline-block;
+        vertical-align: middle;
     }
 
-    .group-pending-instances {
-        background-color: #f0ad4e;
-        color: white;
-        padding: 3px 5px;
+    .flot-tick-label.tickLabel img {
+        height: 12px;
+        margin-left: 3px;
+        margin-right: 12px;
     }
 
-    .group-other-instances {
-        background-color: #d9534f;
-        color: white;
-        padding: 3px 5px;
+    .flotTip {
+        border: 1px solid #999 !important;
+
+        -webkit-box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
+        -moz-box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
+        box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
+    }
+
+    .compute-groups-table th,
+    .compute-groups-table td {
+        white-space: nowrap;
+    }
+
+    .compute-groups-table .group td {
+        vertical-align: middle;
+    }
+
+    .group-providers-graph-cell {
+        width: 99%;
     }
 
     .group-TERMINATED {
@@ -484,6 +593,7 @@
         top: 10px;
         left: 10px;
         margin: 0;
+        z-index: 1;
     }
 
     #providers-list.providers-selectable .checkbox {

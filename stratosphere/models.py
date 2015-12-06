@@ -8,7 +8,7 @@ from django.dispatch import receiver
 
 from libcloud.compute.types import Provider
 from libcloud.compute.providers import get_driver
-from libcloud.compute.base import Node, NodeImage, NodeSize
+from libcloud.compute.base import Node, NodeImage, NodeSize, NodeAuthPassword, NodeAuthSSHKey, NodeLocation
 from libcloud.compute.types import NodeState
 
 import logging
@@ -43,6 +43,12 @@ class HasLogger(object):
 
 class UserConfiguration(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='configuration')
+
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def create_configuration_for_new_user(sender, created, instance, **kwargs):
+    if created:
+        UserConfiguration.objects.create(user=instance)
 
 
 class Image(PolymorphicModel):
@@ -123,6 +129,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         self.logger.info('Simulating failure')
         self.simulated_failure = True
         self.save()
+
+    def create_libcloud_node(self, name, libcloud_image, libcloud_size, libcloud_auth, **extra_args):
+        return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
+                                       **extra_args)
 
     def update_instance_statuses(self):
         instances = ComputeInstance.objects.filter(provider_image__provider_configuration=self)
@@ -317,11 +327,28 @@ class LinodeProviderConfiguration(ProviderConfiguration):
     def get_available_sizes(self, provider_image, cpu, memory):
         return self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
 
+    def create_libcloud_node(self, name, libcloud_image, libcloud_size, libcloud_auth, **extra_args):
+        location = NodeLocation(id='2', name='Dallas, TX, USA', country='USA', driver=self.driver)
+        return super(LinodeProviderConfiguration, self).create_libcloud_node(name=name, libcloud_image=libcloud_image,
+                        libcloud_size=libcloud_size, libcloud_auth=libcloud_auth, location=location)
 
-@receiver(post_save, sender=settings.AUTH_USER_MODEL)
-def create_configuration_for_new_user(sender, created, instance, **kwargs):
-    if created:
-        UserConfiguration.objects.create(user=instance)
+
+class AuthenticationMethod(PolymorphicModel):
+    name = models.CharField(max_length=64)
+
+
+class PasswordAuthenticationMethod(AuthenticationMethod):
+    password = models.CharField(max_length=256)
+
+    def pretty_type(self):
+        return 'Password'
+
+
+class KeyAuthenticationMethod(AuthenticationMethod):
+    key = models.TextField()
+
+    def pretty_type(self):
+        return 'Key'
 
 
 class ComputeGroup(PolymorphicModel, HasLogger):
@@ -345,6 +372,7 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     provider_policy = models.TextField()
     updating_distribution = models.BooleanField(default=False)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
+    authentication_method = models.ForeignKey(AuthenticationMethod, related_name='compute_groups')
 
     def _provider_policy_filtered(self):
         provider_policy_deserialized = json.loads(self.provider_policy)
@@ -355,18 +383,19 @@ class ComputeGroup(PolymorphicModel, HasLogger):
         provider_states_map = {}
 
         for provider_name in provider_policy_filtered:
+            provider_configuration = ProviderConfiguration.objects.filter(provider_name=provider_name).first()
             provider_instances = self.instances.filter(provider_image__provider_configuration__provider_name=provider_name)
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, provider_instances)))
             pending_count = len(list(filter(lambda i: i.state in (ComputeInstance.PENDING, ComputeInstance.REBOOTING), provider_instances)))
-            other_count = len(list(filter(lambda i: i.state not in (ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING),
-                                                    provider_instances)))
+            terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING),
+                                               provider_instances)))
 
-            if len(provider_instances) > 0:
-                provider_states_map[provider_name] = {
-                    'running': running_count,
-                    'pending': pending_count,
-                    'other': other_count,
-                }
+            provider_states_map[provider_name] = {
+                'running': running_count,
+                'pending': pending_count,
+                'terminated': terminated_count,
+                'pretty_name': provider_configuration.pretty_name(),
+            }
 
         return provider_states_map
 
@@ -388,7 +417,7 @@ class ComputeGroup(PolymorphicModel, HasLogger):
 
             instances_flat = list(self.instances.all())
             created_count = len(instances_flat)
-            unknown_count = len(list(filter(lambda i: i.state == ComputeInstance.UNKNOWN, instances_flat)))
+            unknown_count = len(list(filter(lambda i: i.state not in (ComputeInstance.PENDING, ComputeInstance.RUNNING), instances_flat)))
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
             non_pending_count = len(list(filter(lambda i: i.state != ComputeInstance.PENDING, instances_flat)))
             non_terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.TERMINATED, ComputeInstance.UNKNOWN), instances_flat)))
@@ -414,7 +443,7 @@ class ComputeGroup(PolymorphicModel, HasLogger):
                     good_provider_ids = [provider.pk for provider in ProviderConfiguration.objects.exclude(pk__in=bad_provider_ids)]
 
                     new_size = self._get_best_size(good_provider_ids)
-                    self._create_compute_instances(selected_size)
+                    self._create_compute_instances(new_size)
 
                 if running_count >= self.instance_count:
                     for instance in non_running_instances:
@@ -484,8 +513,13 @@ class OperatingSystemComputeGroup(ComputeGroup):
         provider_image = provider_configuration.provider_images.get(disk_image__operating_system_images=self.image)
 
         for i in range(self.instance_count):
-            libcloud_node = provider_configuration.driver.create_node(name='%s-%d' % (self.name, i), image=provider_image.to_libcloud_image(),
-                                                                      size=selected_size.to_libcloud_size())
+            if isinstance(self.authentication_method, PasswordAuthenticationMethod):
+                libcloud_auth = NodeAuthPassword(self.authentication_method.password)
+            else:
+                libcloud_auth = NodeAuthSSHKey(self.authentication_method.key)
+
+            libcloud_node = provider_configuration.create_libcloud_node(name='%s-%d' % (self.name, i), libcloud_image=provider_image.to_libcloud_image(),
+                                                                        libcloud_size=selected_size.to_libcloud_size(), libcloud_auth=libcloud_auth)
             self._create_compute_instance_entry(provider_image, selected_size, libcloud_node)
 
 
