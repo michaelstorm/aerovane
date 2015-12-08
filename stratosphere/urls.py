@@ -1,6 +1,6 @@
 from django.conf.urls import url, include
 
-from . import views
+from . import views, aws_iam
 
 urlpatterns = [
     url(r'^$', views.index),
@@ -12,5 +12,6 @@ urlpatterns = [
     url(r'^authentication_methods/(?P<method_id>\w+)/$', views.authentication_methods),
     url(r'^settings/(?P<provider_name>\w+)/$', views.configure_provider),
     url(r'^provider/(?P<provider_name>\w+)/(?P<action>\w+)/$', views.provider_action),
+    url(r'^aws_iam$', aws_iam.initial),
     url(r'^accounts/', include('allauth.urls')),
 ]

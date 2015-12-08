@@ -113,6 +113,8 @@ LOGGING = {
 
 WSGI_APPLICATION = 'multicloud.wsgi.application'
 
+APPEND_SLASH = False
+
 
 AUTHENTICATION_BACKENDS = (
     # Needed to login by username in Django admin, regardless of `allauth`
@@ -127,7 +129,7 @@ ACCOUNT_SIGNUP_PASSWORD_VERIFICATION = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
 
-LOGIN_REDIRECT_URL = '/check_configure'
+LOGIN_REDIRECT_URL = '/check_configure/'
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_PROVIDERS = {
     'github': {

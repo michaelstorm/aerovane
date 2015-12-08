@@ -1,7 +1,6 @@
 from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
-from django.views.generic import View
 
 import base64
 import json
