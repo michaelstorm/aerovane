@@ -1,4 +1,4 @@
-{% extends "stratosphere/base.html" %}
+{% extends "stratosphere/inspinia.html" %}
 {% load staticfiles %}
 
 {% block angular-app-name %}dashboardApp{% endblock %}
@@ -29,7 +29,7 @@
         }]);
 
         dashboardApp.factory('Group', function($resource) {
-            return $resource('/compute/:id');
+            return $resource('/compute/:id/');
         });
 
         dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval',
@@ -165,162 +165,173 @@
             }
         }]);
     </script>
-
     <div class="row" ng-controller="ComputeGroupListCtrl">
-        <div class="col-lg-6">
-            {% csrf_token %}
-            <div class="panel panel-info">
-                <div class="panel-heading">
-                    Compute groups
-                </div>
-                <table class="table table-striped compute-groups-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>CPU</th>
-                            <th>Memory</th>
-                            <th>Instances</th>
-                            <th>Instance states</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr ng-repeat="group in groups track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
-                            <td class="group-name">
-                                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
-                                <span>{$ group.name $} <small class="state-name"></small></span>
-                            </td>
-                            <td>{$ group.cpu $}</td>
-                            <td>{$ group.memory $} MB</td>
-                            <td>{$ group.instance_count $}</td>
-                            <td class="group-providers-graph-cell">
-                                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
-                            </td>
-                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="panel panel-primary">
-                <div class="panel-heading">Add Compute Group</div>
-                <div class="panel-body">
-                    <form class="form">
-                        {% csrf_token %}
-                        <div class="row">
-                            <div class="col-lg-3">
-                                <div class="form-group">
-                                    <label>Name</label>
-                                    <input type="text" class="form-control" name="name" ng-model="group.name">
-                                </div>
+        <div class="col-lg-12">
+            <div class="wrapper wrapper-content">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div class="ibox float-e-margins">
+                            <div class="ibox-title">
+                                <h5>Compute groups</h5>
                             </div>
-                            <div class="col-lg-3">
-                                <div class="form-group">
-                                    <label>CPU</label>
-                                    <input id="cpu-slider" name="cpu" type="text" data-slider-min="1" data-slider-max="16" data-slider-step="1" data-slider-value="1" ng-init="group.cpu='1'" ng-model="group.cpu">
-                                    <div id="cpu-slider-val">1</div>
-                                </div>
-                            </div>
-                            <div class="col-lg-3">
-                                <div class="form-group">
-                                    <label>Memory</label>
-                                    <input id="memory-slider" name="memory" type="text" data-slider-min="512" data-slider-max="8192" data-slider-step="512" data-slider-value="1024" ng-init="group.memory='1'" ng-model="group.memory">
-                                    <div><span id="memory-slider-val">1024</span> MB</div>
-                                </div>
-                            </div>
-                            <div class="col-lg-3">
-                                <div class="form-group">
-                                    <label>Instances</label>
-                                    <input id="instance-count-slider" name="instance_count" type="text" data-slider-min="1" data-slider-max="16" data-slider-step="1" data-slider-value="1" ng-init="group.instance_count='1'" ng-model="group.instance_count">
-                                    <div id="instance-count-slider-val">1</div>
-                                </div>
+                            <div class="ibox-content">
+                                <table class="table table-striped compute-groups-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>CPU</th>
+                                            <th>Memory</th>
+                                            <th>Instances</th>
+                                            <th>Instance states</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr ng-repeat="group in groups track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+                                            <td class="group-name">
+                                                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
+                                                <span>{$ group.name $} <small class="state-name"></small></span>
+                                            </td>
+                                            <td>{$ group.cpu $}</td>
+                                            <td>{$ group.memory $} MB</td>
+                                            <td>{$ group.instance_count $}</td>
+                                            <td class="group-providers-graph-cell">
+                                                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
+                                            </td>
+                                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-lg-3">
-                                <div class="form-group">
-                                    <label>Authentication method</label>
-                                    <select class="fancy-select" ng-model="group.authentication_method" name="authentication_method">
-                                        <option></option>
-                                        {% for method in authentication_methods %}
-                                            <option value="{{ method.pk }}">{{ method.pretty_type }}: {{ method.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="ibox float-e-margins">
+                            <div class="ibox-title">
+                                <h5>Add compute group</h5>
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-lg-3">
-                                <div class="form-group">
-                                    <label>Deployment type</label>
-                                    <div class="radio radio-primary">
-                                        <input type="radio" name="deployment_type" ng-model="group.deployment_type" id="deployment_type_os" value="os">
-                                        <label for="deployment_type_os">Operating system</label>
-                                    </div>
-                                    <div class="radio radio-primary">
-                                        <input type="radio" name="deployment_type" ng-model="group.deployment_type" id="deployment_type_image" value="image">
-                                        <label for="deployment_type_image">Disk image</label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-3">
-                                <div class="form-group" id="select-os-container">
-                                    <label>Operating system</label>
-                                    <select class="fancy-select" ng-model="group.operating_system" name="operating_system">
-                                        <option></option>
-                                        {% for image in os_images_map %}
-                                            <option value="{{ image.pk }}">{{ image.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="form-group" id="select-image-container">
-                                    <label>Disk image</label>
-                                    <select class="fancy-select">
-                                        <option></option>
-                                        <option value="ubuntu_14">Ubuntu 14.04 (ami-84bba3c1)</option>
-                                        <option value="ubuntu_12">Ubuntu 12.04 (ami-456ad56c)</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-lg-12">
-                                <label>Providers</label>
-                            </div>
-                        </div>
-                        <div id="providers-list">
-                            <div class="row">
-                                <div class="form-group">
-                                    {% for provider in possible_providers %}
-                                        <div class="col-lg-3 text-center provider
-                                            {% if not provider.available %}
-                                                not-available
-                                            {% endif %}
-                                        " id="provider_choice_{{ provider.name }}">
-                                            <div class="checkbox checkbox-success">
-                                                <input type="checkbox" ng-model="group.provider_choice_{{ provider.name }}" name="provider_choice_{{ provider.name }}"><label></label>
-                                            </div>
-                                            <div class="click-area" style="height: 100%; position: relative;">
-                                                {% if not provider.available %}
-                                                    <div class="coming-soon">COMING SOON</div>
-                                                {% endif %}
-
-                                                {% with 'stratosphere/'|add:provider.name|add:'.png' as image_static %}
-                                                    <img src="{% static image_static %}" style="margin-top: {{ provider.image_top_margin }};">
-                                                {% endwith %}
+                            <div class="ibox-content">
+                                <form class="form">
+                                    {% csrf_token %}
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <div class="form-group">
+                                                <label>Name</label>
+                                                <input type="text" class="form-control" name="name" ng-model="group.name">
                                             </div>
                                         </div>
-                                    {% endfor %}
-                                </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <div class="form-group">
+                                                <label>CPU</label>
+                                                <input id="cpu-slider" name="cpu" ng-model="group.cpu">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <div class="form-group">
+                                                <label>Memory</label>
+                                                <input id="memory-slider" name="memory" ng-model="group.memory">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <div class="form-group">
+                                                <label>Instances</label>
+                                                <input id="instance-count-slider" name="instance_count" ng-model="group.instance_count">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-4">
+                                            <div class="form-group">
+                                                <label>Authentication method</label>
+                                                <select class="fancy-select" ng-model="group.authentication_method" name="authentication_method">
+                                                    <option></option>
+                                                    {% for method in authentication_methods %}
+                                                        <option value="{{ method.pk }}">{{ method.pretty_type }}: {{ method.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-3">
+                                            <div class="form-group">
+                                                <label>Deployment type</label>
+                                                <div class="radio radio-primary">
+                                                    <input type="radio" name="deployment_type" ng-model="group.deployment_type" id="deployment_type_os" value="os">
+                                                    <label for="deployment_type_os">Operating system</label>
+                                                </div>
+                                                <div class="radio radio-primary">
+                                                    <input type="radio" name="deployment_type" ng-model="group.deployment_type" id="deployment_type_image" value="image">
+                                                    <label for="deployment_type_image">Disk image</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-3">
+                                            <div class="form-group" id="select-os-container">
+                                                <label>Operating system</label>
+                                                <select class="fancy-select" ng-model="group.operating_system" name="operating_system">
+                                                    <option></option>
+                                                    {% for image in os_images_map %}
+                                                        <option value="{{ image.pk }}">{{ image.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="form-group" id="select-image-container">
+                                                <label>Disk image</label>
+                                                <select class="fancy-select" name="disk_image">
+                                                    <option></option>
+                                                    <option value="ubuntu_14">Ubuntu 14.04 (ami-84bba3c1)</option>
+                                                    <option value="ubuntu_12">Ubuntu 12.04 (ami-456ad56c)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <label>Providers</label>
+                                        </div>
+                                    </div>
+                                    <div id="providers-list">
+                                        <div class="row">
+                                            <div class="form-group">
+                                                {% for provider in possible_providers %}
+                                                    <div class="col-lg-3 text-center provider
+                                                        {% if not provider.available %}
+                                                            not-available
+                                                        {% endif %}
+                                                    " id="provider_choice_{{ provider.name }}">
+                                                        <div class="checkbox checkbox-success">
+                                                            <input type="checkbox" ng-model="group.provider_choice_{{ provider.name }}" name="provider_choice_{{ provider.name }}"><label></label>
+                                                        </div>
+                                                        <div class="click-area" style="height: 100%; position: relative;">
+                                                            {% if not provider.available %}
+                                                                <div class="coming-soon">COMING SOON</div>
+                                                            {% endif %}
+
+                                                            {% with 'stratosphere/'|add:provider.name|add:'.png' as image_static %}
+                                                                <img src="{% static image_static %}" style="margin-top: {{ provider.image_top_margin }};">
+                                                            {% endwith %}
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-4 col-lg-offset-4">
+                                            <button type="button" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 20px;" ng-click="update(group)" id="add-group-button" disabled>Add</button>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
                         </div>
-                        <div class="row">
-                            <div class="col-lg-4 col-lg-offset-4">
-                                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 20px;" ng-click="update(group)" id="add-group-button" disabled>Add</button>
-                            </div>
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -328,12 +339,10 @@
 {% endblock %}
 
 {% block footer %}
-    <footer>
-        {% for provider in providers %}
-            <button class="btn btn-success restore-button" provider="{{ provider.provider_name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
-            <button class="btn btn-warning fail-button" provider="{{ provider.provider_name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
-        {% endfor %}
-    </footer>
+    {% for provider in providers %}
+        <button class="btn btn-success restore-button" provider="{{ provider.provider_name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
+        <button class="btn btn-warning fail-button" provider="{{ provider.provider_name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
+    {% endfor %}
 {% endblock %}
 
 {% block body_script %}
@@ -375,7 +384,6 @@
                 var supported_providers = os_supported_providers[selected_os];
                 supported_providers.forEach(function(provider_name) {
                     var provider = $('#provider_choice_' + provider_name);
-                    console.log(provider_name, provider);
                     if (!provider.hasClass('not-available'))
                         provider.removeClass('disabled');
                 });
@@ -399,6 +407,7 @@
                 $('button.fail-button[provider="{{ provider.provider_name }}"]').show();
             {% endif %}
         {% endfor %}
+
 
         var handleInputChange = function() {
             var name = $('input[name="name"]').val();
@@ -438,27 +447,27 @@
             });
         });
 
-        var createSlider = function(inputElement, valueElement) {
-            inputElement.slider();
-            inputElement.on("slide", function(slideEvt) {
-                valueElement.text(slideEvt.value);
-                inputElement.val(slideEvt.value);
-                angular.element(inputElement).triggerHandler('input');
+        var createslider = function(inputElement, min, max, step, postfix) {
+            inputElement.ionRangeSlider({
+                min: min,
+                max: max,
+                step: step,
+                postfix: postfix,
+                hasGrid: false,
+                onChange: function(slideEvt) {
+                    angular.element(inputElement).triggerHandler('input');
+                },
             });
+
+            angular.element(inputElement).triggerHandler('input');
         }
 
-        createSlider($('#cpu-slider'), $('#cpu-slider-val'));
-        createSlider($('#memory-slider'), $('#memory-val'));
-        createSlider($('#instance-count-slider'), $('#instance-count-val'));
+        createslider($('#cpu-slider'), 1, 10, 1, " cores");
+        createslider($('#memory-slider'), 512, 8192, 512, "MB");
+        createslider($('#instance-count-slider'), 1, 16, 1, " instances");
 
-        $("#memory-slider").slider();
-        $("#memory-slider").on("slide", function(slideEvt) {
-            $("#memory-slider-val").text(slideEvt.value);
-        });
-
-        $("#instance-count-slider").slider();
-        $("#instance-count-slider").on("slide", function(slideEvt) {
-            $("#instance-count-slider-val").text(slideEvt.value);
+        $('select[name="authentication_method"], select[name="operating_system"], select[name="disk_image"]').on('change', function() {
+            angular.element($(this)).triggerHandler('change');
         });
 
         $('input[name="deployment_type"]').change(function() {
@@ -509,6 +518,10 @@
 {% endblock %}
 
 {% block style %}
+    .footer button {
+        margin-right: 10px;
+    }
+
     .flot-tick-label.tickLabel > * {
         display: inline-block;
         vertical-align: middle;
@@ -543,16 +556,6 @@
 
     .state-name {
         font-style: italic;
-    }
-
-    footer {
-        position: fixed;
-        bottom: 0;
-        width: 100%;
-        padding: 0 20px;
-        line-height: 60px;
-        background-color: #F5F5F5;
-        z-index: 5000;
     }
 
     .slider-selection {
@@ -614,13 +617,14 @@
     #providers-list .provider .coming-soon {
         position: absolute;
         top: 35px;
-        left: 20px;
+        left: 5px;
         color: red;
         font-size: 1.5em;
         font-weight: 700;
         background-color: white;
         padding: 0 5px;
         z-index: 5;
+        white-space: nowrap;
     }
 
     #providers-list .provider.disabled,

@@ -47,7 +47,7 @@ class UserConfiguration(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='configuration')
 
     def avatar_url(self):
-        return 'http://www.gravatar.com/avatar/%s?s=20' % hashlib.md5(self.user.email.strip().lower().encode('utf-8')).hexdigest() 
+        return 'http://www.gravatar.com/avatar/%s?s=48' % hashlib.md5(self.user.email.strip().lower().encode('utf-8')).hexdigest() 
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
@@ -139,6 +139,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
                                        **extra_args)
 
+    @retry(OperationalError)
     def update_instance_statuses(self):
         instances = ComputeInstance.objects.filter(provider_image__provider_configuration=self)
 

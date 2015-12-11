@@ -92,6 +92,7 @@ def index(request):
         'providers': providers,
         'possible_providers': possible_providers,
         'authentication_methods': AuthenticationMethod.objects.all(),
+        'left_nav_section': 'dashboard',
     }
     return render(request, 'stratosphere/index.html', context=context)
 
@@ -100,6 +101,19 @@ def _compute_group_to_json(group):
     return {'id': group.id, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
             'instance_count': group.instance_count, 'providers': group.provider_states(),
             'state': group.state}
+
+
+@basicauth
+def authentication(request):
+    context = {
+        'key_methods': KeyAuthenticationMethod.objects.all(),
+        'password_methods': PasswordAuthenticationMethod.objects.all(),
+        'add_key_method': KeyAuthenticationMethodForm(),
+        'add_password_method': PasswordAuthenticationMethodForm(),
+        'left_nav_section': 'authentication',
+    }
+
+    return render(request, 'stratosphere/authentication.html', context=context)
 
 
 @basicauth
@@ -118,7 +132,7 @@ def authentication_methods(request, method_id=None):
     elif request.method == 'DELETE':
         AuthenticationMethod.objects.filter(id=method_id).delete()
 
-    return redirect('/settings')
+    return redirect('/providers/')
 
 @basicauth
 def compute(request, group_id=None):
@@ -171,7 +185,7 @@ def compute(request, group_id=None):
 def check_configure(request):
     provider_configurations = request.user.configuration.provider_configurations
     if len(provider_configurations.all()) == 0:
-        return redirect('/settings')
+        return redirect('/providers/')
     else:
         return redirect('/')
 
@@ -183,17 +197,14 @@ provider_configuration_form_classes = {
 
 
 @basicauth
-def settings(request):
+def providers(request):
     provider_configurations = request.user.configuration.provider_configurations
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                for key, form_class in provider_configuration_form_classes.items()}
 
-    context['key_methods'] = KeyAuthenticationMethod.objects.all()
-    context['password_methods'] = PasswordAuthenticationMethod.objects.all()
-    context['add_key_method'] = KeyAuthenticationMethodForm()
-    context['add_password_method'] = PasswordAuthenticationMethodForm()
+    context['left_nav_section'] = 'providers'
 
-    return render(request, 'stratosphere/settings.html', context=context)
+    return render(request, 'stratosphere/providers.html', context=context)
 
 
 @basicauth
@@ -210,7 +221,7 @@ def configure_provider(request, provider_name):
         else:
             context[key] = form_class()
 
-    return render(request, 'stratosphere/settings.html', context=context)
+    return render(request, 'stratosphere/providers.html', context=context)
 
 
 @basicauth

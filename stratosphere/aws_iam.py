@@ -28,7 +28,6 @@ def to_xml(node, namespace="https://iam.amazonaws.com/doc/2010-05-08/"):
 
 @csrf_exempt
 def initial(request):
-    authorization_header = request.META['HTTP_AUTHORIZATION']
     action = request.POST['Action']
 
     print('XXX', request.method, action, request.POST)
