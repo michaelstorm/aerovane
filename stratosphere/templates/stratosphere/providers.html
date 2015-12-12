@@ -9,38 +9,34 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-12">
-            <div class="panel-body">
-                <div class="row">
-                    <div class="col-lg-4">
-                        <div class="panel panel-primary">
-                            <div class="panel-heading">
-                                <div class="panel-title"><img src="{% static "/stratosphere/aws_icon.png" %}"><span>AWS</span></div>
-                            </div>
-                            <div class="panel-body">
-                                <form action="/settings/aws/" method="post">
-                                    {% csrf_token %}
-                                    {% bootstrap_form aws %}
-                                    <input type="submit" value="Save" class="btn btn-primary" >
-                                </form>
-                            </div>
-                        </div>
+    <div class="wrapper wrapper-content">
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="panel panel-primary">
+                    <div class="panel-heading">
+                        <div class="panel-title"><img src="{% static "/stratosphere/aws_icon.png" %}"><span>AWS</span></div>
                     </div>
+                    <div class="panel-body">
+                        <form action="/settings/aws/" method="post">
+                            {% csrf_token %}
+                            {% bootstrap_form aws %}
+                            <input type="submit" value="Save" class="btn btn-primary" >
+                        </form>
+                    </div>
+                </div>
+            </div>
 
-                    <div class="col-lg-4">
-                        <div class="panel panel-primary">
-                            <div class="panel-heading">
-                                <div class="panel-title"><img src="{% static "/stratosphere/linode_icon.png" %}"><span>Linode</span></div>
-                            </div>
-                            <div class="panel-body">
-                                <form action="/settings/linode/" method="post">
-                                    {% csrf_token %}
-                                    {% bootstrap_form linode %}
-                                    <input type="submit" value="Save" class="btn btn-primary" >
-                                </form>
-                            </div>
-                        </div>
+            <div class="col-lg-4">
+                <div class="panel panel-primary">
+                    <div class="panel-heading">
+                        <div class="panel-title"><img src="{% static "/stratosphere/linode_icon.png" %}"><span>Linode</span></div>
+                    </div>
+                    <div class="panel-body">
+                        <form action="/settings/linode/" method="post">
+                            {% csrf_token %}
+                            {% bootstrap_form linode %}
+                            <input type="submit" value="Save" class="btn btn-primary" >
+                        </form>
                     </div>
                 </div>
             </div>

@@ -36,7 +36,26 @@ def robots(request):
 
 
 @basicauth
-def index(request):
+def images(request):
+    return render(request, 'stratosphere/images.html', context={'left_nav_section': 'images'})
+
+
+@basicauth
+def compute_groups(request):
+    if not request.user.is_authenticated():
+        return redirect('/accounts/login/')
+
+    context = {
+        'providers': ProviderConfiguration.objects.all(),
+        'left_nav_section': 'dashboard',
+        'left_sub_nav_section': 'view',
+    }
+
+    return render(request, 'stratosphere/compute_groups.html', context=context)
+
+
+@basicauth
+def add_compute_group(request):
     if not request.user.is_authenticated():
         return redirect('/accounts/login/')
 
@@ -47,54 +66,45 @@ def index(request):
                                         provider_images__disk_image__operating_system_images=os_image)
                      for os_image in operating_system_images}
 
-    providers = ProviderConfiguration.objects.all()
-
     possible_providers = [
         {
             'name': 'aws',
             'available': True,
-            'image_top_margin': '25px',
         },
         {
             'name': 'linode',
             'available': True,
-            'image_top_margin': '12px',
         },
         {
             'name': 'azure',
             'available': False,
-            'image_top_margin': '15px',
         },
         {
             'name': 'digitalocean',
             'available': False,
-            'image_top_margin': '0',
         },
         {
             'name': 'softlayer',
             'available': False,
-            'image_top_margin': '0',
         },
         {
             'name': 'cloudsigma',
             'available': False,
-            'image_top_margin': '0',
         },
         {
             'name': 'google',
             'available': False,
-            'image_top_margin': '0',
         },
     ]
 
     context = {
         'os_images_map': os_images_map,
-        'providers': providers,
         'possible_providers': possible_providers,
         'authentication_methods': AuthenticationMethod.objects.all(),
         'left_nav_section': 'dashboard',
+        'left_sub_nav_section': 'add',
     }
-    return render(request, 'stratosphere/index.html', context=context)
+    return render(request, 'stratosphere/add_compute_group.html', context=context)
 
 
 def _compute_group_to_json(group):
@@ -133,6 +143,7 @@ def authentication_methods(request, method_id=None):
         AuthenticationMethod.objects.filter(id=method_id).delete()
 
     return redirect('/providers/')
+
 
 @basicauth
 def compute(request, group_id=None):

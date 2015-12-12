@@ -4,208 +4,11 @@
 {% block angular-app-name %}dashboardApp{% endblock %}
 
 {% block content %}
-    <script type="text/javascript" language="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.js"></script>
-    <script type="text/javascript" language="javascript" src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.stack.js"></script>
-    <script type="text/javascript" language="javascript" src="/static/stratosphere/jquery.flot.tooltip.min.js"></script>
-
-    <script type="text/javascript">
-        String.prototype.toProperCase = function () {
-            return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
-        };
-
-        var dashboardApp = angular.module('dashboardApp', ['ngResource']).config(function($interpolateProvider) {
-            $interpolateProvider.startSymbol('{$');
-            $interpolateProvider.endSymbol('$}');
-        });
-
-        dashboardApp.config(['$resourceProvider', function($resourceProvider) {
-            // Don't strip trailing slashes from calculated URLs
-            $resourceProvider.defaults.stripTrailingSlashes = false;
-        }]);
-
-        dashboardApp.config(['$httpProvider', function($httpProvider) {
-            $httpProvider.defaults.xsrfCookieName = 'csrftoken';
-            $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
-        }]);
-
-        dashboardApp.factory('Group', function($resource) {
-            return $resource('/compute/:id/');
-        });
-
-        dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval',
-                                                         function ($scope, Group, $timeout, $interval) {
-            Group.query(function(data) {
-                $scope.groups = data;
-            });
-
-            $interval(function() {
-                Group.query(function(data) {
-                    $scope.groups = data;
-                });
-            }, 1000);
-
-            $scope.deleteEntry = function(id) {
-                Group.delete({id: id}, function() {
-                    for(var i = $scope.groups.length - 1; i >= 0; i--) {
-                        if ($scope.groups[i].id == id) {
-                            $scope.groups[i].state = 'TERMINATED';
-                        }
-                    }
-                });
-            }
-
-            $scope.$watch('groups', function(newValue, oldValue) {
-                $timeout(function() {
-                    $('.group button').removeAttr('disabled');
-                    $('.group-TERMINATED button').attr('disabled', true);
-
-                    if (typeof newValue !== 'undefined') {
-                        for (var i = 0; i < newValue.length; i++) {
-                            var series = [{
-                                data: [],
-                                label: "Running",
-                                lineWidth: 0,
-                                color: "#5cb85c",
-                                fill: 1,
-                            },
-                            {
-                                data: [],
-                                label: "Pending",
-                                color: "#f0ad4e",
-                                lineWidth: 0,
-                                fill: 1,
-                            },
-                            {
-                                data: [],
-                                label: "Terminated",
-                                color: "#d9534f",
-                                lineWidth: 0,
-                                fill: 1,
-                            }];
-
-                            var yaxis_ticks = [];
-
-                            var j = 0;
-                            var providers = newValue[i].providers;
-                            var provider_names = Object.keys(providers);
-                            provider_names.sort();
-                            provider_names.forEach(function (provider_name) {
-                                var provider = providers[provider_name];
-
-                                yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="/static/stratosphere/' + provider_name + '_icon.png">']);
-
-                                series[0].data.push([provider.running, j]);
-                                series[1].data.push([provider.pending, j]);
-                                series[2].data.push([provider.terminated, j]);
-                                j++;
-                            });
-
-                            var options = {
-                                xaxis: {
-                                    tickLength: 0,
-                                    tickFormatter: function() { return ''; },
-                                },
-                                yaxis: {
-                                    ticks: yaxis_ticks,
-                                    tickLength: 0,
-                                },
-                                series: {
-                                    bars: {
-                                        show: true,
-                                        barWidth: .7,
-                                        align: "center",
-                                        horizontal: true,
-                                        lineWidth: 0,
-                                        fill: 1,
-                                    },
-                                    stack: true,
-                                },
-                                legend: {
-                                    show: false,
-                                },
-                                grid: {
-                                    borderWidth: 0,
-                                    hoverable: true,
-                                },
-                                tooltip: {
-                                    show: true,
-                                    content: function(label, x, y, flotItem) {
-                                        return label + ': ' + x;
-                                    },
-                                },
-                            };
-
-                            var placeholder = $('tr[group-id="' + newValue[i].id + '"] .graph-placeholder');
-                            placeholder.plot(series, options);
-                        }
-                    }
-                });
-            }, true);
-
-            $scope.update = function(group) {
-                console.log(group);
-                {% for provider in possible_providers %}
-                    if (!$('input[name="provider_choice_{{ provider.name }}"]').is(':checked'))
-                        delete group.provider_choice_{{ provider.name }};
-                {% endfor %}
-                console.log(group);
-                $scope.group = new Group(angular.copy(group));
-                Group.save($scope.group);
-            }
-        }]);
-
-        dashboardApp.directive('avGroup', ['$timeout', '$compile', function($timeout, $compile) {
-            return {
-                link: function($scope, element) {
-                    var name_cell = $(element).find('.group-name');
-                    var state_name = name_cell.find('.state-name');
-                    state_name.text('({$ group.state.toProperCase() $})');
-                    name_cell.html($compile(name_cell.html())($scope));
-                }
-            }
-        }]);
-    </script>
     <div class="row" ng-controller="ComputeGroupListCtrl">
         <div class="col-lg-12">
             <div class="wrapper wrapper-content">
                 <div class="row">
-                    <div class="col-lg-6">
-                        <div class="ibox float-e-margins">
-                            <div class="ibox-title">
-                                <h5>Compute groups</h5>
-                            </div>
-                            <div class="ibox-content">
-                                <table class="table table-striped compute-groups-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>CPU</th>
-                                            <th>Memory</th>
-                                            <th>Instances</th>
-                                            <th>Instance states</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr ng-repeat="group in groups track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
-                                            <td class="group-name">
-                                                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
-                                                <span>{$ group.name $} <small class="state-name"></small></span>
-                                            </td>
-                                            <td>{$ group.cpu $}</td>
-                                            <td>{$ group.memory $} MB</td>
-                                            <td>{$ group.instance_count $}</td>
-                                            <td class="group-providers-graph-cell">
-                                                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
-                                            </td>
-                                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6">
+                    <div class="col-lg-12">
                         <div class="ibox float-e-margins">
                             <div class="ibox-title">
                                 <h5>Add compute group</h5>
@@ -315,7 +118,7 @@
                                                             {% endif %}
 
                                                             {% with 'stratosphere/'|add:provider.name|add:'.png' as image_static %}
-                                                                <img src="{% static image_static %}" style="margin-top: {{ provider.image_top_margin }};">
+                                                                <img src="{% static image_static %}">
                                                             {% endwith %}
                                                         </div>
                                                     </div>
@@ -324,7 +127,7 @@
                                         </div>
                                     </div>
                                     <div class="row">
-                                        <div class="col-lg-4 col-lg-offset-4">
+                                        <div class="col-lg-2 col-lg-offset-5">
                                             <button type="button" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 20px;" ng-click="update(group)" id="add-group-button" disabled>Add</button>
                                         </div>
                                     </div>
@@ -336,13 +139,6 @@
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block footer %}
-    {% for provider in providers %}
-        <button class="btn btn-success restore-button" provider="{{ provider.provider_name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
-        <button class="btn btn-warning fail-button" provider="{{ provider.provider_name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
-    {% endfor %}
 {% endblock %}
 
 {% block body_script %}
@@ -400,15 +196,6 @@
     }
 
     $(document).ready(function() {
-        {% for provider in providers %}
-            {% if provider.simulated_failure %}
-                $('button.restore-button[provider="{{ provider.provider_name }}"]').show();
-            {% else %}
-                $('button.fail-button[provider="{{ provider.provider_name }}"]').show();
-            {% endif %}
-        {% endfor %}
-
-
         var handleInputChange = function() {
             var name = $('input[name="name"]').val();
             var deployment_type = $('input[name="deployment_type"]:checked').val();
@@ -431,22 +218,6 @@
 
         $('input, select').on('input change', handleInputChange);
 
-        $('.restore-button').click(function() {
-            var button = $(this);
-            $.post('/provider/' + $(this).attr('provider') + '/restore/').done(function() {
-                button.hide();
-                $('button.fail-button[provider="' + button.attr('provider') + '"]').show();
-            });
-        });
-
-        $('.fail-button').click(function() {
-            var button = $(this);
-            $.post('/provider/' + $(this).attr('provider') + '/fail/').done(function() {
-                button.hide();
-                $('button.restore-button[provider="' + button.attr('provider') + '"]').show();
-            });
-        });
-
         var createslider = function(inputElement, min, max, step, postfix) {
             inputElement.ionRangeSlider({
                 min: min,
@@ -462,7 +233,7 @@
             angular.element(inputElement).triggerHandler('input');
         }
 
-        createslider($('#cpu-slider'), 1, 10, 1, " cores");
+        createslider($('#cpu-slider'), 1, 16, 1, " cores");
         createslider($('#memory-slider'), 512, 8192, 512, "MB");
         createslider($('#instance-count-slider'), 1, 16, 1, " instances");
 
@@ -518,54 +289,6 @@
 {% endblock %}
 
 {% block style %}
-    .footer button {
-        margin-right: 10px;
-    }
-
-    .flot-tick-label.tickLabel > * {
-        display: inline-block;
-        vertical-align: middle;
-    }
-
-    .flot-tick-label.tickLabel img {
-        height: 12px;
-        margin-left: 3px;
-        margin-right: 12px;
-    }
-
-    .flotTip {
-        border: 1px solid #999 !important;
-
-        -webkit-box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
-        -moz-box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
-        box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
-    }
-
-    .compute-groups-table th,
-    .compute-groups-table td {
-        white-space: nowrap;
-    }
-
-    .compute-groups-table .group td {
-        vertical-align: middle;
-    }
-
-    .group-providers-graph-cell {
-        width: 99%;
-    }
-
-    .state-name {
-        font-style: italic;
-    }
-
-    .slider-selection {
-        background: #BABABA;
-    }
-    .slider-track-high {
-        background: white;
-        border: 1px solid #BABABA;
-    }
-
     .provider-options {
         display: none;
     }
@@ -616,10 +339,10 @@
 
     #providers-list .provider .coming-soon {
         position: absolute;
-        top: 35px;
-        left: 5px;
+        top: 32%;
+        left: 20%;
         color: red;
-        font-size: 1.5em;
+        font-size: 2em;
         font-weight: 700;
         background-color: white;
         padding: 0 5px;

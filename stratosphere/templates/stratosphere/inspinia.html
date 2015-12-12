@@ -33,9 +33,166 @@
         <script src="{% static "stratosphere/angular.js" %}"></script>
         <script src="{% static "stratosphere/angular-resource.js" %}"></script>
 
+        <script type="text/javascript">
+            String.prototype.toProperCase = function () {
+                return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+            };
+
+            var dashboardApp = angular.module('dashboardApp', ['ngResource']).config(function($interpolateProvider) {
+                $interpolateProvider.startSymbol('{$');
+                $interpolateProvider.endSymbol('$}');
+            });
+
+            dashboardApp.config(['$resourceProvider', function($resourceProvider) {
+                // Don't strip trailing slashes from calculated URLs
+                $resourceProvider.defaults.stripTrailingSlashes = false;
+            }]);
+
+            dashboardApp.config(['$httpProvider', function($httpProvider) {
+                $httpProvider.defaults.xsrfCookieName = 'csrftoken';
+                $httpProvider.defaults.xsrfHeaderName = 'X-CSRFToken';
+            }]);
+
+            dashboardApp.factory('Group', function($resource) {
+                return $resource('/compute/:id/');
+            });
+
+            dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval',
+                                                             function ($scope, Group, $timeout, $interval) {
+                Group.query(function(data) {
+                    $scope.groups = data;
+                });
+
+                $interval(function() {
+                    Group.query(function(data) {
+                        $scope.groups = data;
+                    });
+                }, 1000);
+
+                $scope.deleteEntry = function(id) {
+                    Group.delete({id: id}, function() {
+                        for(var i = $scope.groups.length - 1; i >= 0; i--) {
+                            if ($scope.groups[i].id == id) {
+                                $scope.groups[i].state = 'TERMINATED';
+                            }
+                        }
+                    });
+                }
+
+                $scope.$watch('groups', function(newValue, oldValue) {
+                    $timeout(function() {
+                        $('.group button').removeAttr('disabled');
+                        $('.group-TERMINATED button').attr('disabled', true);
+
+                        if (typeof newValue !== 'undefined') {
+                            for (var i = 0; i < newValue.length; i++) {
+                                var series = [{
+                                    data: [],
+                                    label: "Running",
+                                    lineWidth: 0,
+                                    color: "#5cb85c",
+                                    fill: 1,
+                                },
+                                {
+                                    data: [],
+                                    label: "Pending",
+                                    color: "#f0ad4e",
+                                    lineWidth: 0,
+                                    fill: 1,
+                                },
+                                {
+                                    data: [],
+                                    label: "Terminated",
+                                    color: "#d9534f",
+                                    lineWidth: 0,
+                                    fill: 1,
+                                }];
+
+                                var yaxis_ticks = [];
+
+                                var j = 0;
+                                var providers = newValue[i].providers;
+                                var provider_names = Object.keys(providers);
+                                provider_names.sort();
+                                provider_names.forEach(function (provider_name) {
+                                    var provider = providers[provider_name];
+
+                                    yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="/static/stratosphere/' + provider_name + '_icon.png">']);
+
+                                    series[0].data.push([provider.running, j]);
+                                    series[1].data.push([provider.pending, j]);
+                                    series[2].data.push([provider.terminated, j]);
+                                    j++;
+                                });
+
+                                var options = {
+                                    xaxis: {
+                                        tickLength: 0,
+                                        tickFormatter: function() { return ''; },
+                                    },
+                                    yaxis: {
+                                        ticks: yaxis_ticks,
+                                        tickLength: 0,
+                                    },
+                                    series: {
+                                        bars: {
+                                            show: true,
+                                            barWidth: .7,
+                                            align: "center",
+                                            horizontal: true,
+                                            lineWidth: 0,
+                                            fill: 1,
+                                        },
+                                        stack: true,
+                                    },
+                                    legend: {
+                                        show: false,
+                                    },
+                                    grid: {
+                                        borderWidth: 0,
+                                        hoverable: true,
+                                    },
+                                    tooltip: {
+                                        show: true,
+                                        content: function(label, x, y, flotItem) {
+                                            return label + ': ' + x;
+                                        },
+                                    },
+                                };
+
+                                var placeholder = $('tr[group-id="' + newValue[i].id + '"] .graph-placeholder');
+                                placeholder.plot(series, options);
+                            }
+                        }
+                    });
+                }, true);
+
+                $scope.update = function(group) {
+                    {% for provider in possible_providers %}
+                        if (!$('input[name="provider_choice_{{ provider.name }}"]').is(':checked'))
+                            delete group.provider_choice_{{ provider.name }};
+                    {% endfor %}
+
+                    $scope.group = new Group(angular.copy(group));
+                    Group.save($scope.group);
+                }
+            }]);
+
+            dashboardApp.directive('avGroup', ['$timeout', '$compile', function($timeout, $compile) {
+                return {
+                    link: function($scope, element) {
+                        var name_cell = $(element).find('.group-name');
+                        var state_name = name_cell.find('.state-name');
+                        state_name.text('({$ group.state.toProperCase() $})');
+                        name_cell.html($compile(name_cell.html())($scope));
+                    }
+                }
+            }]);
+        </script>
+
         <style>
-          {% block style %}
-          {% endblock %}
+            {% block style %}
+            {% endblock %}
         </style>
     </head>
 
@@ -66,7 +223,19 @@
                                 class="active"
                             {% endif %}
                         >
-                            <a href="/"><i class="fa fa-th-large"></i> <span class="nav-label">Dashboard</span></a>
+                            <a href="index.html"><i class="fa fa-cubes"></i> <span class="nav-label">Compute groups</span> <span class="fa arrow"></span></a>
+                            <ul class="nav nav-second-level collapse">
+                                <li
+                                    {% if left_sub_nav_section == "view" %}
+                                        class="active"
+                                    {% endif %}
+                                ><a href="/compute_groups/"><i class="fa fa-table"></i> View</a></li>
+                                <li
+                                    {% if left_sub_nav_section == "add" %}
+                                        class="active"
+                                    {% endif %}
+                                ><a href="/compute_groups/add/"><i class="fa fa-plus"></i> Add</a></li>
+                            </ul>
                         </li>
                         <li
                             {% if left_nav_section == "providers" %}
@@ -82,6 +251,13 @@
                         >
                             <a href="/authentication/"><i class="fa fa-key"></i> <span class="nav-label">Authentication</span></a>
                         </li>
+                        <li
+                            {% if left_nav_section == "images" %}
+                                class="active"
+                            {% endif %}
+                        >
+                            <a href="/images/"><i class="fa fa-object-group"></i> <span class="nav-label">Images</span></a>
+                        </li>
                     </ul>
 
                 </div>
@@ -92,17 +268,18 @@
                     <nav class="navbar navbar-static-top" role="navigation" style="margin-bottom: 0">
                         <div class="navbar-header">
                             <a class="navbar-minimalize minimalize-styl-2 btn btn-primary " href="#"><i class="fa fa-bars"></i> </a>
-                            <form role="search" class="navbar-form-custom" action="search_results.html">
+                            <a href="/" class="navbar-brand" style="padding: 18px 15px 15px 15px;">Aerovane</a>
+                            <!--<form role="search" class="navbar-form-custom" action="search_results.html">
                                 <div class="form-group">
                                     <input type="text" placeholder="Search for something..." class="form-control" name="top-search" id="top-search">
                                 </div>
-                            </form>
+                            </form>-->
                         </div>
                         <ul class="nav navbar-top-links navbar-right">
                             <li>
                                 <span class="m-r-sm text-muted welcome-message"></span>
                             </li>
-                            <li class="dropdown">
+                            <!--<li class="dropdown">
                                 <a class="dropdown-toggle count-info" data-toggle="dropdown" href="#">
                                     <i class="fa fa-envelope"></i>  <span class="label label-warning">16</span>
                                 </a>
@@ -116,32 +293,6 @@
                                                 <small class="pull-right">46h ago</small>
                                                 <strong>Mike Loreipsum</strong> started following <strong>Monica Smith</strong>. <br>
                                                 <small class="text-muted">3 days ago at 7:58 pm - 10.06.2014</small>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    <li class="divider"></li>
-                                    <li>
-                                        <div class="dropdown-messages-box">
-                                            <a href="profile.html" class="pull-left">
-                                                <img alt="image" class="img-circle" src="/static/stratosphere/inspinia/img/a4.jpg">
-                                            </a>
-                                            <div class="media-body ">
-                                                <small class="pull-right text-navy">5h ago</small>
-                                                <strong>Chris Johnatan Overtunk</strong> started following <strong>Monica Smith</strong>. <br>
-                                                <small class="text-muted">Yesterday 1:21 pm - 11.06.2014</small>
-                                            </div>
-                                        </div>
-                                    </li>
-                                    <li class="divider"></li>
-                                    <li>
-                                        <div class="dropdown-messages-box">
-                                            <a href="profile.html" class="pull-left">
-                                                <img alt="image" class="img-circle" src="/static/stratosphere/inspinia/img/profile.jpg">
-                                            </a>
-                                            <div class="media-body ">
-                                                <small class="pull-right">23h ago</small>
-                                                <strong>Monica Smith</strong> love <strong>Kim Smith</strong>. <br>
-                                                <small class="text-muted">2 days ago at 2:30 am - 11.06.2014</small>
                                             </div>
                                         </div>
                                     </li>
@@ -170,24 +321,6 @@
                                     </li>
                                     <li class="divider"></li>
                                     <li>
-                                        <a href="profile.html">
-                                            <div>
-                                                <i class="fa fa-twitter fa-fw"></i> 3 New Followers
-                                                <span class="pull-right text-muted small">12 minutes ago</span>
-                                            </div>
-                                        </a>
-                                    </li>
-                                    <li class="divider"></li>
-                                    <li>
-                                        <a href="grid_options.html">
-                                            <div>
-                                                <i class="fa fa-upload fa-fw"></i> Server Rebooted
-                                                <span class="pull-right text-muted small">4 minutes ago</span>
-                                            </div>
-                                        </a>
-                                    </li>
-                                    <li class="divider"></li>
-                                    <li>
                                         <div class="text-center link-block">
                                             <a href="notifications.html">
                                                 <strong>See All Alerts</strong>
@@ -196,7 +329,7 @@
                                         </div>
                                     </li>
                                 </ul>
-                            </li>
+                            </li>-->
 
                             {% if request.user.is_authenticated %}
                                 <li>
