@@ -110,8 +110,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         driver_images = self.driver.list_images()
         print('Retrieved %d images' % len(driver_images))
 
-        print('Creating ProviderImages...')
-        filtered_driver_images = driver_images[:10] # TODO remove driver images limit
+        filtered_driver_images = driver_images # TODO remove driver images limit
 
         for os_name in self.default_operating_systems:
             driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
@@ -119,30 +118,53 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
                 if len([i for i in filtered_driver_images if i.id == driver_image_id]) == 0:
                     filtered_driver_images.append([i for i in driver_images if i.id == driver_image_id][0])
 
-        provider_images = []
-        for driver_image in filtered_driver_images:
-            provider_image = self.provider_images.filter(image_id=driver_image.id).first()
+        def driver_image_name(driver_image):
+            return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
 
-            if provider_image is None:
+        import time
+
+        print('Creating DiskImages...')
+        start = time.time()
+        disk_images = []
+        for driver_image in filtered_driver_images: # TODO remove driver images limit
+            image_name = driver_image_name(driver_image)
+
+            if not DiskImage.objects.filter(name=image_name).exists():
+                disk_image = DiskImage(name=image_name)
+                disk_images.append(disk_image)
+
+        end = time.time()
+        print('Created %d DiskImages' % (end - start))
+        DiskImage.objects.bulk_create(disk_images)
+        end2 = time.time()
+        print('Created %d DiskImages' % (end2 - end))
+
+        print('Creating ProviderImages...')
+        start = time.time()
+        provider_images = []
+        created = 0
+        for driver_image in filtered_driver_images:
+            created += 1
+
+            if created % 100 == 0:
+                print(round(float(created) / float(len(filtered_driver_images)) * 100))
+
+            if not self.provider_images.filter(image_id=driver_image.id).exists():
+                image_name = driver_image_name(driver_image)
+                disk_image = DiskImage.objects.filter(name=image_name).first()
+
                 extra_json = json.loads(json.dumps(driver_image.extra))
                 provider_image = ProviderImage(provider_configuration=self, name=driver_image.name,
-                                               image_id=driver_image.id, extra=extra_json)
+                                               image_id=driver_image.id, extra=extra_json,
+                                               disk_image=disk_image)
+
                 provider_images.append(provider_image)
 
+        end = time.time()
+        print('Created %d ProviderImages' % (end - start))
         ProviderImage.objects.bulk_create(provider_images)
-        print('Created %d ProviderImages' % len(provider_images))
-
-        print('Creating Images...')
-        image_count = 0
-        for driver_image in filtered_driver_images: # TODO remove driver images limit
-            image_name = driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
-            disk_image = DiskImage.objects.filter(name=image_name).first()
-
-            if disk_image is None:
-                provider_image = self.provider_images.filter(image_id=driver_image.id).first()
-                disk_image = DiskImage.objects.create(name=image_name)
-                disk_image.provider_images.add(provider_image)
-                image_count += 1
+        end2 = time.time()
+        print('Created %d ProviderImages' % (end2 - end))
 
         for os_name in self.default_operating_systems:
             driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)

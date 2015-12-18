@@ -2,7 +2,7 @@
 
 <!DOCTYPE html>
 <html ng-app="{% block angular-app-name %}{% endblock %}">
-    <script type="text/ng-template" id="customTemplate.html">
+    <script type="text/ng-template" id="diskImageResult.html">
         <a>      
             <span bind-html-unsafe="match.label | typeaheadHighlight:query">        
             </span>    
@@ -83,19 +83,32 @@
                     $scope.operating_systems = data;
                 });
 
-                $scope.update = function(os) {
-                    $scope.os = os;
-                    OperatingSystem.save($scope.os);
+                $scope.create = function() {
+                    var providers = [
+                        {% for provider in providers %}
+                            {
+                                id: {{ provider.pk }},
+                                pretty_name: "{{ provider.pretty_name }}",
+                            },
+                        {% endfor %}
+                    ];
+                    $scope.operating_systems.push(new OperatingSystem({providers: providers}));
+                };
+
+                $scope.update = function(os, index) {
+                    OperatingSystem.save(os, function(data) {
+                        $scope.operating_systems[index].id = data.id;
+                    });
                 };
 
                 angular.extend($scope, {
-                    onSelected: function (item, model, label) {
+                    onDiskImageSelected: function (item, model, label) {
                         setTimeout(function() {
                             $(document.activeElement).val(item.name);
                         });
                     },
 
-                    getLocation: function (val, provider_id) {
+                    getDiskImages: function (val, provider_id) {
                         return $http.get('/providers/' + provider_id + '/disk_images/', {
                             params: {
                                 query: val,

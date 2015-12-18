@@ -37,34 +37,36 @@ def robots(request):
 
 
 def _disk_image_to_json(d):
-    return {
-        'id': d.pk,
-        'name': d.name,
-    }
+    if d is None:
+        return None
+    else:
+        return {
+            'id': d.pk,
+            'name': d.name,
+        }
 
 
-def operating_systems(request, os_id=None):
-    if request.method == 'GET':
-        def operating_system_to_json(os):
-            def provider_to_json(p):
-                disk_images = DiskImage.objects.filter(provider_images__provider_configuration=p)
-                selected_disk_image = disk_images.get(operating_system_images=os)
-
-                return {
-                    'id': p.pk,
-                    'pretty_name': p.pretty_name(),
-                    'disk_image': _disk_image_to_json(selected_disk_image),
-                    'available_disk_images': [_disk_image_to_json(d) for d in disk_images],
-                }
-
-            provider_configurations = request.user.configuration.provider_configurations.all()
+def operating_systems(request):
+    def operating_system_to_json(os):
+        def provider_to_json(p):
+            disk_images = DiskImage.objects.filter(provider_images__provider_configuration=p)
+            selected_disk_image = disk_images.filter(operating_system_images=os).first()
 
             return {
-                'id': os.pk,
-                'name': os.name,
-                'providers': [provider_to_json(p) for p in provider_configurations],
+                'id': p.pk,
+                'pretty_name': p.pretty_name(),
+                'disk_image': _disk_image_to_json(selected_disk_image),
             }
 
+        provider_configurations = request.user.configuration.provider_configurations.all()
+
+        return {
+            'id': os.pk,
+            'name': os.name,
+            'providers': [provider_to_json(p) for p in provider_configurations],
+        }
+
+    if request.method == 'GET':
         operating_systems = OperatingSystemImage.objects.all()
         operating_systems_json = [operating_system_to_json(os) for os in operating_systems]
 
@@ -72,18 +74,33 @@ def operating_systems(request, os_id=None):
 
 
     elif request.method == 'POST':
-        operating_system = OperatingSystemImage.objects.get(pk=os_id)
-
         params = json.loads(request.body.decode('utf-8'))
+        os_id = params.get('id')
+
+        if os_id is None:
+            operating_system = OperatingSystemImage.objects.create(name=params['name'])
+        else:
+            operating_system = OperatingSystemImage.objects.get(pk=os_id)
+
+        operating_system.name = params['name']
+
         for provider_json in params['providers']:
             provider_configuration = ProviderConfiguration.objects.get(pk=provider_json['id'])
 
             existing_disk_image = operating_system.disk_images.filter(provider_images__provider_configuration=provider_configuration).first()
             if existing_disk_image is not None:
+                print('Removing disk image %d from operating system image %d' % (existing_disk_image.pk, operating_system.pk))
                 operating_system.disk_images.remove(existing_disk_image)
 
-            new_disk_image = DiskImage.objects.get(pk=provider_json['disk_image']['id'])
-            operating_system.disk_images.add(new_disk_image)
+            if provider_json.get('disk_image') is not None:
+                print('provider_json:', provider_json)
+                new_disk_image = DiskImage.objects.get(pk=provider_json['disk_image']['id'])
+                print('Adding disk image %d' % new_disk_image.pk)
+                operating_system.disk_images.add(new_disk_image)
+
+        operating_system.save()
+
+        return JsonResponse(operating_system_to_json(operating_system))
 
 
 def images(request):
@@ -95,6 +112,7 @@ def images(request):
     context = {
         'left_nav_section': 'images',
         'operating_systems': operating_systems,
+        'providers': request.user.configuration.provider_configurations.all(),
     }
 
     return render(request, 'stratosphere/images.html', context=context)
@@ -305,15 +323,15 @@ def provider_action(request, provider_name, action):
     return HttpResponse('')
 
 
-def provider_disk_images(request, provider_name):
+def provider_disk_images(request, provider_id):
     if not request.user.is_authenticated():
         return redirect('/accounts/login/')
 
     query = request.GET.get('query')
-    provider_configuration = request.user.configuration.provider_configurations.get(provider_name=provider_name)
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
 
     disk_images = DiskImage.objects.filter(provider_images__provider_configuration=provider_configuration)
     result_disk_images = disk_images.filter(Q(name__icontains=query) | Q(provider_images__image_id__icontains=query))
 
-    disk_images_json = [_disk_image_to_json(d) for d in result_disk_images]
+    disk_images_json = [_disk_image_to_json(d) for d in result_disk_images[:10]]
     return JsonResponse(disk_images_json, safe=False)

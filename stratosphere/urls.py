@@ -6,13 +6,12 @@ from . import views, aws_iam
 urlpatterns = [
     url(r'^$', RedirectView.as_view(url='/compute_groups/', permanent=False)),
     url(r'^operating_system/$', views.operating_systems),
-    url(r'^operating_system/(?P<os_id>\w+)/$', views.operating_systems),
     url(r'^compute/$', views.compute),
     url(r'^compute/(?P<group_id>\w+)/$', views.compute),
     url(r'^authentication_methods/$', views.authentication_methods),
     url(r'^authentication_methods/(?P<method_id>\w+)/$', views.authentication_methods),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),
-    url(r'^providers/(?P<provider_name>\w+)/disk_images/$', views.provider_disk_images),
+    url(r'^providers/(?P<provider_id>\w+)/disk_images/$', views.provider_disk_images),
     url(r'^providers/(?P<provider_name>\w+)/(?P<action>restore|fail)/$', views.provider_action),
 
     url(r'^compute_groups/$', views.compute_groups),
