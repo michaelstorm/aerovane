@@ -23,9 +23,6 @@ class DiskImage(Image):
     class Meta:
         app_label = "stratosphere"
 
-    # has to be nullable so we can add after bulk create
-    provider_image = models.OneToOneField('DiskImage', related_name='provider_image', null=True, blank=True)
-
 
 class OperatingSystemImage(Image):
     class Meta:
@@ -38,9 +35,11 @@ class ProviderImage(models.Model):
     class Meta:
         app_label = "stratosphere"
 
+    # has to be nullable so we can add after bulk create
+    disk_image = models.ForeignKey('DiskImage', related_name='provider_images', null=True, blank=True)
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_images')
     image_id = models.CharField(max_length=256)
-    name = models.CharField(max_length=256)
+    name = models.CharField(max_length=256, null=True, blank=True)
     extra = JSONField()
 
     def to_libcloud_image(self):

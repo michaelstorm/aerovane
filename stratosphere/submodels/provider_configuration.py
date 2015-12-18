@@ -7,6 +7,7 @@ from libcloud.compute.types import NodeState
 
 from polymorphic import PolymorphicModel
 
+from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderImage, ProviderSize
 from ..util import *
 
 import json
@@ -123,8 +124,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
             provider_image = self.provider_images.filter(image_id=driver_image.id).first()
 
             if provider_image is None:
-                provider_images.append(ProviderImage(provider_configuration=self, image_id=driver_image.id,
-                                                     extra=json.loads(json.dumps(driver_image.extra))))
+                extra_json = json.loads(json.dumps(driver_image.extra))
+                provider_image = ProviderImage(provider_configuration=self, name=driver_image.name,
+                                               image_id=driver_image.id, extra=extra_json)
+                provider_images.append(provider_image)
 
         ProviderImage.objects.bulk_create(provider_images)
         print('Created %d ProviderImages' % len(provider_images))
@@ -136,11 +139,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
             disk_image = DiskImage.objects.filter(name=image_name).first()
 
             if disk_image is None:
-                disk_image = DiskImage.objects.create(name=image_name)
-                image_count += 1
-
                 provider_image = self.provider_images.filter(image_id=driver_image.id).first()
+                disk_image = DiskImage.objects.create(name=image_name)
                 disk_image.provider_images.add(provider_image)
+                image_count += 1
 
         for os_name in self.default_operating_systems:
             driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)

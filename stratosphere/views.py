@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
@@ -35,9 +36,68 @@ def robots(request):
     return render(request, 'robots.txt', content_type='text/plain')
 
 
-@basicauth
+def _disk_image_to_json(d):
+    return {
+        'id': d.pk,
+        'name': d.name,
+    }
+
+
+def operating_systems(request, os_id=None):
+    if request.method == 'GET':
+        def operating_system_to_json(os):
+            def provider_to_json(p):
+                disk_images = DiskImage.objects.filter(provider_images__provider_configuration=p)
+                selected_disk_image = disk_images.get(operating_system_images=os)
+
+                return {
+                    'id': p.pk,
+                    'pretty_name': p.pretty_name(),
+                    'disk_image': _disk_image_to_json(selected_disk_image),
+                    'available_disk_images': [_disk_image_to_json(d) for d in disk_images],
+                }
+
+            provider_configurations = request.user.configuration.provider_configurations.all()
+
+            return {
+                'id': os.pk,
+                'name': os.name,
+                'providers': [provider_to_json(p) for p in provider_configurations],
+            }
+
+        operating_systems = OperatingSystemImage.objects.all()
+        operating_systems_json = [operating_system_to_json(os) for os in operating_systems]
+
+        return JsonResponse(operating_systems_json, safe=False)
+
+
+    elif request.method == 'POST':
+        operating_system = OperatingSystemImage.objects.get(pk=os_id)
+
+        params = json.loads(request.body.decode('utf-8'))
+        for provider_json in params['providers']:
+            provider_configuration = ProviderConfiguration.objects.get(pk=provider_json['id'])
+
+            existing_disk_image = operating_system.disk_images.filter(provider_images__provider_configuration=provider_configuration).first()
+            if existing_disk_image is not None:
+                operating_system.disk_images.remove(existing_disk_image)
+
+            new_disk_image = DiskImage.objects.get(pk=provider_json['disk_image']['id'])
+            operating_system.disk_images.add(new_disk_image)
+
+
 def images(request):
-    return render(request, 'stratosphere/images.html', context={'left_nav_section': 'images'})
+    if not request.user.is_authenticated():
+        return redirect('/accounts/login/')
+
+    operating_systems = OperatingSystemImage.objects.all()
+
+    context = {
+        'left_nav_section': 'images',
+        'operating_systems': operating_systems,
+    }
+
+    return render(request, 'stratosphere/images.html', context=context)
 
 
 @basicauth
@@ -167,18 +227,14 @@ def compute(request, group_id=None):
         authentication_method_id = params['authentication_method']
         authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
 
-        print(params)
-
         provider_policy = {}
         for key in params:
             match = re.match(r'provider_choice_(.+)', key)
-            print(key, match)
             if match is not None:
                 provider_name = match.group(1)
                 provider_policy[provider_name] = 'auto'
 
         provider_policy_str = json.dumps(provider_policy)
-        print(provider_policy_str)
 
         if params['deployment_type'] == 'os':
             os_id = params['operating_system']
@@ -247,3 +303,17 @@ def provider_action(request, provider_name, action):
         return HttpResponse(status=422)
 
     return HttpResponse('')
+
+
+def provider_disk_images(request, provider_name):
+    if not request.user.is_authenticated():
+        return redirect('/accounts/login/')
+
+    query = request.GET.get('query')
+    provider_configuration = request.user.configuration.provider_configurations.get(provider_name=provider_name)
+
+    disk_images = DiskImage.objects.filter(provider_images__provider_configuration=provider_configuration)
+    result_disk_images = disk_images.filter(Q(name__icontains=query) | Q(provider_images__image_id__icontains=query))
+
+    disk_images_json = [_disk_image_to_json(d) for d in result_disk_images]
+    return JsonResponse(disk_images_json, safe=False)

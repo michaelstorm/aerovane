@@ -2,6 +2,8 @@
 {% load staticfiles %}
 {% load bootstrap3 %}
 
+{% block angular-app-name %}dashboardApp{% endblock %}
+
 {% block content %}
     <div class="row wrapper border-bottom white-bg page-heading">
         <div class="col-lg-12">
@@ -10,38 +12,44 @@
     </div>
 
     <div class="wrapper wrapper-content">
-        <div class="row">
-            <div class="col-lg-6">
+        <div class="row" id="operating-systems" ng-controller="OperatingSystemListCtrl">
+            <div class="col-lg-6" ng-repeat="os in operating_systems track by os.id">
                 <div class="panel panel-primary">
                     <div class="panel-heading">
-                        <div class="panel-title">Operating Systems</div>
+                        <div class="panel-title">{$ os.name $}</div>
                     </div>
                     <div class="panel-body">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for method in key_methods %}
-                                    <tr>
-                                        <td style="width: 99%;">{{ method.name }}</td>
-                                        <td>
-                                            <button class="btn btn-danger btn-xs delete-method-button" method-id="{{ method.id }}">Delete</button>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                        <form action="/authentication_methods/" method="post">
-                            {% csrf_token %}
-                            {# {% bootstrap_form add_key_method %} #}
-                            <input type="submit" value="Add" class="btn btn-primary" >
-                        </form>
+                        <div class="operating-system form">
+                            <div class="form-group">
+                                <label>Name</label>
+                                <input type="text" class="form-control" ng-model="os.name" value="{$ os.name $}">
+                            </div>
+                            <div class="form-group" ng-repeat="provider in os.providers track by provider.id">
+                                <label>{$ provider.pretty_name $}</label>
+                                <input class="form-control"
+                                    type="text"
+                                    ng-model="provider.disk_image"
+                                    placeholder="Search..."
+                                    typeahead="item.name for item in getLocation($viewValue, provider.id)"
+                                    typeahead-loading="loadingLocations-{$ provider.id $}"
+                                    typeahead-min-length="3"
+                                    typeahead-on-select="onSelected($item)"
+                                    typeahead-wait-ms="500"
+                                    typeahead-template-url="customTemplate.html">
+                                </input>
+                                <i ng-show="loadingLocations-{$ provider.id $}" class="glyphicon glyphicon-refresh"></i>
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-success" ng-click="update(os)">Save</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <button class="btn btn-primary" id="add-os-button"><i class="fa fa-plus"></i> Add</button>
             </div>
         </div>
     </div>
@@ -49,31 +57,15 @@
 
 {% block body_script %}
     $(document).ready(function() {
-        $('.delete-method-button').click(function() {
-            $.ajax({
-                url: '/authentication_methods/' + $(this).attr('method-id') + '/',
-                method: 'DELETE',
-                success: function() {
-                    location.reload();
-                },
-            });
+        $('#add-os-button').click(function() {
+            $('#operating-systems').append(operating_system);
+            $('#operating-systems select').chosen({width: '100%'});
         });
-
-        $('#myTabs a').click(function (e) {
-            e.preventDefault();
-            $(this).tab('show');
-        })
     });
 {% endblock %}
 
 {% block style %}
-    .panel-title img {
-        height: 16px;
-        margin-right: 5px;
-    }
-
-    .panel-title > * {
-        display: inline-block;
-        vertical-align: middle;
+    .operating-system select {
+        width: 100%;
     }
 {% endblock %}

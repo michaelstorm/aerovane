@@ -2,6 +2,14 @@
 
 <!DOCTYPE html>
 <html ng-app="{% block angular-app-name %}{% endblock %}">
+    <script type="text/ng-template" id="customTemplate.html">
+        <a>      
+            <span bind-html-unsafe="match.label | typeaheadHighlight:query">        
+            </span>    
+            {$ match.model.name $}
+        </a>
+    </script>
+
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +23,7 @@
         <link href="{% static "stratosphere/font-awesome/css/font-awesome.min.css" %}" rel="stylesheet">
         <link href="{% static "stratosphere/bootstrap-chosen.css" %}" rel="stylesheet">
         <link href="{% static "stratosphere/awesome-bootstrap-checkbox.css" %}" rel="stylesheet">
+        <link href="{% static "stratosphere/isteven-multi-select/isteven-multi-select.css" %}" rel="stylesheet">
 
         <!-- Toastr style -->
         <link href="/static/stratosphere/inspinia/css/plugins/toastr/toastr.min.css" rel="stylesheet">
@@ -25,6 +34,8 @@
         <link href="/static/stratosphere/inspinia/css/animate.css" rel="stylesheet">
         <link href="/static/stratosphere/inspinia/css/style.css" rel="stylesheet">
 
+        <link href="/static/stratosphere/angular-ui-select/select.min.css" rel="stylesheet">
+
         <link rel="shortcut icon" type="image/x-icon" href="{% static "stratosphere/a-logo-blue.png" %}" />
 
         <!-- load before Angular so that all selectors can be used -->
@@ -32,16 +43,20 @@
 
         <script src="{% static "stratosphere/angular.js" %}"></script>
         <script src="{% static "stratosphere/angular-resource.js" %}"></script>
+        <script src="{% static "stratosphere/isteven-multi-select/isteven-multi-select.js" %}"></script>
+        <script src="/static/stratosphere/angular-ui-select/select.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.14.3/ui-bootstrap-tpls.min.js"></script>
 
         <script type="text/javascript">
             String.prototype.toProperCase = function () {
                 return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
             };
 
-            var dashboardApp = angular.module('dashboardApp', ['ngResource']).config(function($interpolateProvider) {
-                $interpolateProvider.startSymbol('{$');
-                $interpolateProvider.endSymbol('$}');
-            });
+            var dashboardApp = angular.module('dashboardApp', ['ngResource', 'isteven-multi-select', 'ui.bootstrap'])
+                .config(function ($interpolateProvider) {
+                    $interpolateProvider.startSymbol('{$');
+                    $interpolateProvider.endSymbol('$}');
+                });
 
             dashboardApp.config(['$resourceProvider', function($resourceProvider) {
                 // Don't strip trailing slashes from calculated URLs
@@ -56,6 +71,45 @@
             dashboardApp.factory('Group', function($resource) {
                 return $resource('/compute/:id/');
             });
+
+            dashboardApp.factory('OperatingSystem', function($resource) {
+                return $resource('/operating_system/:id/');
+            });
+
+            dashboardApp.controller('OperatingSystemListCtrl',
+                                    ['$scope', 'OperatingSystem', '$http',
+                                     function ($scope, OperatingSystem, $http) {
+                OperatingSystem.query(function(data) {
+                    $scope.operating_systems = data;
+                });
+
+                $scope.update = function(os) {
+                    $scope.os = os;
+                    OperatingSystem.save($scope.os);
+                };
+
+                angular.extend($scope, {
+                    onSelected: function (item, model, label) {
+                        setTimeout(function() {
+                            $(document.activeElement).val(item.name);
+                        });
+                    },
+
+                    getLocation: function (val, provider_id) {
+                        return $http.get('/providers/' + provider_id + '/disk_images/', {
+                            params: {
+                                query: val,
+                            }
+                        }).then(function (res) {
+                            var disk_images = [];
+                            angular.forEach(res.data, function(disk_image){
+                                disk_images.push(disk_image);
+                            });
+                            return disk_images;
+                        });
+                    },
+                });
+            }]);
 
             dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval',
                                                              function ($scope, Group, $timeout, $interval) {
