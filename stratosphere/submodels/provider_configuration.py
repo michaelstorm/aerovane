@@ -1,13 +1,14 @@
+from django.contrib.auth.models import User
 from django.db import models, OperationalError
 
-from libcloud.compute.types import Provider
+from libcloud.compute.types import Provider as LibcloudProvider
 from libcloud.compute.providers import get_driver
 from libcloud.compute.base import NodeLocation
 from libcloud.compute.types import NodeState
 
 from polymorphic import PolymorphicModel
 
-from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderImage, ProviderSize
+from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderImage, ProviderSize, Provider
 from ..util import *
 
 import json
@@ -24,6 +25,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
     class Meta:
         app_label = "stratosphere"
 
+    provider = models.ForeignKey('Provider', related_name='configurations')
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True, related_name='provider_configurations')
     simulated_failure = models.BooleanField(default=False)
@@ -110,13 +112,13 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         driver_images = self.driver.list_images()
         print('Retrieved %d images' % len(driver_images))
 
-        filtered_driver_images = driver_images # TODO remove driver images limit
+        filtered_driver_images = driver_images[:10] # TODO remove driver images limit
 
-        for os_name in self.default_operating_systems:
-            driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
-            if driver_image_id is not None:
-                if len([i for i in filtered_driver_images if i.id == driver_image_id]) == 0:
-                    filtered_driver_images.append([i for i in driver_images if i.id == driver_image_id][0])
+        # for os_name in self.default_operating_systems:
+        #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
+        #     if driver_image_id is not None:
+        #         if len([i for i in filtered_driver_images if i.id == driver_image_id]) == 0:
+        #             filtered_driver_images.append([i for i in driver_images if i.id == driver_image_id][0])
 
         def driver_image_name(driver_image):
             return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
@@ -149,14 +151,17 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
             if created % 100 == 0:
                 print(round(float(created) / float(len(filtered_driver_images)) * 100))
 
-            if not self.provider_images.filter(image_id=driver_image.id).exists():
+            if not ProviderImage.objects.filter(image_id=driver_image.id).exists():
                 image_name = driver_image_name(driver_image)
                 disk_image = DiskImage.objects.filter(name=image_name).first()
 
                 extra_json = json.loads(json.dumps(driver_image.extra))
-                provider_image = ProviderImage(provider_configuration=self, name=driver_image.name,
-                                               image_id=driver_image.id, extra=extra_json,
-                                               disk_image=disk_image)
+                provider_configuration = None if extra_json.get('is_public', True) else self
+
+                provider_image = ProviderImage(provider_configuration=provider_configuration,
+                                               name=driver_image.name, image_id=driver_image.id,
+                                               extra=extra_json, disk_image=disk_image,
+                                               provider=self.provider)
 
                 provider_images.append(provider_image)
 
@@ -166,25 +171,33 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         end2 = time.time()
         print('Created %d ProviderImages' % (end2 - end))
 
-        for os_name in self.default_operating_systems:
-            driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
-            if driver_image_id is not None:
-                provider_image = self.provider_images.filter(image_id=driver_image_id).first()
+        # for os_name in self.default_operating_systems:
+        #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
+        #     if driver_image_id is not None:
+        #         provider_image = self.provider_images.filter(image_id=driver_image_id).first()
 
-                os_image = OperatingSystemImage.objects.filter(name=os_name).first()
-                if os_image is None:
-                    os_image = OperatingSystemImage.objects.create(name=os_name)
+        #         os_image = OperatingSystemImage.objects.filter(name=os_name).first()
+        #         if os_image is None:
+        #             os_image = OperatingSystemImage.objects.create(name=os_name)
 
-                disk_image = provider_image.disk_image
-                os_image.disk_images.add(disk_image)
+        #         disk_image = provider_image.disk_image
+        #         os_image.disk_images.add(disk_image)
+
+
+class Ec2ProviderCredentials(models.Model):
+    class Meta:
+        app_label = "stratosphere"
+
+    access_key_id = models.CharField(max_length=128)
+    secret_access_key = models.CharField(max_length=128)
 
 
 class Ec2ProviderConfiguration(ProviderConfiguration):
     class Meta:
         app_label = "stratosphere"
 
-    access_key_id = models.CharField(max_length=128)
-    secret_access_key = models.CharField(max_length=128)
+    region = models.CharField(max_length=16)
+    credentials = models.ForeignKey('Ec2ProviderCredentials')
 
     ami_requirements = {
         't1': {
@@ -249,12 +262,34 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         },
     }
 
-    def pretty_name(self):
-        return 'AWS'
+    @staticmethod
+    def create_regions(user, access_key_id, secret_access_key):
+        credentials = Ec2ProviderCredentials.objects.create(
+                            access_key_id=access_key_id, secret_access_key=secret_access_key)
+
+        regions = {
+           'us-east-1': 'US East (N. Virginia)',
+           'us-west-1': 'US West (N. California)',
+           'us-west-2': 'US West (Oregon)',
+        }
+
+        for region, pretty_name in regions.items():
+            name = 'aws:%s' % region
+            provider = Provider.objects.create(
+                name=name,
+                pretty_name='AWS %s' % pretty_name)
+
+            Ec2ProviderConfiguration.objects.create(
+                provider=provider,
+                provider_name=name,
+                region=region,
+                credentials=credentials,
+                user_configuration=user.configuration)
 
     def create_driver(self):
-        cls = get_driver(Provider.EC2)
-        return cls(self.access_key_id, self.secret_access_key, region='us-west-1')
+        cls = get_driver(LibcloudProvider.EC2)
+        return cls(self.credentials.access_key_id, self.credentials.secret_access_key,
+                   region=self.region)
 
     def get_available_sizes(self, provider_image, cpu, memory):
         sizes = self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
@@ -279,11 +314,8 @@ class LinodeProviderConfiguration(ProviderConfiguration):
 
     api_key = models.CharField(max_length=128)
 
-    def pretty_name(self):
-        return 'Linode'
-
     def create_driver(self):
-        cls = get_driver(Provider.LINODE)
+        cls = get_driver(LibcloudProvider.LINODE)
         return cls(self.api_key)
 
     def get_available_sizes(self, provider_image, cpu, memory):

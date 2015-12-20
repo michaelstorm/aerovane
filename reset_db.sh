@@ -7,11 +7,17 @@ python manage.py migrate auth
 python manage.py migrate
 
 echo "User.objects.create_user('oopsdude', email='oopsdude@gmail.com', password='password')" | python manage.py shell_plus
-echo "Ec2ProviderConfiguration.objects.create(provider_name='aws',
-			user_configuration=User.objects.first().configuration,
+
+echo "Ec2ProviderConfiguration.create_regions(
+			user=User.objects.first(),
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
-echo "LinodeProviderConfiguration.objects.create(provider_name='linode',
+
+echo "Provider.objects.create(name='linode', pretty_name='Linode')" | python manage.py shell_plus
+
+echo "LinodeProviderConfiguration.objects.create(
+			provider=Provider.objects.get(name='linode'),
+			provider_name='linode',
 			user_configuration=User.objects.first().configuration,
 			api_key='$LINODE_API_KEY')" | python manage.py shell_plus
 

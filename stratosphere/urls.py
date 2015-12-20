@@ -1,7 +1,7 @@
 from django.conf.urls import url, include
 from django.views.generic.base import RedirectView
 
-from . import views, aws_iam
+from . import views, aws
 
 urlpatterns = [
     url(r'^$', RedirectView.as_view(url='/compute_groups/', permanent=False)),
@@ -21,6 +21,6 @@ urlpatterns = [
     url(r'^providers/$', views.providers),
     url(r'^images/$', views.images),
 
-    url(r'^aws_iam$', aws_iam.initial),
+    url(r'^aws/.*$', aws.initial),
     url(r'^accounts/', include('allauth.urls')),
 ]
