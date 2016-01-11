@@ -1,4 +1,4 @@
-Django==1.8.6
+Django==1.8.8
 amqp==1.4.7
 anyjson==0.3.3
 backports.ssl-match-hostname==3.4.0.2

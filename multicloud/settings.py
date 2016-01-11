@@ -129,6 +129,7 @@ ACCOUNT_SIGNUP_PASSWORD_VERIFICATION = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
 
+LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/check_configure/'
 SOCIALACCOUNT_QUERY_EMAIL = True
 SOCIALACCOUNT_PROVIDERS = {
@@ -147,9 +148,12 @@ DAB_FIELD_RENDERER = 'django_admin_bootstrapped.renderers.BootstrapFieldRenderer
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 
+from stratosphere.logging_connection import LoggingCursor
+
 default_db_config = dj_database_url.config(default='postgres://postgres:password@localhost:5432/aerovane')
 db_options = default_db_config['OPTIONS'] if 'OPTIONS' in default_db_config else {}
-db_options['isolation_level'] = psycopg2.extensions.ISOLATION_LEVEL_REPEATABLE_READ
+db_options['isolation_level'] = psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE
+db_options['cursor_factory'] = LoggingCursor
 default_db_config['OPTIONS'] = db_options
 
 DATABASES = {
@@ -197,6 +201,11 @@ PROJECT_DIR = os.path.dirname(__file__)
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 AWS_STORAGE_BUCKET_NAME = 'stratospherecdn2'
+
+AWS_HEADERS = {
+    'Cache-Control': 'public,max-age=86400',
+    # 'Expires': 'Wed, 15 Apr 2020 20:00:00 GMT',
+}
 
 
 # for whatever reason, saves us from a bunch of deprecation errors related to model loading

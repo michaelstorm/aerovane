@@ -1,6 +1,8 @@
+from .models import *
+
 import uuid
 
-def run_instances_response(instance_id, image_id):
+def run_instances_response(instance_id, image_id, instance_type):
 	request_id = uuid.uuid4()
 
 	return """
@@ -61,4 +63,119 @@ def run_instances_response(instance_id, image_id):
         </item>
     </instancesSet>
 </RunInstancesResponse>
-""".format({'request_id': request_id, 'instance_id': instance_id, 'image_id': image_id})
+""".format(request_id=request_id, instance_id=instance_id, image_id=image_id, instance_type=instance_type)
+
+
+def describe_instances_response(instance_id, state):
+    request_id = uuid.uuid4()
+
+    state_name = state.lower()
+    if state == ComputeGroup.PENDING:
+        state_code = 0
+    elif state == ComputeGroup.RUNNING:
+        state_code = 16
+    elif state == ComputeGroup.STOPPED:
+        state_code = 80
+    elif state == ComputeGroup.TERMINATED:
+        state_code = 48
+
+    return """
+<?xml version="1.0" encoding="UTF-8"?>
+<DescribeInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2015-10-01/">
+    <requestId>{request_id}</requestId>
+    <reservationSet>
+        <item>
+            <reservationId>r-13a81edb</reservationId>
+            <ownerId>671861320306</ownerId>
+            <groupSet/>
+            <instancesSet>
+                <item>
+                    <instanceId>{instance_id}</instanceId>
+                    <imageId>ami-01371731</imageId>
+                    <instanceState>
+                        <code>{state_code}</code>
+                        <name>{state_name}</name>
+                    </instanceState>
+                    <privateDnsName>ip-172-31-10-140.us-west-2.compute.internal</privateDnsName>
+                    <dnsName>ec2-52-35-73-110.us-west-2.compute.amazonaws.com</dnsName>
+                    <reason/>
+                    <amiLaunchIndex>0</amiLaunchIndex>
+                    <productCodes/>
+                    <instanceType>m3.medium</instanceType>
+                    <launchTime>2015-12-21T23:08:30.000Z</launchTime>
+                    <placement>
+                        <availabilityZone>us-west-2c</availabilityZone>
+                        <groupName/>
+                        <tenancy>default</tenancy>
+                    </placement>
+                    <monitoring>
+                        <state>disabled</state>
+                    </monitoring>
+                    <subnetId>subnet-0585d243</subnetId>
+                    <vpcId>vpc-be9481dc</vpcId>
+                    <privateIpAddress>172.31.10.140</privateIpAddress>
+                    <ipAddress>52.35.73.110</ipAddress>
+                    <sourceDestCheck>true</sourceDestCheck>
+                    <groupSet>
+                        <item>
+                            <groupId>sg-38dccc5a</groupId>
+                            <groupName>default</groupName>
+                        </item>
+                    </groupSet>
+                    <architecture>x86_64</architecture>
+                    <rootDeviceType>instance-store</rootDeviceType>
+                    <blockDeviceMapping/>
+                    <virtualizationType>hvm</virtualizationType>
+                    <clientToken/>
+                    <hypervisor>xen</hypervisor>
+                    <networkInterfaceSet>
+                        <item>
+                            <networkInterfaceId>eni-ae893df4</networkInterfaceId>
+                            <subnetId>subnet-0585d243</subnetId>
+                            <vpcId>vpc-be9481dc</vpcId>
+                            <description/>
+                            <ownerId>671861320306</ownerId>
+                            <status>in-use</status>
+                            <macAddress>0a:b5:10:11:76:17</macAddress>
+                            <privateIpAddress>172.31.10.140</privateIpAddress>
+                            <privateDnsName>ip-172-31-10-140.us-west-2.compute.internal</privateDnsName>
+                            <sourceDestCheck>true</sourceDestCheck>
+                            <groupSet>
+                                <item>
+                                    <groupId>sg-38dccc5a</groupId>
+                                    <groupName>default</groupName>
+                                </item>
+                            </groupSet>
+                            <attachment>
+                                <attachmentId>eni-attach-8666d489</attachmentId>
+                                <deviceIndex>0</deviceIndex>
+                                <status>attaching</status>
+                                <attachTime>2015-12-21T23:08:30.000Z</attachTime>
+                                <deleteOnTermination>true</deleteOnTermination>
+                            </attachment>
+                            <association>
+                                <publicIp>52.35.73.110</publicIp>
+                                <publicDnsName>ec2-52-35-73-110.us-west-2.compute.amazonaws.com</publicDnsName>
+                                <ipOwnerId>amazon</ipOwnerId>
+                            </association>
+                            <privateIpAddressesSet>
+                                <item>
+                                    <privateIpAddress>172.31.10.140</privateIpAddress>
+                                    <privateDnsName>ip-172-31-10-140.us-west-2.compute.internal</privateDnsName>
+                                    <primary>true</primary>
+                                    <association>
+                                    <publicIp>52.35.73.110</publicIp>
+                                    <publicDnsName>ec2-52-35-73-110.us-west-2.compute.amazonaws.com</publicDnsName>
+                                    <ipOwnerId>amazon</ipOwnerId>
+                                    </association>
+                                </item>
+                            </privateIpAddressesSet>
+                        </item>
+                    </networkInterfaceSet>
+                    <ebsOptimized>false</ebsOptimized>
+                </item>
+            </instancesSet>
+        </item>
+    </reservationSet>
+</DescribeInstancesResponse>
+""".format(request_id=request_id, instance_id=instance_id, state_name=state_name, state_code=state_code)

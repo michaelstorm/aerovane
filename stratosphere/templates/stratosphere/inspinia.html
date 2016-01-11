@@ -134,7 +134,7 @@
                     Group.query(function(data) {
                         $scope.groups = data;
                     });
-                }, 1000);
+                }, 3000);
 
                 $scope.deleteEntry = function(id) {
                     Group.delete({id: id}, function() {
@@ -184,7 +184,7 @@
                                 provider_names.forEach(function (provider_name) {
                                     var provider = providers[provider_name];
 
-                                    yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="/static/stratosphere/' + provider_name + '_icon.png">']);
+                                    yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="' + provider.icon_path + '">']);
 
                                     series[0].data.push([provider.running, j]);
                                     series[1].data.push([provider.pending, j]);
@@ -219,7 +219,8 @@
                                         borderWidth: 0,
                                         hoverable: true,
                                     },
-                                    tooltip: {
+                                    tooltip: true,
+                                    tooltipOpts: {
                                         show: true,
                                         content: function(label, x, y, flotItem) {
                                             return label + ': ' + x;
@@ -228,6 +229,7 @@
                                 };
 
                                 var placeholder = $('tr[group-id="' + newValue[i].id + '"] .graph-placeholder');
+                                placeholder.height(18 * provider_names.length);
                                 placeholder.plot(series, options);
                             }
                         }

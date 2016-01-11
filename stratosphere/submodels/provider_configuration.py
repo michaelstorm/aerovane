@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
-from django.db import models, OperationalError
+from django.db import models, OperationalError, transaction
+from django.db.models import Q
 
 from libcloud.compute.types import Provider as LibcloudProvider
 from libcloud.compute.providers import get_driver
@@ -12,7 +13,7 @@ from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderI
 from ..util import *
 
 import json
-
+import socket
 import traceback
 
 
@@ -47,39 +48,54 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
 
             return CLOUD_PROVIDER_DRIVERS[self.provider_name]
 
-    @retry(OperationalError)
+    @property
+    def available_disk_images(self):
+        return DiskImage.objects.filter(
+                      Q(provider_images__provider_configuration=self)
+                    | (Q(provider_images__provider_configuration=None)
+                       & Q(provider_images__provider=self.provider)))
+
+    @property
+    def available_provider_images(self):
+        return ProviderImage.objects.filter(
+                      Q(provider_configuration=self)
+                    | (Q(provider_configuration=None)
+                       & Q(provider=self.provider)))
+
+    # @retry(OperationalError)
     def simulate_restore(self):
         self.logger.info('Simulating restore')
         self.simulated_failure = False
         self.save()
 
-    @retry(OperationalError)
+    # @retry(OperationalError)
     def simulate_failure(self):
         self.logger.info('Simulating failure')
-        self.simulated_failure = True
-        self.save()
+        with transaction.atomic():
+            self.simulated_failure = True
+            self.save()
 
     def create_libcloud_node(self, name, libcloud_image, libcloud_size, libcloud_auth, **extra_args):
         return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
                                        **extra_args)
 
-    @retry(OperationalError)
+    @retry((OperationalError, socket.gaierror))
     def update_instance_statuses(self):
-        instances = ComputeInstance.objects.filter(provider_image__provider_configuration=self)
+        instances = ComputeInstance.objects.filter(provider_configuration=self)
 
-        try:
-            libcloud_nodes = self.driver.list_nodes()
-        except Exception as e:
-            print('Error listing nodes of %s' % self)
+        # try:
+        libcloud_nodes = self.driver.list_nodes()
+        # except Exception as e:
+        #     print('Error listing nodes of %s' % self)
 
-            traceback.print_exc()
-            for instance in instances:
-                instance.state = ComputeInstance.UNKNOWN
-                instance.save()
+        #     traceback.print_exc()
+        #     for instance in instances:
+        #         instance.state = ComputeInstance.UNKNOWN
+        #         instance.save()
 
-            return
+        #     return
 
-        for instance in ComputeInstance.objects.filter(provider_image__provider_configuration=self):
+        for instance in instances:
             nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
             self.logger.debug('%s nodes: %s' % (instance.external_id, nodes))
 
@@ -112,7 +128,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         driver_images = self.driver.list_images()
         print('Retrieved %d images' % len(driver_images))
 
-        filtered_driver_images = driver_images[:10] # TODO remove driver images limit
+        filtered_driver_images = driver_images[:100] # TODO remove driver images limit
 
         # for os_name in self.default_operating_systems:
         #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
@@ -135,11 +151,9 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
                 disk_image = DiskImage(name=image_name)
                 disk_images.append(disk_image)
 
-        end = time.time()
-        print('Created %d DiskImages' % (end - start))
         DiskImage.objects.bulk_create(disk_images)
-        end2 = time.time()
-        print('Created %d DiskImages' % (end2 - end))
+        end = time.time()
+        print('Created %d DiskImages in %d seconds' % (len(disk_images), end - start))
 
         print('Creating ProviderImages...')
         start = time.time()
@@ -165,11 +179,9 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
 
                 provider_images.append(provider_image)
 
-        end = time.time()
-        print('Created %d ProviderImages' % (end - start))
         ProviderImage.objects.bulk_create(provider_images)
-        end2 = time.time()
-        print('Created %d ProviderImages' % (end2 - end))
+        end = time.time()
+        print('Created %d ProviderImages in %d seconds' % (len(provider_images), end - start))
 
         # for os_name in self.default_operating_systems:
         #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
@@ -197,7 +209,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         app_label = "stratosphere"
 
     region = models.CharField(max_length=16)
-    credentials = models.ForeignKey('Ec2ProviderCredentials')
+    credentials = models.ForeignKey('Ec2ProviderCredentials', related_name='configurations')
 
     ami_requirements = {
         't1': {
@@ -277,7 +289,8 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
             name = 'aws:%s' % region
             provider = Provider.objects.create(
                 name=name,
-                pretty_name='AWS %s' % pretty_name)
+                pretty_name='AWS %s' % pretty_name,
+                icon_path='/static/stratosphere/aws_icon.png')
 
             Ec2ProviderConfiguration.objects.create(
                 provider=provider,

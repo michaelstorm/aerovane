@@ -1,3 +1,5 @@
+from django.db import OperationalError
+from django.db.models import F
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
@@ -7,11 +9,17 @@ import random
 import re
 import requests
 import string
+import threading
 
 from .aws_api import *
-from .models import Ec2ProviderConfiguration
+from .models import *
+from .util import *
 
 
+request_lock = threading.Lock()
+
+
+@retry(OperationalError)
 def run_instances(request):
     args = {
         'image_id': request.POST.get('ImageId'),
@@ -29,66 +37,100 @@ def run_instances(request):
 
     authorization_header = request.META['HTTP_AUTHORIZATION']
     access_key_id = re.match(r'.*Credential=(.+?)/', authorization_header).group(1)
-    provider_configuration = Ec2ProviderConfiguration.objects.get(access_key_id=access_key_id)
+    provider_configuration = Ec2ProviderCredentials.objects.get(access_key_id=access_key_id).configurations.first()
 
     name_suffix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
     name = 'terraform-%s' % name_suffix
 
     size = provider_configuration.provider_sizes.get(external_id=args['instance_type'])
 
-    provider_image = provider_configuration.provider_images.get(image_id=args['image_id'])
-    operating_system_image = provider_image.disk_image.operating_system_images.first()
+    provider_image = ProviderImage.objects.get(image_id=args['image_id'], provider__name__startswith='aws')
+    operating_system_image = provider_image.disk_image.disk_image_mappings.first().operating_system_image
 
-    provider_policy = {provider_name: 'auto' for provider_name
+    user_configuration = provider_configuration.user_configuration
+    provider_policy = {pc.provider_name: 'auto' for pc
                                       in user_configuration.provider_configurations.all()}
     provider_policy_str = json.dumps(provider_policy)
 
-    compute_group_attributes = {
+    attributes = {
         'user_configuration': provider_configuration.user_configuration,
         'name': name,
-        'cpu': size.vcpus,
-        'memory': size.ram,
-        'instance_count': args['MaxCount'],
+        'cpu': int(size.vcpus),
+        'memory': int(size.ram),
+        'instance_count': int(args['max_count']),
         'image': operating_system_image,
         'provider_policy': provider_policy_str,
-        'authentication_method': authentication_method,
+        'authentication_method': user_configuration.authentication_methods.instance_of(KeyAuthenticationMethod).first(),
     }
 
-    group = OperatingSystemComputeGroup.objects.create(**compute_group_attributes)
+    compute_group = OperatingSystemComputeGroup.objects.filter(cpu=attributes['cpu'], memory=attributes['memory'],
+                        image=attributes['image']).first()
 
-    return run_instances_response(args['instance_type'], args['image_id'])
+    if compute_group is None:
+        compute_group = OperatingSystemComputeGroup.objects.create(**attributes)
+    else:
+        compute_group.instance_count = F('instance_count') + attributes['instance_count']
+        compute_group.save()
+
+        # read again so that compute_group.instance_count isn't an F() expression, so that we can do arithmetic on it
+        compute_group = OperatingSystemComputeGroup.objects.get(pk=compute_group.pk)
+
+    compute_group.create_instances()
+
+    response_xml = run_instances_response(compute_group.pk, args['image_id'], args['instance_type'])
+    return HttpResponse(response_xml, 201)
+
+
+def describe_instances(request):
+    instance_id = request.POST['InstanceId.1']
+    compute_group = OperatingSystemComputeGroup.objects.get(pk=instance_id)
+
+    response_xml = describe_instances_response(compute_group.pk, compute_group.state)
+    return HttpResponse(response_xml, 200)
 
 
 @csrf_exempt
 def initial(request):
-    host = request.get_host()
-    action = request.POST['Action']
+    with request_lock:
+        host = request.get_host()
+        action = request.POST['Action']
 
-    print('XXX', request.method, action, host, request.POST)
+        print('XXX', request.method, action, host, request.POST)
 
-    if action == 'RunInstances':
-        return run_instances(request)
+        headers = {key[5:].replace('_', '-'): value
+                   for key, value in request.META.items()
+                   if key.startswith('HTTP_')}
 
-    headers = {key[5:].replace('_', '-'): value
-               for key, value in request.META.items()
-               if key.startswith('HTTP_')}
+        if action == 'RunInstances':
+            r = run_instances(request)
+            print('RESPONSE (%d):' % r.status_code, r.content, '\n\n\n')
+            return r
 
-    path_info = request.path_info[4:]
-    url = 'https://%s%s/' % (host, path_info)
-    print('url:', url)
-    print('data:', request.body)
-    print('headers:', headers)
-    r = requests.post(url, data=request.body, headers=headers)
-    print('RESPONSE:', r.text, '\n\n\n')
+        elif action == 'DescribeInstances':
+            r = describe_instances(request)
+            print('RESPONSE (%d):' % r.status_code, r.content, '\n\n\n')
+            return r
 
-    response = HttpResponse(r.text, r.status_code)
+        # elif action == 'GetUser':
+        #     host = "aws.amazon.com/iam"
+        #     headers['HOST'] = "aws.amazon.com"
 
-    hop_headers = ['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te',
-                   'trailers', 'transfer-encoding', 'upgrade']
+        path_info = request.path_info[4:]
+        url = 'https://%s%s' % (host, path_info)
+        print('url:', url)
+        print('data:', request.body)
+        print('headers:', headers)
+        r = requests.post(url, data=request.body, headers=headers, allow_redirects=False)
+        print('RESPONSE (%d):' % r.status_code, r.text, '\n\n\n')
 
-    for key, value in r.headers.items():
-        if key.lower() not in hop_headers and key.lower() not in 'content-encoding':
-            print('header:', key, value)
-            response[key] = value
+        response = HttpResponse(r.text, r.status_code)
 
-    return response
+        hop_headers = ['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te',
+                       'trailers', 'transfer-encoding', 'upgrade']
+
+        for key, value in r.headers.items():
+            if key.lower() not in hop_headers and key.lower() not in 'content-encoding':
+                print('header:', key, value)
+                response[key] = value
+
+        return response

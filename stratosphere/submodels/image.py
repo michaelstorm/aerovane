@@ -15,13 +15,22 @@ class DiskImage(models.Model):
     name = models.CharField(max_length=128, db_index=True)
 
 
+class DiskImageMapping(models.Model):
+    class Meta:
+        app_label = "stratosphere"
+        unique_together = ('provider', 'disk_image', 'operating_system_image')
+
+    provider = models.ForeignKey('Provider')
+    disk_image = models.ForeignKey('DiskImage', related_name='disk_image_mappings')
+    operating_system_image = models.ForeignKey('OperatingSystemImage', related_name='disk_image_mappings')
+
+
 class OperatingSystemImage(models.Model):
     class Meta:
         app_label = "stratosphere"
 
     user = models.ForeignKey(User)
     name = models.CharField(max_length=128)
-    disk_images = models.ManyToManyField('DiskImage', related_name='operating_system_images')
 
 
 class ProviderImage(models.Model):
@@ -40,6 +49,6 @@ class ProviderImage(models.Model):
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_images',
                                                null=True, blank=True)
 
-    def to_libcloud_image(self):
-        return NodeImage(id=self.image_id, name=self.name, driver=self.provider_configuration.driver,
+    def to_libcloud_image(self, provider_configuration):
+        return NodeImage(id=self.image_id, name=self.name, driver=provider_configuration.driver,
                          extra=self.extra)

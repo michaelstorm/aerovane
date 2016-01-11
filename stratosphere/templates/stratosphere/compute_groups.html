@@ -56,8 +56,8 @@
 
 {% block footer %}
     {% for provider in providers %}
-        <button class="btn btn-success restore-button" provider="{{ provider.provider_name }}" style="display: none;">Restore {{ provider.pretty_name }}</button>
-        <button class="btn btn-warning fail-button" provider="{{ provider.provider_name }}" style="display: none;">Simulate {{ provider.pretty_name }} Failure</button>
+        <button class="btn btn-success restore-button" provider="{{ provider.pk }}" style="display: none;">Restore {{ provider.provider.pretty_name }}</button>
+        <button class="btn btn-warning fail-button" provider="{{ provider.pk }}" style="display: none;">Simulate {{ provider.provider.pretty_name }} Failure</button>
     {% endfor %}
 {% endblock %}
 
@@ -65,15 +65,15 @@
     $(document).ready(function() {
         {% for provider in providers %}
             {% if provider.simulated_failure %}
-                $('button.restore-button[provider="{{ provider.provider_name }}"]').show();
+                $('button.restore-button[provider="{{ provider.pk }}"]').show();
             {% else %}
-                $('button.fail-button[provider="{{ provider.provider_name }}"]').show();
+                $('button.fail-button[provider="{{ provider.pk }}"]').show();
             {% endif %}
         {% endfor %}
 
         $('.restore-button').click(function() {
             var button = $(this);
-            $.post('/provider/' + $(this).attr('provider') + '/restore/').done(function() {
+            $.post('/providers/' + $(this).attr('provider') + '/restore/').done(function() {
                 button.hide();
                 $('button.fail-button[provider="' + button.attr('provider') + '"]').show();
             });
@@ -81,7 +81,7 @@
 
         $('.fail-button').click(function() {
             var button = $(this);
-            $.post('/provider/' + $(this).attr('provider') + '/fail/').done(function() {
+            $.post('/providers/' + $(this).attr('provider') + '/fail/').done(function() {
                 button.hide();
                 $('button.restore-button[provider="' + button.attr('provider') + '"]').show();
             });
@@ -92,6 +92,7 @@
 {% block style %}
     .footer button {
         margin-right: 10px;
+        margin-bottom: 10px;
     }
 
     .flot-tick-label.tickLabel > * {

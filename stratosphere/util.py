@@ -1,10 +1,12 @@
 import datetime
 import json
+import logging
 import time
 
+from django.contrib.staticfiles.storage import CachedFilesMixin
 from functools import wraps
-
 from libcloud.compute.drivers.ec2 import EC2NetworkInterface
+from storages.backends.s3boto import S3BotoStorage
 
 
 class HasLogger(object):
@@ -63,15 +65,33 @@ def decode_node_extra(dct):
     else:
         return dct
 
-def retry(ExceptionToCheck, tries=4, delay=10, backoff=3, logger=None):
+
+def call_with_retry(f, exception_type, tries=4, delay=10, backoff=3, logger=None, args=[], kwargs={}):
+    mtries, mdelay = tries, delay
+    while mtries > 1:
+        try:
+            return f(*args, **kwargs)
+        except exception_type as e:
+            msg = "%s, Retrying in %d seconds..." % (str(e), mdelay)
+            if logger:
+                logger.warning(msg)
+            else:
+                print(msg)
+            time.sleep(mdelay)
+            mtries -= 1
+            mdelay *= backoff
+    return f(*args, **kwargs)
+
+
+def retry(exception_type, tries=4, delay=1, backoff=3, logger=None):
     """Retry calling the decorated function using an exponential backoff.
 
     http://www.saltycrane.com/blog/2009/11/trying-out-retry-decorator-python/
     original from: http://wiki.python.org/moin/PythonDecoratorLibrary#Retry
 
-    :param ExceptionToCheck: the exception to check. may be a tuple of
+    :param exception_type: the exception to check. may be a tuple of
         exceptions to check
-    :type ExceptionToCheck: Exception or tuple
+    :type exception_type: Exception or tuple
     :param tries: number of times to try (not retry) before giving up
     :type tries: int
     :param delay: initial delay between retries in seconds
@@ -85,21 +105,18 @@ def retry(ExceptionToCheck, tries=4, delay=10, backoff=3, logger=None):
     def deco_retry(f):
         @wraps(f)
         def f_retry(*args, **kwargs):
-            mtries, mdelay = tries, delay
-            while mtries > 1:
-                try:
-                    return f(*args, **kwargs)
-                except ExceptionToCheck as e:
-                    msg = "%s, Retrying in %d seconds..." % (str(e), mdelay)
-                    if logger:
-                        logger.warning(msg)
-                    else:
-                        print(msg)
-                    time.sleep(mdelay)
-                    mtries -= 1
-                    mdelay *= backoff
-            return f(*args, **kwargs)
+            return call_with_retry(f, exception_type, tries=tries, delay=delay, backoff=backoff,
+                                   logger=logger, args=args, kwargs=kwargs)
 
         return f_retry  # true decorator
 
     return deco_retry
+
+
+class S3HashedFilesStorage(CachedFilesMixin, S3BotoStorage):
+    """
+    Extends S3BotoStorage to also save hashed copies (i.e.
+    with filenames containing the file's MD5 hash) of the
+    files it saves.
+    """
+    pass

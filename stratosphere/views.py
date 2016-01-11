@@ -1,3 +1,4 @@
+from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
@@ -49,8 +50,8 @@ def _disk_image_to_json(d):
 def operating_systems(request):
     def operating_system_to_json(os):
         def provider_to_json(provider_configuration):
-            disk_images = DiskImage.objects.filter(provider_images__provider=provider_configuration.provider)
-            selected_disk_image = disk_images.filter(operating_system_images=os).first()
+            selected_disk_image = DiskImage.objects.filter(disk_image_mappings__provider=provider_configuration.provider,
+                                                           disk_image_mappings__operating_system_image=os).first()
 
             return {
                 'id': provider_configuration.pk,
@@ -84,28 +85,26 @@ def operating_systems(request):
 
         operating_system.name = params['name']
 
+        operating_system.disk_image_mappings.all().delete()
+
         for provider_json in params['providers']:
+            print('provider_json:', provider_json)
             provider_configuration = ProviderConfiguration.objects.get(pk=provider_json['id'])
 
-            existing_disk_image = operating_system.disk_images.filter(provider_images__provider=provider_configuration.provider).first()
-            if existing_disk_image is not None:
-                print('Removing disk image %d from operating system image %d' % (existing_disk_image.pk, operating_system.pk))
-                operating_system.disk_images.remove(existing_disk_image)
-
-            if provider_json.get('disk_image') is not None:
-                new_disk_image = DiskImage.objects.get(pk=provider_json['disk_image']['id'])
+            disk_image_json = provider_json.get('disk_image')
+            if isinstance(disk_image_json, dict): # Angular sometimes sends null value as empty string
+                new_disk_image = DiskImage.objects.get(pk=disk_image_json['id'])
                 print('Adding disk image %d' % new_disk_image.pk)
-                operating_system.disk_images.add(new_disk_image)
+                DiskImageMapping.objects.get_or_create(provider=provider_configuration.provider,
+                                disk_image=new_disk_image, operating_system_image=operating_system)
 
         operating_system.save()
 
         return JsonResponse(operating_system_to_json(operating_system))
 
 
+@login_required
 def images(request):
-    if not request.user.is_authenticated():
-        return redirect('/accounts/login/')
-
     operating_systems = OperatingSystemImage.objects.all()
 
     context = {
@@ -117,11 +116,8 @@ def images(request):
     return render(request, 'stratosphere/images.html', context=context)
 
 
-@basicauth
+@login_required
 def compute_groups(request):
-    if not request.user.is_authenticated():
-        return redirect('/accounts/login/')
-
     context = {
         'providers': ProviderConfiguration.objects.all(),
         'left_nav_section': 'dashboard',
@@ -131,15 +127,12 @@ def compute_groups(request):
     return render(request, 'stratosphere/compute_groups.html', context=context)
 
 
-@basicauth
+@login_required
 def add_compute_group(request):
-    if not request.user.is_authenticated():
-        return redirect('/accounts/login/')
-
     operating_system_images = OperatingSystemImage.objects.filter(user=request.user)
 
     os_images_map = {os_image: ProviderConfiguration.objects.filter(user_configuration__user=request.user,
-                                        provider_images__disk_image__operating_system_images=os_image)
+                                        provider_images__disk_image_mappings__operating_system_image=os_image)
                      for os_image in operating_system_images}
 
     possible_providers = [
@@ -189,7 +182,7 @@ def _compute_group_to_json(group):
             'state': group.state}
 
 
-@basicauth
+@login_required
 def authentication(request):
     context = {
         'key_methods': KeyAuthenticationMethod.objects.all(),
@@ -202,18 +195,15 @@ def authentication(request):
     return render(request, 'stratosphere/authentication.html', context=context)
 
 
-@basicauth
+@login_required
 def authentication_methods(request, method_id=None):
     if request.method == 'POST':
         if 'key' in request.POST:
-            form = KeyAuthenticationMethodForm(request.POST)
+            KeyAuthenticationMethod.objects.create(user_configuration=request.user.configuration,
+                name=request.POST['name'], key=request.POST['key'])
         else:
-            form = PasswordAuthenticationMethodForm(request.POST)
-
-        method = form.save()
-
-        method.user_configuration = request.user.configuration
-        method.save()
+            PasswordAuthenticationMethod.objects.create(user_configuration=request.user.configuration,
+                name=request.POST['name'], password=request.POST['password'])
 
     elif request.method == 'DELETE':
         AuthenticationMethod.objects.filter(id=method_id).delete()
@@ -221,7 +211,7 @@ def authentication_methods(request, method_id=None):
     return redirect('/providers/')
 
 
-@basicauth
+@login_required
 def compute(request, group_id=None):
     if request.method == 'GET':
         compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
@@ -264,7 +254,7 @@ def compute(request, group_id=None):
         return JsonResponse(_compute_group_to_json(group))
 
 
-@basicauth
+@login_required
 def check_configure(request):
     provider_configurations = request.user.configuration.provider_configurations
     if len(provider_configurations.all()) == 0:
@@ -279,10 +269,8 @@ provider_configuration_form_classes = {
 }
 
 
+@login_required
 def providers(request):
-    if not request.user.is_authenticated():
-        return redirect('/accounts/login/')
-
     provider_configurations = request.user.configuration.provider_configurations
     context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                for key, form_class in provider_configuration_form_classes.items()}
@@ -292,7 +280,7 @@ def providers(request):
     return render(request, 'stratosphere/providers.html', context=context)
 
 
-@basicauth
+@login_required
 def configure_provider(request, provider_name):
     context = {}
 
@@ -323,9 +311,9 @@ def configure_provider(request, provider_name):
     return render(request, 'stratosphere/providers.html', context=context)
 
 
-@basicauth
-def provider_action(request, provider_name, action):
-    provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name)
+@login_required
+def provider_action(request, provider_id, action):
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
 
     if action == 'restore':
         provider_configuration.simulate_restore()
@@ -337,21 +325,21 @@ def provider_action(request, provider_name, action):
     return HttpResponse('')
 
 
+@login_required
 def provider_disk_images(request, provider_id):
-    if not request.user.is_authenticated():
-        return redirect('/accounts/login/')
-
     query = request.GET.get('query')
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
 
-    disk_images = DiskImage.objects.filter(
-                      Q(provider_images__provider_configuration=provider_configuration)
-                    | (Q(provider_images__provider_configuration=None)
-                       & Q(provider_images__provider=provider_configuration.provider)))
+    terms = [t for t in re.split(r'\s+', query) if len(t) > 0]
+    print('terms', terms)
+    if len(terms) > 0:
+        f = Q()
+        for term in terms:
+            f = f & (Q(name__icontains=term) | Q(provider_images__image_id__icontains=term))
+        print(f)
+        disk_images = provider_configuration.available_disk_images.filter(f)
 
-    result_disk_images = disk_images.filter(
-                      Q(name__icontains=query)
-                    | Q(provider_images__image_id__icontains=query))
-
-    disk_images_json = [_disk_image_to_json(d) for d in result_disk_images[:10]]
-    return JsonResponse(disk_images_json, safe=False)
+        disk_images_json = [_disk_image_to_json(d) for d in disk_images[:10]]
+        return JsonResponse(disk_images_json, safe=False)
+    else:
+        return JsonResponse([], safe=False)

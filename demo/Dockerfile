@@ -6,6 +6,9 @@ RUN wget "https://releases.hashicorp.com/terraform/0.6.8/terraform_0.6.8_linux_a
 RUN unzip terraform_0.6.8_linux_amd64.zip -d /usr/local/bin
 RUN rm terraform_0.6.8_linux_amd64.zip
 
+# fixes arrow keys and backspace in insert mode
+RUN echo "set nocompatible" >> /root/.vimrc
+
 ADD add_aws_proxy.sh .
 
 ADD aerovane.crt /usr/local/share/ca-certificates
