@@ -21,13 +21,13 @@ echo "Provider.objects.create(
 			pretty_name='Linode',
 			icon_path='/static/stratosphere/aws_icon.png')" | python manage.py shell_plus
 
-echo "LinodeProviderConfiguration.objects.create(
-			provider=Provider.objects.get(name='linode'),
-			provider_name='linode',
-			user_configuration=User.objects.first().configuration,
-			api_key='$LINODE_API_KEY')" | python manage.py shell_plus
+#echo "LinodeProviderConfiguration.objects.create(
+#			provider=Provider.objects.get(name='linode'),
+#			provider_name='linode',
+#			user_configuration=User.objects.first().configuration,
+#			api_key='$LINODE_API_KEY')" | python manage.py shell_plus
 
-echo "LinodeProviderConfiguration.objects.first().load_available_images()" | python manage.py shell_plus
+#echo "LinodeProviderConfiguration.objects.first().load_available_images()" | python manage.py shell_plus
 
 echo "[pc.load_available_sizes() for pc in ProviderConfiguration.objects.all()]" | python manage.py shell_plus
 

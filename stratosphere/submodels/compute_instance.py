@@ -49,10 +49,9 @@ class ComputeInstance(models.Model):
     extra = JSONField()
 
     @staticmethod
-    def create_with_provider(provider_configuration, provider_size, name, authentication_method,
-                             compute_group):
-        create_compute_instance.delay(provider_configuration.pk, provider_size.pk, name,
-                                      authentication_method.pk, compute_group.pk )
+    def create_with_provider(provider_configuration, provider_size, authentication_method, compute_group):
+        create_compute_instance.delay(provider_configuration.pk, provider_size.pk,
+                                      authentication_method.pk, compute_group.pk)
 
     def to_libcloud_node(self):
         libcloud_node_args = {

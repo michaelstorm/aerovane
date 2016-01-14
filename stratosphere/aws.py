@@ -50,7 +50,6 @@ def run_instances(request):
     user_configuration = provider_configuration.user_configuration
     provider_policy = {pc.provider_name: 'auto' for pc
                                       in user_configuration.provider_configurations.all()}
-    provider_policy_str = json.dumps(provider_policy)
 
     attributes = {
         'user_configuration': provider_configuration.user_configuration,
@@ -59,7 +58,7 @@ def run_instances(request):
         'memory': int(provider_size.ram),
         'instance_count': int(args['max_count']),
         'image': operating_system_image,
-        'provider_policy': provider_policy_str,
+        'provider_policy': provider_policy,
         'authentication_method': user_configuration.authentication_methods.instance_of(KeyAuthenticationMethod).first(),
     }
 

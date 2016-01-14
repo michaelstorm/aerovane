@@ -1,3 +1,5 @@
+from annoying.fields import JSONField
+
 from datetime import datetime, timedelta
 
 from django.db import models, transaction, OperationalError
@@ -5,7 +7,7 @@ from django.db.models import Q
 
 from polymorphic import PolymorphicModel
 
-from ..models import ComputeInstance, ProviderConfiguration
+from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
 from ..util import HasLogger, retry, call_with_retry, BackoffError
 
 import json
@@ -78,22 +80,17 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     cpu = models.IntegerField()
     memory = models.IntegerField()
     name = models.CharField(max_length=128)
-    provider_policy = models.TextField()
-    size_distribution = models.TextField()
+    provider_policy = JSONField()
+    size_distribution = JSONField()
     updating_distribution = models.BooleanField(default=False)
     updating_distribution_time = models.DateTimeField(blank=True, null=True)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
     authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
 
-    def _provider_policy_filtered(self):
-        provider_policy_deserialized = json.loads(self.provider_policy)
-        return provider_policy_deserialized
-
     def provider_states(self):
-        provider_policy_filtered = self._provider_policy_filtered()
         provider_states_map = {}
 
-        for provider_name in provider_policy_filtered:
+        for provider_name in self.provider_policy:
             provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name)
             provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, provider_instances)))
@@ -118,8 +115,6 @@ class ComputeGroup(PolymorphicModel, HasLogger):
         self.logger.warning('%s state: %s' % (self.name, self.state))
 
         instances_flat = list(self.instances.all())
-        created_count = len(instances_flat)
-        unknown_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.PENDING, ComputeInstance.RUNNING), instances_flat)))
         running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
         non_pending_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.PENDING), instances_flat)))
         non_terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.TERMINATED, ComputeInstance.UNKNOWN), instances_flat)))
@@ -134,13 +129,10 @@ class ComputeGroup(PolymorphicModel, HasLogger):
             if self.state == self.PENDING and non_pending_count >= self.instance_count:
                 self.state = self.RUNNING
 
-            self.logger.warning('created_count >= self.instance_count: %d >= %d: %s'
-                              % (created_count, self.instance_count, created_count >= self.instance_count))
+            self.logger.warn('running_count < self.instance_count = %d < %d = %s' %
+                             (running_count, self.instance_count, running_count < self.instance_count))
 
-            self.logger.warning('created_count - unknown_count < self.instance_count: %d - %d < %d: %s'
-                              % (created_count, unknown_count, self.instance_count, created_count - unknown_count < self.instance_count))
-
-            if created_count >= self.instance_count and created_count - unknown_count < self.instance_count:
+            if running_count < self.instance_count:
                 bad_provider_ids = set([instance.provider_configuration.pk for instance in self.instances.filter(~Q(state__in=[None, ComputeInstance.PENDING, ComputeInstance.RUNNING]))])
                 good_provider_ids = [provider.pk for provider in
                                      self.user_configuration.provider_configurations.exclude(pk__in=bad_provider_ids)]
@@ -192,10 +184,8 @@ class OperatingSystemComputeGroup(ComputeGroup):
     image = models.ForeignKey('OperatingSystemImage', related_name='compute_groups')
 
     def _get_best_sizes(self, allowed_provider_ids=None):
-        provider_policy_filtered = self._provider_policy_filtered()
-
         best_sizes = {}
-        for provider_name in provider_policy_filtered:
+        for provider_name in self.provider_policy:
             provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
 
             if allowed_provider_ids is None or provider_configuration.pk in allowed_provider_ids:
@@ -246,4 +236,4 @@ class OperatingSystemComputeGroup(ComputeGroup):
                 for i in range(instance_count):
                     instance_name = '%s-%d' % (self.name, i)
                     ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_size=provider_size,
-                                                         name=instance_name, authentication_method=self.authentication_method, compute_group=self)
+                                                         authentication_method=self.authentication_method, compute_group=self)

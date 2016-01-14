@@ -12,6 +12,7 @@ import json
 from multicloud.celery import app
 
 import random
+import string
 
 from .util import BackoffError, NodeJSONEncoder
 
@@ -64,10 +65,10 @@ def update_instance_statuses_all():
 def create_compute_instance(provider_configuration_id, provider_size_id, authentication_method_id,
 							compute_group_id):
     from .models import AuthenticationMethod, ComputeGroup, ComputeInstance, PasswordAuthenticationMethod, \
-    					ProviderImage, ProviderSize
+    					ProviderConfiguration, ProviderImage, ProviderSize
 
     compute_group = ComputeGroup.objects.get(pk=compute_group_id)
-    provider_configuration = ProviderConfiguration.objects.get(pk=compute_group_id)
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
 
     # filter on provider as well, since available_provider_images could contain shared images
     # TODO wait, does that make sense?
@@ -78,6 +79,9 @@ def create_compute_instance(provider_configuration_id, provider_size_id, authent
 
     provider_size = ProviderSize.objects.get(pk=provider_size_id)
     authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
+
+    name_suffix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+    name = '%s-%s' % (compute_group.name, name_suffix)
 
     compute_instance_args = {
         'name': name,
@@ -100,7 +104,7 @@ def create_compute_instance(provider_configuration_id, provider_size_id, authent
 	    libcloud_size = provider_size.to_libcloud_size()
 	    libcloud_image = provider_image.to_libcloud_image(provider_configuration)
 
-	    libcloud_node = provider_configuration.create_libcloud_node(name=compute_instance.name, libcloud_image=libcloud_image,
+	    libcloud_node = provider_configuration.create_libcloud_node(name=name, libcloud_image=libcloud_image,
 	                    				                            libcloud_size=libcloud_size, libcloud_auth=libcloud_auth)
 
 	    compute_instance.state = ComputeInstance.PENDING
@@ -111,7 +115,7 @@ def create_compute_instance(provider_configuration_id, provider_size_id, authent
 	    compute_instance.save()
 
     with transaction.atomic():
-    	intended_instance_count = compute_group.size_distribution[provider_size.pk]
+    	intended_instance_count = compute_group.size_distribution[str(provider_size.pk)]
     	current_instance_count = compute_group.instances.filter(provider_size=provider_size).count()
     	if current_instance_count < intended_instance_count:
 		    compute_instance = ComputeInstance.objects.create(**compute_instance_args)

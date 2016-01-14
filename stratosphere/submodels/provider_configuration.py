@@ -62,6 +62,13 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
                     | (Q(provider_configuration=None)
                        & Q(provider=self.provider)))
 
+    def _destroy_all_nodes(self):
+        nodes = self.driver.list_nodes()
+        print('found %d nodes in %s' % (len(nodes), self.provider_name))
+        for node in nodes:
+            print('destroying %s' % node.id)
+            self.driver.destroy_node(node)
+
     # @retry(OperationalError)
     def simulate_restore(self):
         self.logger.info('Simulating restore')
