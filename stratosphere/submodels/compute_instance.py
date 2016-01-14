@@ -47,6 +47,7 @@ class ComputeInstance(models.Model):
     private_ips = JSONField()
     provider_size = models.ForeignKey('ProviderSize', related_name='instances')
     extra = JSONField()
+    last_request_start_time = models.DateTimeField(blank=True, null=True)
 
     @staticmethod
     def create_with_provider(provider_configuration, provider_size, authentication_method, compute_group):

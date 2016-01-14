@@ -203,13 +203,13 @@ class OperatingSystemComputeGroup(ComputeGroup):
         return best_sizes
 
     def _get_size_distribution(self, sizes):
-        running_count = self.instances.filter(state__in=[None, ComputeInstance.PENDING, ComputeInstance.RUNNING]).count()
-        remaining_instance_count = self.instance_count - running_count
-
-        sizes_list = sorted(sizes.values(), key=lambda s: self.instances.filter(provider_configuration=s.provider_configuration).count())
+        # sort to ensure consistency across multiple runs, e.g. when a size has the
+        # same price in multiple AWS regions
+        sizes_list = sorted(sizes.values(), key=lambda s: s.pk) # sort on secondary key
         self.logger.warning('sizes_list: %s' % sizes_list)
 
         instance_counts = {}
+        remaining_instance_count = self.instance_count
 
         if len(sizes) > 0:
             while remaining_instance_count > 0:
@@ -218,22 +218,48 @@ class OperatingSystemComputeGroup(ComputeGroup):
                     if provider_instance_count == 0 and remaining_instance_count > 0:
                         provider_instance_count = 1
 
-                    if provider_size in instance_counts:
-                        instance_counts[provider_size.pk] += provider_instance_count
+                    # the database converts to string keys anyway, so we do it here for consistency
+                    if provider_size.pk in instance_counts:
+                        instance_counts[str(provider_size.pk)] += provider_instance_count
                     else:
-                        instance_counts[provider_size.pk] = provider_instance_count
+                        instance_counts[str(provider_size.pk)] = provider_instance_count
 
                     remaining_instance_count -= provider_instance_count
 
         return instance_counts
 
+    def pending_or_running_count(self, provider_size):
+        return self.instances.filter(
+            Q(provider_size=provider_size)
+            & (Q(state=ComputeInstance.RUNNING)
+               | Q(state=None,
+                   last_request_start_time__gt=datetime.now() - timedelta(minutes=2))
+               | Q(state=ComputeInstance.PENDING,
+                   last_request_start_time__gt=datetime.now() - timedelta(minutes=5))
+        )).count()
+
     def _create_compute_instances(self):
         with transaction.atomic():
+            self.logger.warning('size_distribution: %s' % self.size_distribution)
             for provider_size_id, instance_count in self.size_distribution.items():
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
                 provider_configuration = provider_size.provider_configuration
 
-                for i in range(instance_count):
+                running_count = self.pending_or_running_count(provider_size)
+
+                actually_running_count = self.instances.filter(provider_size=provider_size, state=ComputeInstance.RUNNING).count()
+                created_count = self.instances.filter(provider_size=provider_size, state=None, last_request_start_time__gt=datetime.now() - timedelta(minutes=2)).count()
+                pending_count = self.instances.filter(provider_size=provider_size, state=ComputeInstance.PENDING, last_request_start_time__gt=datetime.now() - timedelta(minutes=5)).count()
+
+                self.logger.warning('COUNTS: %d, %d, %d' % (actually_running_count, created_count, pending_count))
+
+                remaining_instance_count = instance_count - running_count
+
+                self.logger.warning('size: %s, instance_count: %d, running_count: %d, remaining_instance_count: %d' %
+                                    (provider_size, instance_count, running_count, remaining_instance_count))
+
+                for i in range(remaining_instance_count):
+                    self.logger.warning('creating instance for size %s' % provider_size)
                     instance_name = '%s-%d' % (self.name, i)
                     ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_size=provider_size,
                                                          authentication_method=self.authentication_method, compute_group=self)

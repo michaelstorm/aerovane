@@ -1,9 +1,9 @@
 from celery.task.schedules import crontab
 from celery.decorators import periodic_task
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from django.db import OperationalError, transaction
+from django.db import connection, OperationalError, transaction
 
 from libcloud.compute.base import Node, NodeAuthPassword, NodeAuthSSHKey
 
@@ -63,9 +63,9 @@ def update_instance_statuses_all():
 
 @app.task()
 def create_compute_instance(provider_configuration_id, provider_size_id, authentication_method_id,
-							compute_group_id):
+                            compute_group_id):
     from .models import AuthenticationMethod, ComputeGroup, ComputeInstance, PasswordAuthenticationMethod, \
-    					ProviderConfiguration, ProviderImage, ProviderSize
+                        ProviderConfiguration, ProviderImage, ProviderSize
 
     compute_group = ComputeGroup.objects.get(pk=compute_group_id)
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
@@ -92,31 +92,41 @@ def create_compute_instance(provider_configuration_id, provider_size_id, authent
         'provider_configuration': provider_configuration,
         'state': None,
         'public_ips': [],
-        'private_ips': []
+        'private_ips': [],
+        'last_request_start_time': datetime.now(),
     }
 
     def create_libcloud_instance():
-	    if isinstance(authentication_method, PasswordAuthenticationMethod):
-	        libcloud_auth = NodeAuthPassword(authentication_method.password)
-	    else:
-	        libcloud_auth = NodeAuthSSHKey(authentication_method.key)
+        if isinstance(authentication_method, PasswordAuthenticationMethod):
+            libcloud_auth = NodeAuthPassword(authentication_method.password)
+        else:
+            libcloud_auth = NodeAuthSSHKey(authentication_method.key)
 
-	    libcloud_size = provider_size.to_libcloud_size()
-	    libcloud_image = provider_image.to_libcloud_image(provider_configuration)
+        libcloud_size = provider_size.to_libcloud_size()
+        libcloud_image = provider_image.to_libcloud_image(provider_configuration)
 
-	    libcloud_node = provider_configuration.create_libcloud_node(name=name, libcloud_image=libcloud_image,
-	                    				                            libcloud_size=libcloud_size, libcloud_auth=libcloud_auth)
+        print('creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
+        libcloud_node = provider_configuration.create_libcloud_node(name=name, libcloud_image=libcloud_image,
+                                                                    libcloud_size=libcloud_size, libcloud_auth=libcloud_auth)
 
-	    compute_instance.state = ComputeInstance.PENDING
-	    compute_instance.external_id = libcloud_node.id
-	    compute_instance.public_ips = json.loads(json.dumps(libcloud_node.public_ips))
-	    compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))
-	    compute_instance.extra = json.loads(json.dumps(libcloud_node.extra, cls=NodeJSONEncoder))
-	    compute_instance.save()
+        print('done creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
+        compute_instance.state = ComputeInstance.PENDING
+        compute_instance.external_id = libcloud_node.id
+        compute_instance.public_ips = json.loads(json.dumps(libcloud_node.public_ips))
+        compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))
+        compute_instance.extra = json.loads(json.dumps(libcloud_node.extra, cls=NodeJSONEncoder))
+        compute_instance.save()
 
     with transaction.atomic():
-    	intended_instance_count = compute_group.size_distribution[str(provider_size.pk)]
-    	current_instance_count = compute_group.instances.filter(provider_size=provider_size).count()
-    	if current_instance_count < intended_instance_count:
-		    compute_instance = ComputeInstance.objects.create(**compute_instance_args)
-		    transaction.on_commit(create_libcloud_instance)
+        intended_instance_count = compute_group.size_distribution[str(provider_size.pk)]
+        current_instance_count = compute_group.pending_or_running_count(provider_size)
+
+        print('size_distribution: %s' % compute_group.size_distribution)
+        print('%s: current_instance_count < intended_instance_count = %d < %d = %s' %
+              (provider_size, current_instance_count, intended_instance_count,
+               current_instance_count < intended_instance_count))
+
+        if current_instance_count < intended_instance_count:
+            compute_instance = ComputeInstance.objects.create(**compute_instance_args)
+            print('created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
+            connection.on_commit(create_libcloud_instance)

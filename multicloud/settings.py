@@ -151,9 +151,12 @@ DAB_FIELD_RENDERER = 'django_admin_bootstrapped.renderers.BootstrapFieldRenderer
 from stratosphere.logging_connection import LoggingCursor
 
 default_db_config = dj_database_url.config(default='postgres://postgres:password@localhost:5432/aerovane')
+
 db_options = default_db_config['OPTIONS'] if 'OPTIONS' in default_db_config else {}
 db_options['isolation_level'] = psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE
 db_options['cursor_factory'] = LoggingCursor
+
+default_db_config['ENGINE'] = 'transaction_hooks.backends.postgresql_psycopg2'
 default_db_config['OPTIONS'] = db_options
 
 DATABASES = {
