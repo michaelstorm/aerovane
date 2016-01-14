@@ -161,7 +161,7 @@ DATABASES = {
 }
 
 # Celery
-BROKER_URL = 'django://'
+BROKER_URL = 'amqp://aerovane:aerovane_password@localhost:5672/aerovane_vhost'
 CELERYD_HIJACK_ROOT_LOGGER = True
 # CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
 # CELERYBEAT_SCHEDULE = {

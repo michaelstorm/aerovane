@@ -2,11 +2,16 @@ import datetime
 import json
 import logging
 import time
+import traceback
 
 from django.contrib.staticfiles.storage import CachedFilesMixin
 from functools import wraps
 from libcloud.compute.drivers.ec2 import EC2NetworkInterface
 from storages.backends.s3boto import S3BotoStorage
+
+
+class BackoffError(Exception):
+    pass
 
 
 class HasLogger(object):
@@ -68,19 +73,49 @@ def decode_node_extra(dct):
 
 def call_with_retry(f, exception_type, tries=4, delay=10, backoff=3, logger=None, args=[], kwargs={}):
     mtries, mdelay = tries, delay
-    while mtries > 1:
+    ret = None
+    succeeded = False
+    failed_try = False
+
+    while mtries > 1 and not succeeded:
         try:
-            return f(*args, **kwargs)
+            ret = f(*args, **kwargs)
+            succeeded = True
         except exception_type as e:
-            msg = "%s, Retrying in %d seconds..." % (str(e), mdelay)
+            task_traceback = ''.join(traceback.format_list(traceback.extract_stack()))
+            exception_traceback = ''.join(traceback.format_list(traceback.extract_tb(e.__traceback__)))
+
+            msg = "%s failed (%s: %s), retrying in %d seconds. Task traceback:\n%s\nException traceback:\n%s" % \
+                  (f.__name__, e.__class__.__qualname__, str(e), mdelay, task_traceback, exception_traceback)
+
             if logger:
                 logger.warning(msg)
             else:
                 print(msg)
+
             time.sleep(mdelay)
+            failed_try = True
             mtries -= 1
             mdelay *= backoff
-    return f(*args, **kwargs)
+
+    if succeeded:
+        if failed_try:
+            msg = "%s succeeded" % f.__name__
+            if logger:
+                logger.warning(msg)
+            else:
+                print(msg)
+    else:
+        ret = f(*args, **kwargs)
+
+        if failed_try:
+            msg = "%s succeeded" % f.__name__
+            if logger:
+                logger.warning(msg)
+            else:
+                print(msg)
+
+    return ret
 
 
 def retry(exception_type, tries=4, delay=1, backoff=3, logger=None):

@@ -42,7 +42,7 @@ def run_instances(request):
     name_suffix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
     name = 'terraform-%s' % name_suffix
 
-    size = provider_configuration.provider_sizes.get(external_id=args['instance_type'])
+    provider_size = provider_configuration.provider_sizes.get(external_id=args['instance_type'])
 
     provider_image = ProviderImage.objects.get(image_id=args['image_id'], provider__name__startswith='aws')
     operating_system_image = provider_image.disk_image.disk_image_mappings.first().operating_system_image
@@ -55,8 +55,8 @@ def run_instances(request):
     attributes = {
         'user_configuration': provider_configuration.user_configuration,
         'name': name,
-        'cpu': int(size.vcpus),
-        'memory': int(size.ram),
+        'cpu': int(provider_size.vcpus),
+        'memory': int(provider_size.ram),
         'instance_count': int(args['max_count']),
         'image': operating_system_image,
         'provider_policy': provider_policy_str,

@@ -131,13 +131,21 @@ def compute_groups(request):
 def add_compute_group(request):
     operating_system_images = OperatingSystemImage.objects.filter(user=request.user)
 
-    os_images_map = {os_image: ProviderConfiguration.objects.filter(user_configuration__user=request.user,
-                                        provider_images__disk_image_mappings__operating_system_image=os_image)
+    os_images_map = {os_image: Provider.objects.filter(
+                            provider_images__disk_image__disk_image_mappings__operating_system_image=os_image).distinct()
                      for os_image in operating_system_images}
 
     possible_providers = [
         {
-            'name': 'aws',
+            'name': 'aws_us_east_1',
+            'available': True,
+        },
+        {
+            'name': 'aws_us_west_1',
+            'available': True,
+        },
+        {
+            'name': 'aws_us_west_2',
             'available': True,
         },
         {

@@ -1,40 +1,45 @@
+from datetime import datetime, timedelta
+
 from django.db import models, transaction, OperationalError
 from django.db.models import Q
 
-from libcloud.compute.base import NodeAuthPassword, NodeAuthSSHKey
-from libcloud.compute.types import NodeState
-
 from polymorphic import PolymorphicModel
 
-from ..models import ComputeInstance, PasswordAuthenticationMethod, ProviderConfiguration
-from ..util import *
+from ..models import ComputeInstance, ProviderConfiguration
+from ..util import HasLogger, retry, call_with_retry, BackoffError
 
 import json
 
 import traceback
 
 
-class BackoffError(Exception):
+class NoSizesAvailableError(Exception):
     pass
 
 
 def update_distribution(func):
     def func_wrapper(self):
         def lock():
+            print('ATTEMPTING LOCK')
             with transaction.atomic():
-                if self.updating_distribution:
+                cutoff_time = datetime.now() + timedelta(minutes=2)
+                if self.updating_distribution and self.updating_distribution_time < cutoff_time:
                     raise BackoffError()
                 else:
+                    print('LOCKING')
                     self.updating_distribution = True
+                    self.updating_distribution_time = datetime.now()
                     self.save()
 
         def unlock():
+            print('ATTEMPTING UNLOCK')
             saved = False
             while not saved:
                 try:
                     with transaction.atomic():
                         # don't re-save if deleted earlier
                         if ComputeGroup.objects.filter(pk=self.pk).exists():
+                            print('UNLOCKING')
                             self.updating_distribution = False
                             self.save()
 
@@ -44,10 +49,10 @@ def update_distribution(func):
                     pass
 
         try:
-            call_with_retry(lock, (OperationalError, BackoffError), tries=10)
+            lock()
             func(self)
         finally:
-            call_with_retry(unlock, (OperationalError, BackoffError), tries=10)
+            call_with_retry(unlock, OperationalError, tries=10)
 
     return func_wrapper
 
@@ -74,6 +79,7 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     memory = models.IntegerField()
     name = models.CharField(max_length=128)
     provider_policy = models.TextField()
+    size_distribution = models.TextField()
     updating_distribution = models.BooleanField(default=False)
     updating_distribution_time = models.DateTimeField(blank=True, null=True)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
@@ -88,11 +94,11 @@ class ComputeGroup(PolymorphicModel, HasLogger):
         provider_states_map = {}
 
         for provider_name in provider_policy_filtered:
-            provider_configuration = ProviderConfiguration.objects.filter(provider_name=provider_name).first()
+            provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name)
             provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, provider_instances)))
-            pending_count = len(list(filter(lambda i: i.state in (ComputeInstance.PENDING, ComputeInstance.REBOOTING), provider_instances)))
-            terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING),
+            pending_count = len(list(filter(lambda i: i.state in (None, ComputeInstance.PENDING, ComputeInstance.REBOOTING), provider_instances)))
+            terminated_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING),
                                                provider_instances)))
 
             provider_states_map[provider_name] = {
@@ -106,7 +112,6 @@ class ComputeGroup(PolymorphicModel, HasLogger):
         return provider_states_map
 
     @update_distribution
-    @retry((OperationalError, BackoffError), tries=10)
     def check_instance_distribution(self):
         self.logger.warning('Got lock')
 
@@ -114,9 +119,9 @@ class ComputeGroup(PolymorphicModel, HasLogger):
 
         instances_flat = list(self.instances.all())
         created_count = len(instances_flat)
-        unknown_count = len(list(filter(lambda i: i.state not in (ComputeInstance.PENDING, ComputeInstance.RUNNING), instances_flat)))
+        unknown_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.PENDING, ComputeInstance.RUNNING), instances_flat)))
         running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
-        non_pending_count = len(list(filter(lambda i: i.state != ComputeInstance.PENDING, instances_flat)))
+        non_pending_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.PENDING), instances_flat)))
         non_terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.TERMINATED, ComputeInstance.UNKNOWN), instances_flat)))
         non_running_instances = list(filter(lambda i: i.state != ComputeInstance.RUNNING, instances_flat))
 
@@ -136,15 +141,14 @@ class ComputeGroup(PolymorphicModel, HasLogger):
                               % (created_count, unknown_count, self.instance_count, created_count - unknown_count < self.instance_count))
 
             if created_count >= self.instance_count and created_count - unknown_count < self.instance_count:
-                bad_provider_ids = set([instance.provider_configuration.pk for instance in self.instances.filter(~Q(state=ComputeInstance.PENDING) & ~Q(state=ComputeInstance.RUNNING))])
+                bad_provider_ids = set([instance.provider_configuration.pk for instance in self.instances.filter(~Q(state__in=[None, ComputeInstance.PENDING, ComputeInstance.RUNNING]))])
                 good_provider_ids = [provider.pk for provider in
                                      self.user_configuration.provider_configurations.exclude(pk__in=bad_provider_ids)]
 
                 self.logger.warning('bad_provider_ids: %s' % bad_provider_ids)
                 self.logger.warning('good_provider_ids: %s' % good_provider_ids)
 
-                best_sizes = self._get_best_sizes(good_provider_ids)
-                self._create_compute_instances(best_sizes)
+                self.create_instances(good_provider_ids)
 
             if running_count >= self.instance_count:
                 for instance in non_running_instances:
@@ -153,9 +157,14 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     def _destroy_instance(self, instance):
         pass
 
-    def create_instances(self):
-        best_sizes = self._get_best_sizes()
-        self._create_compute_instances(best_sizes)
+    def create_instances(self, provider_ids=None):
+        best_sizes = self._get_best_sizes(provider_ids)
+
+        instance_counts_by_size_id = self._get_size_distribution(best_sizes)
+        self.size_distribution = instance_counts_by_size_id
+        self.save()
+
+        self._create_compute_instances()
 
     @retry(OperationalError)
     def terminate(self):
@@ -167,7 +176,6 @@ class ComputeGroup(PolymorphicModel, HasLogger):
                 instance.provider_configuration.driver.destroy_node(instance.to_libcloud_node())
             except Exception:
                 traceback.print_exc()
-
 
 
 class ImageComputeGroup(ComputeGroup):
@@ -195,7 +203,8 @@ class OperatingSystemComputeGroup(ComputeGroup):
 
                 provider_image = provider_configuration.available_provider_images.filter(disk_image__disk_image_mappings__operating_system_image=self.image).first()
                 if provider_image is not None:
-                    available_sizes.extend(provider_configuration.get_available_sizes(provider_image=provider_image, cpu=self.cpu, memory=self.memory))
+                    provider_sizes = provider_configuration.get_available_sizes(provider_image=provider_image, cpu=self.cpu, memory=self.memory)
+                    available_sizes.extend(provider_sizes)
 
                 available_sizes.sort(key=lambda s: s.price)
                 if len(available_sizes) > 0:
@@ -203,29 +212,38 @@ class OperatingSystemComputeGroup(ComputeGroup):
 
         return best_sizes
 
-    def _create_compute_instances(self, sizes):
-        running_count = self.instances.filter(Q(state=ComputeInstance.PENDING) | Q(state=ComputeInstance.RUNNING)).count()
+    def _get_size_distribution(self, sizes):
+        running_count = self.instances.filter(state__in=[None, ComputeInstance.PENDING, ComputeInstance.RUNNING]).count()
         remaining_instance_count = self.instance_count - running_count
 
         sizes_list = sorted(sizes.values(), key=lambda s: self.instances.filter(provider_configuration=s.provider_configuration).count())
-        print('sizes_list', sizes_list)
+        self.logger.warning('sizes_list: %s' % sizes_list)
 
-        while remaining_instance_count > 0:
-            for size in sizes_list:
-                provider_configuration = size.provider_configuration
-                provider_image = provider_configuration.available_provider_images.get(
-                                        disk_image__disk_image_mappings__operating_system_image=self.image)
+        instance_counts = {}
 
-                provider_instance_count = int(remaining_instance_count/len(sizes)) * len(sizes)
-                if provider_instance_count == 0 and remaining_instance_count > 0:
-                    provider_instance_count = 1
+        if len(sizes) > 0:
+            while remaining_instance_count > 0:
+                for provider_size in sizes_list:
+                    provider_instance_count = int(remaining_instance_count/len(sizes)) * len(sizes)
+                    if provider_instance_count == 0 and remaining_instance_count > 0:
+                        provider_instance_count = 1
 
-                print('remaining_instance_count:', remaining_instance_count)
-                print('provider_instance_count:', provider_instance_count, 'provider:', size.provider_configuration.provider_name)
+                    if provider_size in instance_counts:
+                        instance_counts[provider_size.pk] += provider_instance_count
+                    else:
+                        instance_counts[provider_size.pk] = provider_instance_count
 
-                for i in range(provider_instance_count):
+                    remaining_instance_count -= provider_instance_count
+
+        return instance_counts
+
+    def _create_compute_instances(self):
+        with transaction.atomic():
+            for provider_size_id, instance_count in self.size_distribution.items():
+                provider_size = ProviderSize.objects.get(pk=provider_size_id)
+                provider_configuration = provider_size.provider_configuration
+
+                for i in range(instance_count):
                     instance_name = '%s-%d' % (self.name, i)
-                    ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_image=provider_image, size=size,
-                                                         name=instance_name, authentication_method=self.authentication_method)
-
-                remaining_instance_count -= provider_instance_count
+                    ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_size=provider_size,
+                                                         name=instance_name, authentication_method=self.authentication_method, compute_group=self)

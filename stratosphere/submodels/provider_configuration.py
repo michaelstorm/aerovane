@@ -79,7 +79,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
                                        **extra_args)
 
-    @retry((OperationalError, socket.gaierror))
     def update_instance_statuses(self):
         instances = ComputeInstance.objects.filter(provider_configuration=self)
 
@@ -123,12 +122,12 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
                                             ram=driver_size.ram, disk=driver_size.disk, bandwidth=driver_size.bandwidth, vcpus=vcpus,
                                             extra=json.loads(json.dumps(driver_size.extra)))
 
-    def load_available_images(self):
+    def load_available_images(self, image_filter=lambda image: True):
         print('Querying images for provider %s' % self.provider_name)
         driver_images = self.driver.list_images()
         print('Retrieved %d images' % len(driver_images))
 
-        filtered_driver_images = driver_images[:100] # TODO remove driver images limit
+        filtered_driver_images = list(filter(image_filter, driver_images))[:100] # TODO remove driver images limit
 
         # for os_name in self.default_operating_systems:
         #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
@@ -286,7 +285,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         }
 
         for region, pretty_name in regions.items():
-            name = 'aws:%s' % region
+            name = 'aws_%s' % region.replace('-', '_')
             provider = Provider.objects.create(
                 name=name,
                 pretty_name='AWS %s' % pretty_name,
@@ -307,11 +306,11 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
     def get_available_sizes(self, provider_image, cpu, memory):
         sizes = self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
 
-        def filter_size(size):
+        def filter_size(provider_size):
             virtualization_type = provider_image.extra['virtualization_type']
             root_device_type = provider_image.extra['root_device_type']
 
-            size_category = size.external_id.split('.')[0]
+            size_category = provider_size.external_id.split('.')[0]
             try:
                 size_combos = self.ami_requirements[size_category]['combos']
                 return (virtualization_type, root_device_type) in size_combos

@@ -143,10 +143,10 @@
 
 {% block body_script %}
     var os_supported_providers = {
-        {% for image, provider_configurations in os_images_map.items %}
+        {% for image, providers in os_images_map.items %}
             "{{ image.id }}": [
-                {% for provider_configuration in provider_configurations %}
-                    "{{ provider_configuration.provider_name }}",
+                {% for provider in providers %}
+                    "{{ provider.name }}",
                 {% endfor %}
             ],
         {% endfor %}
@@ -180,6 +180,7 @@
                 var supported_providers = os_supported_providers[selected_os];
                 supported_providers.forEach(function(provider_name) {
                     var provider = $('#provider_choice_' + provider_name);
+                    console.log(provider_name, provider);
                     if (!provider.hasClass('not-available'))
                         provider.removeClass('disabled');
                 });
