@@ -9,6 +9,8 @@ from libcloud.compute.types import NodeState
 
 from polymorphic import PolymorphicModel
 
+from save_the_change.mixins import SaveTheChange
+
 from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderImage, ProviderSize, Provider
 from ..util import *
 
@@ -22,7 +24,11 @@ CLOUD_PROVIDER_DRIVERS = {}
 SIMULATED_FAILURE_DRIVER = SimulatedFailureDriver()
 
 
-class ProviderConfiguration(PolymorphicModel, HasLogger):
+class LibcloudDestroyError(Exception):
+    pass
+
+
+class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 
@@ -63,6 +69,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
                        & Q(provider=self.provider)))
 
     def _destroy_all_nodes(self):
+        print('listing nodes in %s' % self.provider_name)
         nodes = self.driver.list_nodes()
         print('found %d nodes in %s' % (len(nodes), self.provider_name))
         for node in nodes:
@@ -86,6 +93,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
         return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
                                        **extra_args)
 
+    def destroy_libcloud_node(self, libcloud_node):
+        if not self.driver.destroy_node(libcloud_node):
+            raise LibcloudDestroyError()
+
     def update_instance_statuses(self):
         instances = ComputeInstance.objects.filter(provider_configuration=self)
 
@@ -103,7 +114,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger):
 
         for instance in instances:
             nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
-            self.logger.debug('%s nodes: %s' % (instance.external_id, nodes))
 
             if len(nodes) == 0:
                 instance.state = ComputeInstance.UNKNOWN

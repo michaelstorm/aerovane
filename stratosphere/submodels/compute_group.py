@@ -7,6 +7,8 @@ from django.db.models import Q
 
 from polymorphic import PolymorphicModel
 
+from save_the_change.mixins import SaveTheChange
+
 from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
 from ..util import HasLogger, retry, call_with_retry, BackoffError
 
@@ -59,7 +61,7 @@ def update_distribution(func):
     return func_wrapper
 
 
-class ComputeGroup(PolymorphicModel, HasLogger):
+class ComputeGroup(PolymorphicModel, HasLogger, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 
@@ -140,17 +142,14 @@ class ComputeGroup(PolymorphicModel, HasLogger):
                 self.logger.warning('bad_provider_ids: %s' % bad_provider_ids)
                 self.logger.warning('good_provider_ids: %s' % good_provider_ids)
 
-                self.create_instances(good_provider_ids)
+            if running_count != self.instance_count:
+                self.rebalance_instances()
 
-            if running_count >= self.instance_count:
-                for instance in non_running_instances:
-                    self._destroy_instance(instance) # TODO currently no-op
-
-    def _destroy_instance(self, instance):
-        pass
-
-    def create_instances(self, provider_ids=None):
+    def rebalance_instances(self, provider_ids=None):
         best_sizes = self._get_best_sizes(provider_ids)
+
+        if len(best_sizes) == 0:
+            raise NoSizesAvailableError()
 
         instance_counts_by_size_id = self._get_size_distribution(best_sizes)
         self.size_distribution = instance_counts_by_size_id
@@ -161,13 +160,8 @@ class ComputeGroup(PolymorphicModel, HasLogger):
     @retry(OperationalError)
     def terminate(self):
         self.state = self.TERMINATED
+        self.instance_count = 0
         self.save()
-
-        for instance in self.instances.all():
-            try:
-                instance.provider_configuration.driver.destroy_node(instance.to_libcloud_node())
-            except Exception:
-                traceback.print_exc()
 
 
 class ImageComputeGroup(ComputeGroup):
@@ -211,20 +205,16 @@ class OperatingSystemComputeGroup(ComputeGroup):
         instance_counts = {}
         remaining_instance_count = self.instance_count
 
-        if len(sizes) > 0:
-            while remaining_instance_count > 0:
-                for provider_size in sizes_list:
-                    provider_instance_count = int(remaining_instance_count/len(sizes)) * len(sizes)
-                    if provider_instance_count == 0 and remaining_instance_count > 0:
-                        provider_instance_count = 1
+        provider_instance_count = int(remaining_instance_count/len(sizes))
+        last_provider_instance_count = remaining_instance_count % len(sizes)
 
-                    # the database converts to string keys anyway, so we do it here for consistency
-                    if provider_size.pk in instance_counts:
-                        instance_counts[str(provider_size.pk)] += provider_instance_count
-                    else:
-                        instance_counts[str(provider_size.pk)] = provider_instance_count
+        if len(sizes) > 1:
+            for provider_size in sizes_list[:-1]:
+                instance_counts[str(provider_size.pk)] = provider_instance_count
 
-                    remaining_instance_count -= provider_instance_count
+            instance_counts[str(sizes_list[-1].pk)] = last_provider_instance_count
+        elif len(sizes) == 0:
+            instance_counts[str(sizes_list[0].pk)] = provider_instance_count
 
         return instance_counts
 
@@ -245,21 +235,30 @@ class OperatingSystemComputeGroup(ComputeGroup):
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
                 provider_configuration = provider_size.provider_configuration
 
-                running_count = self.pending_or_running_count(provider_size)
+                pending_or_running_count = self.pending_or_running_count(provider_size)
 
-                actually_running_count = self.instances.filter(provider_size=provider_size, state=ComputeInstance.RUNNING).count()
-                created_count = self.instances.filter(provider_size=provider_size, state=None, last_request_start_time__gt=datetime.now() - timedelta(minutes=2)).count()
-                pending_count = self.instances.filter(provider_size=provider_size, state=ComputeInstance.PENDING, last_request_start_time__gt=datetime.now() - timedelta(minutes=5)).count()
+                running_provider_instances = self.instances.filter(provider_size=provider_size, state=ComputeInstance.RUNNING)
+                running_count = running_provider_instances.count()
 
-                self.logger.warning('COUNTS: %d, %d, %d' % (actually_running_count, created_count, pending_count))
+                two_minutes_ago = datetime.now() - timedelta(minutes=2)
+                created_count = self.instances.filter(provider_size=provider_size, state=None,
+                                                      last_request_start_time__gt=two_minutes_ago).count()
 
-                remaining_instance_count = instance_count - running_count
+                five_minutes_ago = datetime.now() - timedelta(minutes=5)
+                pending_count = self.instances.filter(provider_size=provider_size, state=ComputeInstance.PENDING,
+                                                      last_request_start_time__gt=five_minutes_ago).count()
 
-                self.logger.warning('size: %s, instance_count: %d, running_count: %d, remaining_instance_count: %d' %
-                                    (provider_size, instance_count, running_count, remaining_instance_count))
+                self.logger.warning('%s (%d) counts: %d created, %d pending, %d running, %d pending or running' %
+                                    (provider_size, provider_size.pk, created_count, pending_count, running_count,
+                                     pending_or_running_count))
 
-                for i in range(remaining_instance_count):
-                    self.logger.warning('creating instance for size %s' % provider_size)
-                    instance_name = '%s-%d' % (self.name, i)
-                    ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_size=provider_size,
-                                                         authentication_method=self.authentication_method, compute_group=self)
+                if pending_or_running_count < instance_count:
+                    for i in range(instance_count - pending_or_running_count):
+                        self.logger.warning('creating instance for size %s' % provider_size)
+                        instance_name = '%s-%d' % (self.name, i)
+                        ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_size=provider_size,
+                                                             authentication_method=self.authentication_method, compute_group=self)
+                elif running_count > instance_count:
+                    for instance in running_provider_instances[:running_count - instance_count]:
+                        self.logger.warning('terminating instance %s for size %s' % (instance, provider_size))
+                        instance.terminate()

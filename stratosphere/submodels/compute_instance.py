@@ -1,17 +1,22 @@
 from annoying.fields import JSONField
 
-from django.db import models
+from datetime import datetime
+
+from django.db import connection, models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
 
+from save_the_change.mixins import SaveTheChange
+
 from ..models import PasswordAuthenticationMethod
-from ..tasks import create_compute_instance, check_instance_distribution
+from ..tasks import check_instance_distribution, create_compute_instance, terminate_libcloud_node
+from ..util import decode_node_extra
 
 
-class ComputeInstance(models.Model):
+class ComputeInstance(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 
@@ -48,11 +53,21 @@ class ComputeInstance(models.Model):
     provider_size = models.ForeignKey('ProviderSize', related_name='instances')
     extra = JSONField()
     last_request_start_time = models.DateTimeField(blank=True, null=True)
+    terminated = models.BooleanField(default=False)
 
     @staticmethod
     def create_with_provider(provider_configuration, provider_size, authentication_method, compute_group):
         create_compute_instance.delay(provider_configuration.pk, provider_size.pk,
                                       authentication_method.pk, compute_group.pk)
+
+    def terminate(self):
+        with transaction.atomic():
+            self.state = ComputeInstance.UNKNOWN
+            self.terminated = True
+            self.last_request_start_time = datetime.now()
+            self.save()
+
+            connection.on_commit(lambda: terminate_libcloud_node.delay(self.pk))
 
     def to_libcloud_node(self):
         libcloud_node_args = {
@@ -62,7 +77,7 @@ class ComputeInstance(models.Model):
             'public_ips': self.public_ips,
             'private_ips': self.private_ips,
             'driver': self.provider_configuration.driver,
-            'size': self.size.to_libcloud_size(),
+            'size': self.provider_size.to_libcloud_size(),
             'image': self.provider_image.to_libcloud_image(self.provider_configuration),
             'extra': decode_node_extra(self.extra)
         }

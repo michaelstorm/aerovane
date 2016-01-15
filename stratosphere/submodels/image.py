@@ -5,17 +5,19 @@ from django.db import models
 
 from libcloud.compute.base import NodeImage
 
+from save_the_change.mixins import SaveTheChange
+
 from ..util import *
 
 
-class DiskImage(models.Model):
+class DiskImage(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 
     name = models.CharField(max_length=128, db_index=True)
 
 
-class DiskImageMapping(models.Model):
+class DiskImageMapping(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
         unique_together = ('provider', 'disk_image', 'operating_system_image')
@@ -25,7 +27,7 @@ class DiskImageMapping(models.Model):
     operating_system_image = models.ForeignKey('OperatingSystemImage', related_name='disk_image_mappings')
 
 
-class OperatingSystemImage(models.Model):
+class OperatingSystemImage(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 
@@ -33,7 +35,7 @@ class OperatingSystemImage(models.Model):
     name = models.CharField(max_length=128)
 
 
-class ProviderImage(models.Model):
+class ProviderImage(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 

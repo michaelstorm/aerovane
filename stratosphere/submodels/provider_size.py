@@ -4,10 +4,12 @@ from django.db import models
 
 from libcloud.compute.base import NodeSize
 
+from save_the_change.mixins import SaveTheChange
+
 from ..util import *
 
 
-class ProviderSize(models.Model):
+class ProviderSize(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 

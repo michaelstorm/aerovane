@@ -4,6 +4,7 @@ from celery.decorators import periodic_task
 from datetime import datetime, timedelta
 
 from django.db import connection, OperationalError, transaction
+from django.db.models import Q
 
 from libcloud.compute.base import Node, NodeAuthPassword, NodeAuthSSHKey
 
@@ -59,6 +60,29 @@ def update_instance_statuses_all():
     provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
         update_instance_statuses.delay(provider_configuration_id)
+
+
+@periodic_task(run_every=timedelta(minutes=2))
+def clean_up_terminated_instances():
+    from .models import ComputeInstance
+
+    two_minutes_ago = datetime.now() - timedelta(minutes=2)
+    leftover_terminated_instances = ComputeInstance.objects.filter(
+        Q(terminated=True, last_request_start_time__lte=two_minutes_ago)
+        & ~Q(state=ComputeInstance.TERMINATED))
+
+    for instance in leftover_terminated_instances:
+        terminate_libcloud_node.delay(instance.pk)
+
+
+@app.task()
+def terminate_libcloud_node(compute_instance_id):
+    from .models import ComputeInstance
+
+    instance = ComputeInstance.objects.get(pk=compute_instance_id)
+    instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
+    instance.state = ComputeInstance.TERMINATED
+    instance.save()
 
 
 @app.task()

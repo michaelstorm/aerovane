@@ -6,10 +6,12 @@ from django.dispatch import receiver
 
 import hashlib
 
+from save_the_change.mixins import SaveTheChange
+
 from ..util import *
 
 
-class UserConfiguration(models.Model):
+class UserConfiguration(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 

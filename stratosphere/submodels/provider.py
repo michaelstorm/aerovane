@@ -1,7 +1,8 @@
 from django.db import models
 
+from save_the_change.mixins import SaveTheChange
 
-class Provider(models.Model):
+class Provider(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 

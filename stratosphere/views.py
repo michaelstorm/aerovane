@@ -256,7 +256,7 @@ def compute(request, group_id=None):
                                                                size_distribution={}, image=operating_system_image,
                                                                authentication_method=authentication_method)
 
-        group.create_instances()
+        group.rebalance_instances()
 
         return JsonResponse(_compute_group_to_json(group))
 
