@@ -5,6 +5,7 @@ from datetime import datetime
 from django.db import connection, models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
@@ -64,7 +65,7 @@ class ComputeInstance(models.Model, SaveTheChange):
         with transaction.atomic():
             self.state = ComputeInstance.UNKNOWN
             self.terminated = True
-            self.last_request_start_time = datetime.now()
+            self.last_request_start_time = timezone.now()
             self.save()
 
             connection.on_commit(lambda: terminate_libcloud_node.delay(self.pk))

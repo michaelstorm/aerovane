@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from django.db import models, transaction, OperationalError
 from django.db.models import Q
+from django.utils import timezone
 
 from polymorphic import PolymorphicModel
 
@@ -26,13 +27,13 @@ def update_distribution(func):
         def lock():
             print('ATTEMPTING LOCK')
             with transaction.atomic():
-                cutoff_time = datetime.now() + timedelta(minutes=2)
+                cutoff_time = timezone.now() + timedelta(minutes=2)
                 if self.updating_distribution and self.updating_distribution_time < cutoff_time:
                     raise BackoffError()
                 else:
                     print('LOCKING')
                     self.updating_distribution = True
-                    self.updating_distribution_time = datetime.now()
+                    self.updating_distribution_time = timezone.now()
                     self.save()
 
         def unlock():
@@ -97,7 +98,7 @@ class ComputeGroup(PolymorphicModel, HasLogger, SaveTheChange):
             provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, provider_instances)))
             pending_count = len(list(filter(lambda i: i.state in (None, ComputeInstance.PENDING, ComputeInstance.REBOOTING), provider_instances)))
-            terminated_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING),
+            terminated_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING) and not i.terminated,
                                                provider_instances)))
 
             provider_states_map[provider_name] = {
@@ -219,13 +220,14 @@ class OperatingSystemComputeGroup(ComputeGroup):
         return instance_counts
 
     def pending_or_running_count(self, provider_size):
+        now = timezone.now()
         return self.instances.filter(
             Q(provider_size=provider_size)
             & (Q(state=ComputeInstance.RUNNING)
                | Q(state=None,
-                   last_request_start_time__gt=datetime.now() - timedelta(minutes=2))
+                   last_request_start_time__gt=now - timedelta(minutes=2))
                | Q(state=ComputeInstance.PENDING,
-                   last_request_start_time__gt=datetime.now() - timedelta(minutes=5))
+                   last_request_start_time__gt=now - timedelta(minutes=5))
         )).count()
 
     def _create_compute_instances(self):
@@ -240,11 +242,12 @@ class OperatingSystemComputeGroup(ComputeGroup):
                 running_provider_instances = self.instances.filter(provider_size=provider_size, state=ComputeInstance.RUNNING)
                 running_count = running_provider_instances.count()
 
-                two_minutes_ago = datetime.now() - timedelta(minutes=2)
+                now = timezone.now()
+                two_minutes_ago = now - timedelta(minutes=2)
                 created_count = self.instances.filter(provider_size=provider_size, state=None,
                                                       last_request_start_time__gt=two_minutes_ago).count()
 
-                five_minutes_ago = datetime.now() - timedelta(minutes=5)
+                five_minutes_ago = now - timedelta(minutes=5)
                 pending_count = self.instances.filter(provider_size=provider_size, state=ComputeInstance.PENDING,
                                                       last_request_start_time__gt=five_minutes_ago).count()
 

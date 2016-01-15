@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from django.db import connection, OperationalError, transaction
 from django.db.models import Q
+from django.utils import timezone
 
 from libcloud.compute.base import Node, NodeAuthPassword, NodeAuthSSHKey
 
@@ -66,7 +67,7 @@ def update_instance_statuses_all():
 def clean_up_terminated_instances():
     from .models import ComputeInstance
 
-    two_minutes_ago = datetime.now() - timedelta(minutes=2)
+    two_minutes_ago = timezone.now() - timedelta(minutes=2)
     leftover_terminated_instances = ComputeInstance.objects.filter(
         Q(terminated=True, last_request_start_time__lte=two_minutes_ago)
         & ~Q(state=ComputeInstance.TERMINATED))
@@ -117,7 +118,7 @@ def create_compute_instance(provider_configuration_id, provider_size_id, authent
         'state': None,
         'public_ips': [],
         'private_ips': [],
-        'last_request_start_time': datetime.now(),
+        'last_request_start_time': timezone.now(),
     }
 
     def create_libcloud_instance():
