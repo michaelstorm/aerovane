@@ -112,6 +112,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
         #     return
 
+        state_changed = False
         for instance in instances:
             nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
 
@@ -120,15 +121,21 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             else:
                 node = nodes[0]
 
-                new_state = NodeState.tostring(node.state)
-                if instance.state != new_state:
-                    self.logger.info('Updating state of %s from %s to %s' % (instance, instance.state, new_state))
-                    instance.state = new_state
-
+                instance.state = NodeState.tostring(node.state)
                 instance.private_ips = node.private_ips
                 instance.public_ips = node.public_ips
 
-            instance.save()
+            # prevent too many history instances from being created
+            if instance.has_changed:
+                if 'state' in instance.changed_fields:
+                    state_changed = True
+                    self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
+
+                instance.save()
+
+        if state_changed:
+            instance.group.take_instance_states_snapshot()
+
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()

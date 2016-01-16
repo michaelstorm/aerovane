@@ -10,14 +10,14 @@ from django.utils import timezone
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
 
-from save_the_change.mixins import SaveTheChange
+from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..models import PasswordAuthenticationMethod
 from ..tasks import check_instance_distribution, create_compute_instance, terminate_libcloud_node
 from ..util import decode_node_extra
 
 
-class ComputeInstanceBase(models.Model, SaveTheChange):
+class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         abstract = True
 
@@ -63,7 +63,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange):
 
     def terminate(self):
         with transaction.atomic():
-            self.state = ComputeInstance.UNKNOWN
+            self.state = 'UNKNOWN'
             self.terminated = True
             self.last_request_start_time = timezone.now()
             self.save()

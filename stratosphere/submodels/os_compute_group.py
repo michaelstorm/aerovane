@@ -50,16 +50,22 @@ class OperatingSystemComputeGroupBase(ComputeGroup):
         instance_counts = {}
         remaining_instance_count = self.instance_count
 
-        provider_instance_count = int(remaining_instance_count/len(sizes))
-        last_provider_instance_count = remaining_instance_count % len(sizes)
+        # if len(sizes) == 0, we get into an infinite loop
+        if len(sizes) > 0:
+            while remaining_instance_count > 0:
+                for provider_size in sizes_list:
+                    provider_instance_count = int(remaining_instance_count/len(sizes))
+                    if provider_instance_count == 0 and remaining_instance_count > 0:
+                        provider_instance_count = 1
 
-        if len(sizes) > 1:
-            for provider_size in sizes_list[:-1]:
-                instance_counts[str(provider_size.pk)] = provider_instance_count
+                    # the database converts to string keys anyway, so we do it here for consistency
+                    key = str(provider_size.pk)
+                    if key in instance_counts:
+                        instance_counts[key] += provider_instance_count
+                    else:
+                        instance_counts[key] = provider_instance_count
 
-            instance_counts[str(sizes_list[-1].pk)] = last_provider_instance_count
-        elif len(sizes) == 0:
-            instance_counts[str(sizes_list[0].pk)] = provider_instance_count
+                    remaining_instance_count -= provider_instance_count
 
         return instance_counts
 

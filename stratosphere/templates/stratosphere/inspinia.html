@@ -52,6 +52,68 @@
                 return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
             };
 
+            var drawInstancesChart = function(data) {
+                var series = [{
+                    data: [],
+                    label: "Running",
+                    color: "#5cb85c",
+                },
+                {
+                    data: [],
+                    label: "Pending",
+                    color: "#f0ad4e",
+                },
+                {
+                    data: [],
+                    label: "Terminated",
+                    color: "#d9534f",
+                }];
+
+                for (var i = 0; i < data.length; i += 1) {
+                    var snapshot = data[i];
+                    series[0].data.push([snapshot.time, snapshot.running]);
+                }
+
+                for (var i = 0; i < data.length; i += 1) {
+                    var snapshot = data[i];
+                    series[1].data.push([snapshot.time, snapshot.pending]);
+                }
+
+                for (var i = 0; i < data.length; i += 1) {
+                    var snapshot = data[i];
+                    series[2].data.push([snapshot.time, snapshot.terminated]);
+                }
+
+                // extend last value to edge of graph, or it'll end in a vertical line
+                var now = new Date().getTime();
+                series[0].data.push([now, data[data.length-1].running]);
+                series[1].data.push([now, data[data.length-1].pending]);
+                series[2].data.push([now, data[data.length-1].terminated]);
+
+                $.plot("#instances-chart", series, {
+                    xaxis: {
+                        mode: "time",
+                        tickLength: 0,
+                        min: now - 1000*60*30,
+                        max: now,
+                    },
+                    yaxis: {
+                        show: false,
+                    },
+                    series: {
+                        stack: true,
+                        lines: {
+                            show: true,
+                            fill: true,
+                            steps: true,
+                        },
+                    },
+                    grid: {
+                        borderWidth: 0,
+                    },
+                });
+            }
+
             var dashboardApp = angular.module('dashboardApp', ['ngResource', 'isteven-multi-select', 'ui.bootstrap'])
                 .config(function ($interpolateProvider) {
                     $interpolateProvider.startSymbol('{$');
@@ -124,15 +186,38 @@
                 });
             }]);
 
-            dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval',
-                                                             function ($scope, Group, $timeout, $interval) {
+            dashboardApp.controller('ComputeGroupCtrl', ['$scope', 'ComputeGroup',
+                                    function ($scope, ComputeGroup) {
+                ComputeGroup.query(function(data) {
+                    $scope.group = data;
+                });
+
+                $scope.update = function(group, index) {
+                    ComputeGroup.save(group);
+                };
+            }]);
+
+            dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval', '$http',
+                                                             function ($scope, Group, $timeout, $interval, $http) {
                 Group.query(function(data) {
                     $scope.groups = data;
+                });
+
+                $timeout(function() {
+                    $http.get('/compute/state_history/', {
+                    }).then(function (res) {
+                        drawInstancesChart(res.data);
+                    });
                 });
 
                 $interval(function() {
                     Group.query(function(data) {
                         $scope.groups = data;
+                    });
+
+                    $http.get('/compute/state_history/', {
+                    }).then(function (res) {
+                        drawInstancesChart(res.data);
                     });
                 }, 3000);
 
@@ -427,10 +512,14 @@
         <!-- Flot -->
         <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.js"></script>
         <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.tooltip.min.js"></script>
-        <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.spline.js"></script>
+        <!-- <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.spline.js"></script>
         <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.resize.js"></script>
-        <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.pie.js"></script>
+
+        pie includes the threshold plugin, which conflicts with the tooltip plugin
+            (see https://github.com/flot/flot/issues/1012)
+            <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.pie.js"></script> -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.stack.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.time.js"></script>
 
         <!-- Peity -->
         <script src="/static/stratosphere/inspinia/js/plugins/peity/jquery.peity.min.js"></script>

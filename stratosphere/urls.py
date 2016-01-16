@@ -8,6 +8,7 @@ urlpatterns = [
     url(r'^operating_system/$', views.operating_systems),
     url(r'^compute/$', views.compute),
     url(r'^compute/(?P<group_id>\d+)/$', views.compute),
+    url(r'^compute/state_history/$', views.state_history),
     url(r'^authentication_methods/$', views.authentication_methods),
     url(r'^authentication_methods/(?P<method_id>\d+)/$', views.authentication_methods),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),

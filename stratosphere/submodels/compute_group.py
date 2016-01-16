@@ -19,6 +19,24 @@ import json
 import traceback
 
 
+class InstanceStatesSnapshot(models.Model):
+    class Meta:
+        app_label = "stratosphere"
+
+    group = models.ForeignKey('ComputeGroup', related_name='instance_states_snapshots')
+    time = models.DateTimeField()
+
+    running    = models.IntegerField()
+    rebooting  = models.IntegerField()
+    terminated = models.IntegerField()
+    pending    = models.IntegerField()
+    stopped    = models.IntegerField()
+    suspended  = models.IntegerField()
+    paused     = models.IntegerField()
+    error      = models.IntegerField()
+    unknown    = models.IntegerField()
+
+
 class NoSizesAvailableError(Exception):
     pass
 
@@ -166,3 +184,21 @@ class ComputeGroupBase(PolymorphicModel, HasLogger, SaveTheChange):
         self.state = self.TERMINATED
         self.instance_count = 0
         self.save()
+
+    def take_instance_states_snapshot(self):
+        with transaction.atomic():
+            states = [t[0] for t in self.instances.values_list('state')]
+            args = {
+                'group': self,
+                'time': timezone.now(),
+                'running': len(list(filter(lambda s: s == ComputeInstance.RUNNING, states))),
+                'rebooting': len(list(filter(lambda s: s == ComputeInstance.REBOOTING, states))),
+                'terminated': len(list(filter(lambda s: s == ComputeInstance.TERMINATED, states))),
+                'pending': len(list(filter(lambda s: s == ComputeInstance.PENDING, states))),
+                'stopped': len(list(filter(lambda s: s == ComputeInstance.STOPPED, states))),
+                'suspended': len(list(filter(lambda s: s == ComputeInstance.SUSPENDED, states))),
+                'paused': len(list(filter(lambda s: s == ComputeInstance.PAUSED, states))),
+                'error': len(list(filter(lambda s: s == ComputeInstance.ERROR, states))),
+                'unknown': len(list(filter(lambda s: s == ComputeInstance.UNKNOWN, states))),
+            }
+            InstanceStatesSnapshot.objects.create(**args)

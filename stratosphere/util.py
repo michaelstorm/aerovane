@@ -5,9 +5,18 @@ import time
 import traceback
 
 from django.contrib.staticfiles.storage import CachedFilesMixin
+from django.utils import timezone
 from functools import wraps
 from libcloud.compute.drivers.ec2 import EC2NetworkInterface
 from storages.backends.s3boto import S3BotoStorage
+
+
+# from http://stackoverflow.com/a/11111177
+epoch = datetime.datetime.utcfromtimestamp(0)
+
+
+def unix_time_millis(dt):
+    return (timezone.make_naive(dt) - epoch).total_seconds() * 1000
 
 
 class BackoffError(Exception):

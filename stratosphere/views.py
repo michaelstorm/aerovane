@@ -9,6 +9,7 @@ import json
 import re
 
 from .forms import *
+from .util import unix_time_millis
 
 
 def view_or_basicauth(view, request, *args, **kwargs):
@@ -350,3 +351,12 @@ def provider_disk_images(request, provider_id):
         return JsonResponse(disk_images_json, safe=False)
     else:
         return JsonResponse([], safe=False)
+
+
+@login_required
+def state_history(request):
+    history = InstanceStatesSnapshot.objects.filter(group__user_configuration=request.user.configuration)
+    history = history.order_by('-time')[:15]
+    history = list(reversed(history))
+    history = [{'time': unix_time_millis(h.time), 'running': h.running, 'pending': h.pending, 'terminated': h.terminated} for h in history]
+    return JsonResponse(history, safe=False)
