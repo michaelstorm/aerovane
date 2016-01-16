@@ -1,35 +1,79 @@
-{% extends "stratosphere/base.html" %}
-
+{% load staticfiles %}
 {% load bootstrap3 %}
 
-{% block content %}
-<div class="row signup-form-row">
-    <div class="col-lg-4 col-lg-offset-4">
-        <div class="panel panel-primary">
-            <div class="panel-heading">
-                <div class="panel-title">Log in</div>
-            </div>
-            <div class="panel-body">
-                <p>Don't have an account yet? <a href="{{ signup_url }}">Sign up</a>.</p>
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-                <form class="login" method="POST" action="{% url 'account_login' %}">
+        <title>Aerovane | Login</title>
+
+        <!-- Bootstrap -->
+        <link href="{% static "stratosphere/bootstrap/css/bootstrap.min.css" %}" rel="stylesheet">
+
+        <link href="{% static "stratosphere/bootstrap-slider/css/bootstrap-slider.min.css" %}" rel="stylesheet">
+        <link href="{% static "stratosphere/font-awesome/css/font-awesome.min.css" %}" rel="stylesheet">
+        <link href="{% static "stratosphere/bootstrap-chosen.css" %}" rel="stylesheet">
+        <link href="{% static "stratosphere/awesome-bootstrap-checkbox.css" %}" rel="stylesheet">
+        <link href="{% static "stratosphere/isteven-multi-select/isteven-multi-select.css" %}" rel="stylesheet">
+
+        <!-- Toastr style -->
+        <link href="/static/stratosphere/inspinia/css/plugins/toastr/toastr.min.css" rel="stylesheet">
+
+        <!-- Gritter -->
+        <link href="/static/stratosphere/inspinia/js/plugins/gritter/jquery.gritter.css" rel="stylesheet">
+
+        <link href="/static/stratosphere/inspinia/css/animate.css" rel="stylesheet">
+        <link href="/static/stratosphere/inspinia/css/style.css" rel="stylesheet">
+
+        <link href="/static/stratosphere/angular-ui-select/select.min.css" rel="stylesheet">
+
+        <link rel="shortcut icon" type="image/x-icon" href="{% static "stratosphere/a-logo-blue.png" %}" />
+
+        <!-- load before Angular so that all selectors can be used -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+        <script src="{% static "stratosphere/angular.js" %}"></script>
+        <script src="{% static "stratosphere/angular-resource.js" %}"></script>
+        <script src="{% static "stratosphere/isteven-multi-select/isteven-multi-select.js" %}"></script>
+        <script src="/static/stratosphere/angular-ui-select/select.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.14.3/ui-bootstrap-tpls.min.js"></script>
+    </head>
+
+    <body class="gray-bg">
+        <div class="middle-box text-center loginscreen animated fadeInDown">
+            <div>
+                <div>
+                    <h1 class="logo-name">AV</h1>
+                </div>
+                <h3>Welcome to Aerovane</h3>
+
+                <form class="m-t" role="form" method="POST" action="{% url 'account_login' %}">
                     {% csrf_token %}
-                    {% bootstrap_form form %}
+
+                    <div class="form-group">
+                        <input type="text" name="login" class="form-control" placeholder="Username" required="">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" name="password" class="form-control" placeholder="Password" required="">
+                    </div>
+
                     {% if redirect_field_value %}
                         <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
                     {% endif %}
-                    <input type="submit" value="Log in" class="btn btn-primary">
-                    <a class="button secondaryAction" style="margin-left: 10px;" href="{% url 'account_reset_password' %}">Forgot Password?</a>
+
+                    <button type="submit" class="btn btn-primary block full-width m-b">Log in</button>
+
+                    <a href="{% url 'account_reset_password' %}"><small>Forgot password?</small></a>
+                    <p class="text-muted text-center"><small>Don't have an account?</small></p>
+                    <a class="btn btn-sm btn-white btn-block" href="register.html">Create an account</a>
                 </form>
+
+                <p class="m-t"> <small>&copy; Aerovane 2016</small> </p>
             </div>
         </div>
-    </div>
-</div>
 
-{% endblock %}
+    </body>
 
-{% block style %}
-    .signup-form-row {
-        margin-top: 10%;
-    }
-{% endblock %}
+</html>
