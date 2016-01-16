@@ -17,9 +17,9 @@ from ..tasks import check_instance_distribution, create_compute_instance, termin
 from ..util import decode_node_extra
 
 
-class ComputeInstance(models.Model, SaveTheChange):
+class ComputeInstanceBase(models.Model, SaveTheChange):
     class Meta:
-        app_label = "stratosphere"
+        abstract = True
 
     RUNNING = 'RUNNING'
     REBOOTING = 'REBOOTING'
