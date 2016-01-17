@@ -30,6 +30,52 @@ def load_available_images(provider_configuration_id):
 
 
 @app.task()
+def check_instance_states_snapshots(user_configuration_id):
+    from .models import UserConfiguration
+
+    def snapshots_values(snapshot):
+        return {x: y for x, y in last_user_snapshot.__dict__.items()
+                if not x.startswith('_') and x != 'time' and x != 'id'}
+
+    def snapshot_values_equal(first, second):
+        return snapshots_values(first) == snapshots_values(second)
+
+    user_configuration = UserConfiguration.objects.get(pk=user_configuration_id)
+
+    user_snapshot, group_snapshots = user_configuration.create_phantom_instance_states_snapshot()
+    last_user_snapshot = user_configuration.instance_states_snapshots.order_by('-time').first()
+
+    not_equal = snapshot_values_equal(user_snapshot, last_user_snapshot)
+
+    if not not_equal:
+        group_snapshots_map = {group.pk: group for group in last_user_snapshot.group_snapshots.all()}
+        last_group_snapshots_map = {group.pk: group for group in last_user_snapshot.group_snapshots.all()}
+
+        all_group_ids = [list(group_snapshots_map.keys()) + list(last_group_snapshots_map.key())]
+        for group_id in all_group_ids:
+            if not snapshot_values_equal(group_snapshots_map[group_id], last_group_snapshots_map[group_id]):
+                not_equal = True
+                break
+
+    if not_equal:
+        with transaction.atomic():
+            user_snapshot.save()
+
+            for group_snapshot in group_snapshots:
+                group_snapshot.user_snapshot = user_snapshot
+                group_snapshot.save()
+
+
+@periodic_task(run_every=timedelta(seconds=30))
+def check_instance_states_snapshots_all():
+    from .models import UserConfiguration
+
+    user_configuration_ids = UserConfiguration.objects.all().values_list('pk', flat=True)
+    for user_configuration_id in user_configuration_ids:
+        check_instance_states_snapshots.delay(user_configuration_id)
+
+
+@app.task()
 def check_instance_distribution(compute_group_id):
     from .models import ComputeGroup
 

@@ -23,8 +23,26 @@ class InstanceStatesSnapshot(models.Model):
     class Meta:
         app_label = "stratosphere"
 
-    group = models.ForeignKey('ComputeGroup', related_name='instance_states_snapshots')
+    user_configuration = models.ForeignKey('UserConfiguration', related_name='instance_states_snapshots')
     time = models.DateTimeField()
+
+    running    = models.IntegerField()
+    rebooting  = models.IntegerField()
+    terminated = models.IntegerField()
+    pending    = models.IntegerField()
+    stopped    = models.IntegerField()
+    suspended  = models.IntegerField()
+    paused     = models.IntegerField()
+    error      = models.IntegerField()
+    unknown    = models.IntegerField()
+
+
+class GroupInstanceStatesSnapshot(models.Model):
+    class Meta:
+        app_label = "stratosphere"
+
+    user_snapshot = models.ForeignKey('InstanceStatesSnapshot', related_name='group_snapshots')
+    group = models.ForeignKey('ComputeGroup', related_name='instance_states_snapshots')
 
     running    = models.IntegerField()
     rebooting  = models.IntegerField()
@@ -134,7 +152,7 @@ class ComputeGroupBase(PolymorphicModel, HasLogger, SaveTheChange):
 
     @update_distribution
     def check_instance_distribution(self):
-        self.logger.warning('Got lock')
+        self.logger.warning('Got lock on compute group %d' % self.pk)
 
         self.logger.warning('%s state: %s' % (self.name, self.state))
 
@@ -147,7 +165,7 @@ class ComputeGroupBase(PolymorphicModel, HasLogger, SaveTheChange):
         if self.state == self.TERMINATED:
             self.logger.info('Compute group state is TERMINATED. Remaining non-terminated instances: %d' % non_terminated_count)
             if non_terminated_count == 0:
-                self.logger.info('Deleting self.')
+                self.logger.warn('Deleting self')
                 self.delete()
         else:
             if self.state == self.PENDING and non_pending_count >= self.instance_count:
@@ -164,8 +182,8 @@ class ComputeGroupBase(PolymorphicModel, HasLogger, SaveTheChange):
                 self.logger.warning('bad_provider_ids: %s' % bad_provider_ids)
                 self.logger.warning('good_provider_ids: %s' % good_provider_ids)
 
-            if running_count != self.instance_count:
-                self.rebalance_instances()
+        if running_count != self.instance_count:
+            self.rebalance_instances()
 
     def rebalance_instances(self, provider_ids=None):
         best_sizes = self._get_best_sizes(provider_ids)
@@ -181,24 +199,26 @@ class ComputeGroupBase(PolymorphicModel, HasLogger, SaveTheChange):
 
     @retry(OperationalError)
     def terminate(self):
-        self.state = self.TERMINATED
-        self.instance_count = 0
-        self.save()
-
-    def take_instance_states_snapshot(self):
         with transaction.atomic():
-            states = [t[0] for t in self.instances.values_list('state')]
-            args = {
-                'group': self,
-                'time': timezone.now(),
-                'running': len(list(filter(lambda s: s == ComputeInstance.RUNNING, states))),
-                'rebooting': len(list(filter(lambda s: s == ComputeInstance.REBOOTING, states))),
-                'terminated': len(list(filter(lambda s: s == ComputeInstance.TERMINATED, states))),
-                'pending': len(list(filter(lambda s: s == ComputeInstance.PENDING, states))),
-                'stopped': len(list(filter(lambda s: s == ComputeInstance.STOPPED, states))),
-                'suspended': len(list(filter(lambda s: s == ComputeInstance.SUSPENDED, states))),
-                'paused': len(list(filter(lambda s: s == ComputeInstance.PAUSED, states))),
-                'error': len(list(filter(lambda s: s == ComputeInstance.ERROR, states))),
-                'unknown': len(list(filter(lambda s: s == ComputeInstance.UNKNOWN, states))),
-            }
-            InstanceStatesSnapshot.objects.create(**args)
+            self.state = self.TERMINATED
+            self.instance_count = 0
+            self.save()
+
+    def create_phantom_instance_states_snapshot(self, now):
+        instances = list(self.instances.all())
+
+        two_minutes_ago = now - timedelta(minutes=2)
+        args = {
+            'group': self,
+            'running': len(list(filter(lambda i: i.state    == ComputeInstance.RUNNING    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'rebooting': len(list(filter(lambda i: i.state  == ComputeInstance.REBOOTING  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'terminated': len(list(filter(lambda i: i.state == ComputeInstance.TERMINATED and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'pending': len(list(filter(lambda i: i.state    in [None, ComputeInstance.PENDING] and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'stopped': len(list(filter(lambda i: i.state    == ComputeInstance.STOPPED    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'suspended': len(list(filter(lambda i: i.state  == ComputeInstance.SUSPENDED  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'paused': len(list(filter(lambda i: i.state     == ComputeInstance.PAUSED     and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'error': len(list(filter(lambda i: i.state      == ComputeInstance.ERROR      and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            'unknown': len(list(filter(lambda i: i.state    == ComputeInstance.UNKNOWN    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+        }
+
+        return GroupInstanceStatesSnapshot(**args)

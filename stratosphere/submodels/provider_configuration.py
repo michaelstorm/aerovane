@@ -112,7 +112,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
         #     return
 
-        state_changed = False
+        user_configurations_with_instance_state_changes = set()
         for instance in instances:
             nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
 
@@ -128,13 +128,13 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             # prevent too many history instances from being created
             if instance.has_changed:
                 if 'state' in instance.changed_fields:
-                    state_changed = True
                     self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
 
                 instance.save()
+                user_configurations_with_instance_state_changes.add(instance.group.user_configuration)
 
-        if state_changed:
-            instance.group.take_instance_states_snapshot()
+        for user_configuration in user_configurations_with_instance_state_changes:
+            user_configuration.take_instance_states_snapshot()
 
 
     def load_available_sizes(self):

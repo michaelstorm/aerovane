@@ -48,24 +48,36 @@ class OperatingSystemComputeGroupBase(ComputeGroup):
         self.logger.warning('sizes_list: %s' % sizes_list)
 
         instance_counts = {}
-        remaining_instance_count = self.instance_count
 
         # if len(sizes) == 0, we get into an infinite loop
         if len(sizes) > 0:
-            while remaining_instance_count > 0:
+            while sum(instance_counts.values()) < self.instance_count:
+                remaining_instance_count = self.instance_count - sum(instance_counts.values())
+                provider_instance_count = int(remaining_instance_count/len(sizes))
+
+                print('provider_instance_count = int(remaining_instance_count)/len(sizes)) = int(%d/%d) = int(%s) = %d' %
+                      (remaining_instance_count, len(sizes), remaining_instance_count/len(sizes),
+                       int(remaining_instance_count/len(sizes))))
+
                 for provider_size in sizes_list:
-                    provider_instance_count = int(remaining_instance_count/len(sizes))
-                    if provider_instance_count == 0 and remaining_instance_count > 0:
-                        provider_instance_count = 1
+                    print('sum(instance_counts.values()) < self.instance_count = %d < %d = %s' % (sum(instance_counts.values()), self.instance_count, sum(instance_counts.values()) < self.instance_count))
+
+                    print('provider_instance_count: %d' % provider_instance_count)
+                    if provider_instance_count == 0 and sum(instance_counts.values()) < self.instance_count:
+                        adjusted_provider_instance_count = 1
+                    else:
+                        adjusted_provider_instance_count = provider_instance_count
+
+                    print('adjusted_provider_instance_count for %d: %d' % (provider_size.pk, adjusted_provider_instance_count))
 
                     # the database converts to string keys anyway, so we do it here for consistency
                     key = str(provider_size.pk)
                     if key in instance_counts:
-                        instance_counts[key] += provider_instance_count
+                        instance_counts[key] += adjusted_provider_instance_count
                     else:
-                        instance_counts[key] = provider_instance_count
+                        instance_counts[key] = adjusted_provider_instance_count
 
-                    remaining_instance_count -= provider_instance_count
+                    print('instance_counts: %s' % instance_counts)
 
         return instance_counts
 
@@ -83,6 +95,8 @@ class OperatingSystemComputeGroupBase(ComputeGroup):
     def _create_compute_instances(self):
         with transaction.atomic():
             self.logger.warning('size_distribution: %s' % self.size_distribution)
+            terminate_instances = []
+
             for provider_size_id, instance_count in self.size_distribution.items():
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
                 provider_configuration = provider_size.provider_configuration
@@ -112,6 +126,12 @@ class OperatingSystemComputeGroupBase(ComputeGroup):
                         ComputeInstance.create_with_provider(provider_configuration=provider_configuration, provider_size=provider_size,
                                                              authentication_method=self.authentication_method, compute_group=self)
                 elif running_count > instance_count:
-                    for instance in running_provider_instances[:running_count - instance_count]:
-                        self.logger.warning('terminating instance %s for size %s' % (instance, provider_size))
-                        instance.terminate()
+                    terminate_instances.extend(list(running_provider_instances)[:running_count - instance_count])
+
+            # TODO make sure this squares with multi-row transaction isolation
+            missing_size_instances = self.instances.filter(~Q(provider_size__pk__in=self.size_distribution.keys()))
+            terminate_instances.extend(missing_size_instances)
+
+            for instance in terminate_instances:
+                self.logger.warning('terminating instance %s for size %s' % (instance, instance.provider_size))
+                instance.terminate()
