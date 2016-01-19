@@ -108,17 +108,18 @@
 
                     window.last_now = now;
 
-                    console.log('current_min', current_min, 'current_max', current_max, 'xmin', xmin, 'xmax', xmax);
-
                     window.instances_chart_plot = $("#instances-chart").plot(series, {
                         xaxis: {
                             mode: "time",
+                            show: false,
                             tickLength: 0,
                             min: xmin,
                             max: xmax,
+                            autoscaleMargin: 0.0,
                         },
                         yaxis: {
                             show: false,
+                            ticks: false,
                         },
                         series: {
                             stack: true,
@@ -130,6 +131,8 @@
                         },
                         grid: {
                             borderWidth: 0,
+                            minBorderMargin: 0,
+                            margin: 0,
                         },
                     }).data('plot');
 
@@ -547,14 +550,10 @@
         <script src="/static/stratosphere/inspinia/js/plugins/slimscroll/jquery.slimscroll.min.js"></script>
 
         <!-- Flot -->
-        <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.js"></script>
-        <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.tooltip.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.min.js"></script>
         <!-- <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.spline.js"></script>
         <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.resize.js"></script>
-
-        pie includes the threshold plugin, which conflicts with the tooltip plugin
-            (see https://github.com/flot/flot/issues/1012)
-            <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.pie.js"></script> -->
+        <script src="/static/stratosphere/inspinia/js/plugins/flot/jquery.flot.pie.js"></script> -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.stack.js"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/flot/0.8.3/jquery.flot.time.js"></script>
 
