@@ -66,15 +66,7 @@ def run_instances(request):
     compute_group = OperatingSystemComputeGroup.objects.filter(cpu=attributes['cpu'], memory=attributes['memory'],
                         image=attributes['image']).first()
 
-    if compute_group is None:
-        compute_group = OperatingSystemComputeGroup.objects.create(**attributes)
-    else:
-        compute_group.instance_count = F('instance_count') + attributes['instance_count']
-        compute_group.save()
-
-        # read again so that compute_group.instance_count isn't an F() expression, so that we can do arithmetic on it
-        compute_group = OperatingSystemComputeGroup.objects.get(pk=compute_group.pk)
-
+    compute_group = OperatingSystemComputeGroup.objects.create(**attributes)
     compute_group.rebalance_instances()
 
     response_xml = run_instances_response(compute_group.pk, args['image_id'], args['instance_type'])
