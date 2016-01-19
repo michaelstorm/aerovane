@@ -59,6 +59,7 @@ def run_instances(request):
         'instance_count': int(args['max_count']),
         'image': operating_system_image,
         'provider_policy': provider_policy,
+        'size_distribution': {},
         'authentication_method': user_configuration.authentication_methods.instance_of(KeyAuthenticationMethod).first(),
     }
 
@@ -74,7 +75,7 @@ def run_instances(request):
         # read again so that compute_group.instance_count isn't an F() expression, so that we can do arithmetic on it
         compute_group = OperatingSystemComputeGroup.objects.get(pk=compute_group.pk)
 
-    compute_group.create_instances()
+    compute_group.rebalance_instances()
 
     response_xml = run_instances_response(compute_group.pk, args['image_id'], args['instance_type'])
     return HttpResponse(response_xml, 201)
