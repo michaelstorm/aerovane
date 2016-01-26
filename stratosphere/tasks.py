@@ -38,7 +38,10 @@ def check_instance_states_snapshots(user_configuration_id):
                 if not x.startswith('_') and x != 'time' and x != 'id'}
 
     def snapshot_values_equal(first, second):
-        return snapshots_values(first) == snapshots_values(second)
+        if first is None or second is None:
+            return first is None and second is None
+        else:
+            return snapshots_values(first) == snapshots_values(second)
 
     user_configuration = UserConfiguration.objects.get(pk=user_configuration_id)
 
@@ -47,7 +50,7 @@ def check_instance_states_snapshots(user_configuration_id):
 
     not_equal = snapshot_values_equal(user_snapshot, last_user_snapshot)
 
-    if not not_equal:
+    if not not_equal and last_user_snapshot is not None:
         group_snapshots_map = {group.pk: group for group in last_user_snapshot.group_snapshots.all()}
         last_group_snapshots_map = {group.pk: group for group in last_user_snapshot.group_snapshots.all()}
 
@@ -127,77 +130,48 @@ def terminate_libcloud_node(compute_instance_id):
     from .models import ComputeInstance
 
     instance = ComputeInstance.objects.get(pk=compute_instance_id)
-    instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
+
+    print('EXTERNAL_ID: %s, %s, %s' % (instance.external_id, str(instance.external_id), instance.external_id is None))
+
+    if instance.external_id is None:
+        print('No external_id for instance %d; not terminating libcloud node' % compute_instance.pk)
+    else:
+        instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
+
     instance.state = ComputeInstance.TERMINATED
     instance.save()
 
 
 @app.task()
-def create_compute_instance(provider_configuration_id, provider_size_id, authentication_method_id,
-                            compute_group_id):
-    from .models import AuthenticationMethod, ComputeGroup, ComputeInstance, PasswordAuthenticationMethod, \
-                        ProviderConfiguration, ProviderImage, ProviderSize
+def create_libcloud_node(compute_instance_id):
+    from .models import ComputeInstance, PasswordAuthenticationMethod
 
-    compute_group = ComputeGroup.objects.get(pk=compute_group_id)
-    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
+    compute_instance = ComputeInstance.objects.get(pk=compute_instance_id)
+    authentication_method = compute_instance.group.authentication_method
+    provider_configuration = compute_instance.provider_configuration
+    provider_size = compute_instance.provider_size
 
-    # filter on provider as well, since available_provider_images could contain shared images
-    # TODO wait, does that make sense?
-    # TODO could this also produce multiple images if we don't specify the provider size?
-    provider_image = provider_configuration.available_provider_images.get(
-                            disk_image__disk_image_mappings__operating_system_image=compute_group.image,
-                            disk_image__disk_image_mappings__provider=provider_configuration.provider)
+    if isinstance(authentication_method, PasswordAuthenticationMethod):
+        libcloud_auth = NodeAuthPassword(authentication_method.password)
+    else:
+        libcloud_auth = NodeAuthSSHKey(authentication_method.key)
 
-    provider_size = ProviderSize.objects.get(pk=provider_size_id)
-    authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
+    libcloud_size = provider_size.to_libcloud_size()
+    libcloud_image = compute_instance.provider_image.to_libcloud_image(provider_configuration)
 
-    name_suffix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
-    name = '%s-%s' % (compute_group.name, name_suffix)
-
-    compute_instance_args = {
-        'name': name,
-        'provider_image': provider_image,
-        'group': compute_group,
-        'provider_size': provider_size,
-        'extra': {},
-        'provider_configuration': provider_configuration,
-        'state': None,
-        'public_ips': [],
-        'private_ips': [],
-        'last_request_start_time': timezone.now(),
+    print('creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
+    libcloud_node_args = {
+        'name': compute_instance.name,
+        'libcloud_image': libcloud_image,
+        'libcloud_size': libcloud_size,
+        'libcloud_auth': libcloud_auth,
     }
+    libcloud_node = provider_configuration.create_libcloud_node(**libcloud_node_args)
 
-    def create_libcloud_instance():
-        if isinstance(authentication_method, PasswordAuthenticationMethod):
-            libcloud_auth = NodeAuthPassword(authentication_method.password)
-        else:
-            libcloud_auth = NodeAuthSSHKey(authentication_method.key)
-
-        libcloud_size = provider_size.to_libcloud_size()
-        libcloud_image = provider_image.to_libcloud_image(provider_configuration)
-
-        print('creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
-        libcloud_node = provider_configuration.create_libcloud_node(name=name, libcloud_image=libcloud_image,
-                                                                    libcloud_size=libcloud_size, libcloud_auth=libcloud_auth)
-
-        print('done creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
-        compute_instance.state = ComputeInstance.PENDING
-        compute_instance.external_id = libcloud_node.id
-        compute_instance.public_ips = json.loads(json.dumps(libcloud_node.public_ips))
-        compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))
-        compute_instance.extra = json.loads(json.dumps(libcloud_node.extra, cls=NodeJSONEncoder))
-        compute_instance.save()
-
-    with transaction.atomic():
-        intended_instance_count = compute_group.size_distribution[str(provider_size.pk)]
-        current_instance_count = compute_group.pending_or_running_count(provider_size)
-
-        print('size_distribution: %s' % compute_group.size_distribution)
-        print('%s: current_instance_count < intended_instance_count = %d < %d = %s' %
-              (provider_size, current_instance_count, intended_instance_count,
-               current_instance_count < intended_instance_count))
-
-        if current_instance_count < intended_instance_count:
-            compute_instance = ComputeInstance.objects.create(**compute_instance_args)
-            print('created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
-            connection.on_commit(create_libcloud_instance)
+    print('done creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
+    compute_instance.state = ComputeInstance.PENDING
+    compute_instance.external_id = libcloud_node.id
+    compute_instance.public_ips = json.loads(json.dumps(libcloud_node.public_ips))
+    compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))
+    compute_instance.extra = json.loads(json.dumps(libcloud_node.extra, cls=NodeJSONEncoder))
+    compute_instance.save()

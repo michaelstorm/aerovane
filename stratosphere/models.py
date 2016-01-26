@@ -28,16 +28,4 @@ class ComputeGroup(ComputeGroupBase):
     history = HistoricalRecords()
 
 
-from .submodels.os_compute_group import *
-
-
-class ImageComputeGroup(ImageComputeGroupBase):
-	pass
-
-
-class OperatingSystemComputeGroup(OperatingSystemComputeGroupBase):
-	pass
-
-
-
 from .submodels.user import *

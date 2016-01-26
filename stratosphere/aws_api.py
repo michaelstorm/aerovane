@@ -3,7 +3,7 @@ from .models import *
 import uuid
 
 def run_instances_response(group_id, image_id, instance_type, instance_ids):
-	request_id = uuid.uuid4()
+    request_id = uuid.uuid4()
 
     instances = """
 <item>
@@ -51,7 +51,7 @@ def run_instances_response(group_id, image_id, instance_type, instance_ids):
 </item>
 """.format(instance_id=instance_id, image_id=image_id)
 
-	return """
+    return """
 <?xml version="1.0" encoding="UTF-8"?>
 <RunInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2015-10-01/">
     <requestId>{request_id}</requestId>

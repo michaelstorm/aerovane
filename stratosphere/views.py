@@ -252,10 +252,10 @@ def compute(request, group_id=None):
         if params['deployment_type'] == 'os':
             os_id = params['operating_system']
             operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
-            group = OperatingSystemComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
-                                                               instance_count=instance_count, name=name, provider_policy=provider_policy,
-                                                               size_distribution={}, image=operating_system_image,
-                                                               authentication_method=authentication_method)
+            group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
+                                                instance_count=instance_count, name=name, provider_policy=provider_policy,
+                                                size_distribution={}, image=operating_system_image,
+                                                authentication_method=authentication_method)
 
         group.rebalance_instances()
 

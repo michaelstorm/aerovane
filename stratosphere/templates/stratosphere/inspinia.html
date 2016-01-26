@@ -118,8 +118,9 @@
                             autoscaleMargin: 0.0,
                         },
                         yaxis: {
-                            show: false,
-                            ticks: false,
+                            tickLength: 0,
+                            tickDecimals: 0,
+                            autoscaleMargin: 0.0,
                         },
                         series: {
                             stack: true,
@@ -360,6 +361,8 @@
                 }, true);
 
                 $scope.update = function(group) {
+                    $('#add-group-button').prop('disabled', true);
+
                     {% for provider in possible_providers %}
                         if (!$('input[name="provider_choice_{{ provider.name }}"]').is(':checked'))
                             delete group.provider_choice_{{ provider.name }};
@@ -409,7 +412,7 @@
                                 </a>
                             </div>
                             <div class="logo-element">
-                                AV+
+                                AV
                             </div>
                         </li>
                         <li

@@ -63,10 +63,10 @@ def run_instances(request):
         'authentication_method': user_configuration.authentication_methods.instance_of(KeyAuthenticationMethod).first(),
     }
 
-    compute_group = OperatingSystemComputeGroup.objects.filter(cpu=attributes['cpu'], memory=attributes['memory'],
-                        image=attributes['image']).first()
+    compute_group = ComputeGroup.objects.filter(cpu=attributes['cpu'], memory=attributes['memory'],
+                                                image=attributes['image']).first()
 
-    compute_group = OperatingSystemComputeGroup.objects.create(**attributes)
+    compute_group = ComputeGroup.objects.create(**attributes)
     compute_group.rebalance_instances()
 
     response_xml = run_instances_response(compute_group.pk, args['image_id'], args['instance_type'])
@@ -75,7 +75,7 @@ def run_instances(request):
 
 def describe_instances(request):
     instance_id = request.POST['InstanceId.1']
-    compute_group = OperatingSystemComputeGroup.objects.get(pk=instance_id)
+    compute_group = ComputeGroup.objects.get(pk=instance_id)
 
     response_xml = describe_instances_response(compute_group.pk, compute_group.state)
     return HttpResponse(response_xml, 200)

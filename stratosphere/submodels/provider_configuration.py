@@ -100,41 +100,43 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     def update_instance_statuses(self):
         instances = ComputeInstance.objects.filter(provider_configuration=self)
 
-        # try:
-        libcloud_nodes = self.driver.list_nodes()
-        # except Exception as e:
-        #     print('Error listing nodes of %s' % self)
+        try:
+            libcloud_nodes = self.driver.list_nodes()
 
-        #     traceback.print_exc()
-        #     for instance in instances:
-        #         instance.state = ComputeInstance.UNKNOWN
-        #         instance.save()
+        except Exception as e:
+            print('Error listing nodes of %s' % self)
 
-        #     return
-
-        user_configurations_with_instance_state_changes = set()
-        for instance in instances:
-            nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
-
-            if len(nodes) == 0:
+            traceback.print_exc()
+            for instance in instances:
                 instance.state = ComputeInstance.UNKNOWN
-            else:
-                node = nodes[0]
-
-                instance.state = NodeState.tostring(node.state)
-                instance.private_ips = node.private_ips
-                instance.public_ips = node.public_ips
-
-            # prevent too many history instances from being created
-            if instance.has_changed:
-                if 'state' in instance.changed_fields:
-                    self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
-
                 instance.save()
-                user_configurations_with_instance_state_changes.add(instance.group.user_configuration)
 
-        for user_configuration in user_configurations_with_instance_state_changes:
-            user_configuration.take_instance_states_snapshot()
+        else:
+            user_configurations_with_instance_state_changes = set()
+            for instance in instances:
+                nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
+
+                if len(nodes) == 0:
+                    # exclude ComputeInstances whose libcloud node creation jobs have not yet run
+                    if instance.state != None:
+                        instance.state = ComputeInstance.UNKNOWN
+                else:
+                    node = nodes[0]
+
+                    instance.state = NodeState.tostring(node.state)
+                    instance.private_ips = node.private_ips
+                    instance.public_ips = node.public_ips
+
+                # prevent too many history instances from being created
+                if instance.has_changed:
+                    if 'state' in instance.changed_fields:
+                        self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
+
+                    instance.save()
+                    user_configurations_with_instance_state_changes.add(instance.group.user_configuration)
+
+            for user_configuration in user_configurations_with_instance_state_changes:
+                user_configuration.take_instance_states_snapshot()
 
 
     def load_available_sizes(self):

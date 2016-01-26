@@ -1,10 +1,6 @@
 from annoying.fields import JSONField
 
-from datetime import datetime
-
 from django.db import connection, models, transaction
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.utils import timezone
 
 from libcloud.compute.base import Node
@@ -12,8 +8,7 @@ from libcloud.compute.types import NodeState
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
-from ..models import PasswordAuthenticationMethod
-from ..tasks import check_instance_distribution, create_compute_instance, terminate_libcloud_node
+from ..tasks import create_libcloud_node, terminate_libcloud_node
 from ..util import decode_node_extra
 
 
@@ -43,23 +38,23 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
         (UNKNOWN, 'Unknown'),
     )
 
-    external_id = models.CharField(max_length=256)
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='instances')
     provider_image = models.ForeignKey('ProviderImage', related_name='instances')
     group = models.ForeignKey('ComputeGroup', related_name='instances')
+    provider_size = models.ForeignKey('ProviderSize', related_name='instances')
+
+    external_id = models.CharField(max_length=256, blank=True, null=True)
     name = models.CharField(max_length=256)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, null=True, blank=True)
     public_ips = JSONField()
     private_ips = JSONField()
-    provider_size = models.ForeignKey('ProviderSize', related_name='instances')
     extra = JSONField()
     last_request_start_time = models.DateTimeField(blank=True, null=True)
     terminated = models.BooleanField(default=False)
 
-    @staticmethod
-    def create_with_provider(provider_configuration, provider_size, authentication_method, compute_group):
-        create_compute_instance.delay(provider_configuration.pk, provider_size.pk,
-                                      authentication_method.pk, compute_group.pk)
+    def schedule_create_libcloud_node_job(self):
+        # schedule after 5 seconds to avoid transaction conflicts
+        create_libcloud_node.apply_async(args=[self.pk], countdown=5)
 
     def terminate(self):
         with transaction.atomic():
@@ -68,7 +63,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
             self.last_request_start_time = timezone.now()
             self.save()
 
-            connection.on_commit(lambda: terminate_libcloud_node.delay(self.pk))
+            connection.on_commit(lambda: terminate_libcloud_node.apply_async(args=[self.pk], countdown=5))
 
     def to_libcloud_node(self):
         libcloud_node_args = {
