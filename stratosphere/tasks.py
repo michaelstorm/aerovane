@@ -14,9 +14,8 @@ import json
 from multicloud.celery import app
 
 import random
-import string
 
-from .util import BackoffError, NodeJSONEncoder
+from .util import BackoffError, NodeJSONEncoder, schedule_random_default_delay
 
 # we don't import import models here, since doing so seems to screw up bootstrapping
 
@@ -92,7 +91,7 @@ def check_instance_distribution_all():
 
     compute_group_ids = ComputeGroup.objects.all().values_list('pk', flat=True)
     for compute_group_id in compute_group_ids:
-        check_instance_distribution.delay(compute_group_id)
+        schedule_random_default_delay(check_instance_distribution, compute_group_id)
 
 
 @app.task()
@@ -109,7 +108,7 @@ def update_instance_statuses_all():
 
     provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
-        update_instance_statuses.delay(provider_configuration_id)
+        schedule_random_default_delay(update_instance_statuses, provider_configuration_id)
 
 
 @periodic_task(run_every=timedelta(minutes=2))
@@ -130,8 +129,6 @@ def terminate_libcloud_node(compute_instance_id):
     from .models import ComputeInstance
 
     instance = ComputeInstance.objects.get(pk=compute_instance_id)
-
-    print('EXTERNAL_ID: %s, %s, %s' % (instance.external_id, str(instance.external_id), instance.external_id is None))
 
     if instance.external_id is None:
         print('No external_id for instance %d; not terminating libcloud node' % compute_instance.pk)

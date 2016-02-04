@@ -37,13 +37,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True, related_name='provider_configurations')
     simulated_failure = models.BooleanField(default=False)
 
-    default_operating_systems = {
-        'Ubuntu 14.04': {
-            'aws': 'ami-84bba3c1',
-            'linode': '124'
-        }
-    }
-
     @property
     def driver(self):
         if self.simulated_failure:
@@ -148,7 +141,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                                             ram=driver_size.ram, disk=driver_size.disk, bandwidth=driver_size.bandwidth, vcpus=vcpus,
                                             extra=json.loads(json.dumps(driver_size.extra)))
 
-    def load_available_images(self, image_filter=lambda image: True):
+    def load_available_images(self):
+        self._load_available_images()
+
+    def _load_available_images(self, image_filter=lambda image: True):
         print('Querying images for provider %s' % self.provider_name)
         driver_images = self.driver.list_images()
         print('Retrieved %d images' % len(driver_images))
@@ -344,6 +340,9 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
                 return False
 
         return list(filter(filter_size, sizes))
+
+    def load_available_images(self):
+        self._load_available_images(image_filter=lambda image: image.id.startswith('ami-'))
 
 
 class LinodeProviderConfiguration(ProviderConfiguration):

@@ -6,10 +6,12 @@ from django.utils import timezone
 from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
 
+import random
+
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..tasks import create_libcloud_node, terminate_libcloud_node
-from ..util import decode_node_extra
+from ..util import decode_node_extra, schedule_random_default_delay
 
 
 class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
@@ -53,8 +55,8 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     terminated = models.BooleanField(default=False)
 
     def schedule_create_libcloud_node_job(self):
-        # schedule after 5 seconds to avoid transaction conflicts
-        create_libcloud_node.apply_async(args=[self.pk], countdown=5)
+        # delay a few seconds to avoid transaction conflicts
+        schedule_random_default_delay(create_libcloud_node, self.pk)
 
     def terminate(self):
         with transaction.atomic():
@@ -63,7 +65,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
             self.last_request_start_time = timezone.now()
             self.save()
 
-            connection.on_commit(lambda: terminate_libcloud_node.apply_async(args=[self.pk], countdown=5))
+            connection.on_commit(lambda: schedule_random_default_delay(terminate_libcloud_node, self.pk))
 
     def to_libcloud_node(self):
         libcloud_node_args = {

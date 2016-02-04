@@ -76,35 +76,30 @@
             </div>
         </div>
     </div>
-{% endblock %}
 
-{% block body_script %}
-    $(document).ready(function() {
-        $('.delete-method-button').click(function() {
-            $.ajax({
-                url: '/authentication_methods/' + $(this).attr('method-id') + '/',
-                method: 'DELETE',
-                success: function() {
-                    location.reload();
-                },
+    <script>
+        $(document).ready(function() {
+            $('.delete-method-button').click(function() {
+                $.ajax({
+                    url: '/authentication_methods/' + $(this).attr('method-id') + '/',
+                    method: 'DELETE',
+                    success: function() {
+                        location.reload();
+                    },
+                });
             });
         });
+    </script>
 
-        $('#myTabs a').click(function (e) {
-            e.preventDefault();
-            $(this).tab('show');
-        })
-    });
-{% endblock %}
+    <style>
+        .panel-title img {
+            height: 16px;
+            margin-right: 5px;
+        }
 
-{% block style %}
-    .panel-title img {
-        height: 16px;
-        margin-right: 5px;
-    }
-
-    .panel-title > * {
-        display: inline-block;
-        vertical-align: middle;
-    }
+        .panel-title > * {
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
 {% endblock %}

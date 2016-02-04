@@ -1,6 +1,7 @@
 import datetime
 import json
 import logging
+import random
 import time
 import traceback
 
@@ -164,3 +165,12 @@ class S3HashedFilesStorage(CachedFilesMixin, S3BotoStorage):
     files it saves.
     """
     pass
+
+
+def schedule_random_delay(task, base_delay, half_interval, *args):
+    delay = base_delay + random.uniform(half_interval * -1, half_interval)
+    task.apply_async(args=args, countdown=delay)
+
+
+def schedule_random_default_delay(task, *args):
+    schedule_random_delay(task, 5, 2, *args)

@@ -2,10 +2,8 @@ from .models import *
 
 import uuid
 
-def run_instances_response(group_id, image_id, instance_type, instance_ids):
-    request_id = uuid.uuid4()
-
-    instances = """
+def _run_instances_response_item(image_id, instance_type, instance_id):
+    return """
 <item>
     <instanceId>{instance_id}</instanceId>
     <imageId>{image_id}</imageId>
@@ -49,7 +47,13 @@ def run_instances_response(group_id, image_id, instance_type, instance_ids):
     <networkInterfaceSet/>
     <ebsOptimized>false</ebsOptimized>
 </item>
-""".format(instance_id=instance_id, image_id=image_id)
+""".format(instance_id=instance_id, instance_type=instance_type, image_id=image_id)
+
+
+def run_instances_response(group_id, image_id, instance_type, instance_ids):
+    request_id = uuid.uuid4()
+
+    instances = "\n".join([_run_instances_response_item(image_id, instance_type, instance_id) for instance_id in instance_ids])
 
     return """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -67,14 +71,15 @@ def run_instances_response(group_id, image_id, instance_type, instance_ids):
         {instances}
     </instancesSet>
 </RunInstancesResponse>
-""".format(request_id=request_id, instance_type=instance_type, instances=instances)
+""".format(request_id=request_id, group_id=group_id, instance_type=instance_type, instances=instances)
 
 
-def describe_instances_response(instance_id, state):
+def describe_instances_response(group_id, image_id, instance_type, instance_id, state):
     request_id = uuid.uuid4()
 
-    state_name = state.lower()
-    if state == ComputeGroup.PENDING:
+    state_name = 'pending' if state is None else state.lower()
+
+    if state is None or state == ComputeGroup.PENDING:
         state_code = 0
     elif state == ComputeGroup.RUNNING:
         state_code = 16
@@ -89,13 +94,13 @@ def describe_instances_response(instance_id, state):
     <requestId>{request_id}</requestId>
     <reservationSet>
         <item>
-            <reservationId>r-13a81edb</reservationId>
+            <reservationId>{group_id}</reservationId>
             <ownerId>671861320306</ownerId>
             <groupSet/>
             <instancesSet>
                 <item>
                     <instanceId>{instance_id}</instanceId>
-                    <imageId>ami-01371731</imageId>
+                    <imageId>{image_id}</imageId>
                     <instanceState>
                         <code>{state_code}</code>
                         <name>{state_name}</name>
@@ -105,7 +110,7 @@ def describe_instances_response(instance_id, state):
                     <reason/>
                     <amiLaunchIndex>0</amiLaunchIndex>
                     <productCodes/>
-                    <instanceType>m3.medium</instanceType>
+                    <instanceType>{instance_type}</instanceType>
                     <launchTime>2015-12-21T23:08:30.000Z</launchTime>
                     <placement>
                         <availabilityZone>us-west-2c</availabilityZone>
@@ -122,7 +127,7 @@ def describe_instances_response(instance_id, state):
                     <sourceDestCheck>true</sourceDestCheck>
                     <groupSet>
                         <item>
-                            <groupId>sg-38dccc5a</groupId>
+                            <groupId>sg-ba93e5d3</groupId>
                             <groupName>default</groupName>
                         </item>
                     </groupSet>
@@ -146,7 +151,7 @@ def describe_instances_response(instance_id, state):
                             <sourceDestCheck>true</sourceDestCheck>
                             <groupSet>
                                 <item>
-                                    <groupId>sg-38dccc5a</groupId>
+                                    <groupId>sg-ba93e5d3</groupId>
                                     <groupName>default</groupName>
                                 </item>
                             </groupSet>
@@ -182,4 +187,28 @@ def describe_instances_response(instance_id, state):
         </item>
     </reservationSet>
 </DescribeInstancesResponse>
-""".format(request_id=request_id, instance_id=instance_id, state_name=state_name, state_code=state_code)
+""".format(request_id=request_id, group_id=group_id, image_id=image_id, instance_type=instance_type,
+           instance_id=instance_id, state_name=state_name, state_code=state_code)
+
+
+def terminate_instances_response(instance_id):
+    request_id = uuid.uuid4()
+
+    return """
+<TerminateInstancesResponse xmlns="http://ec2.amazonaws.com/doc/2015-10-01/">
+    <requestId>{request_id}</requestId>
+    <instancesSet>
+        <item>
+            <instanceId>{instance_id}</instanceId>
+            <currentState>
+                <code>32</code>
+                <name>shutting-down</name>
+            </currentState>
+            <previousState>
+                <code>16</code>
+                <name>running</name>
+            </previousState>
+        </item>
+    </instancesSet>
+</TerminateInstancesResponse> 
+""".format(request_id=request_id, instance_id=instance_id)

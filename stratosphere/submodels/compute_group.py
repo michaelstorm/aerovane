@@ -53,52 +53,6 @@ class GroupInstanceStatesSnapshot(models.Model):
     unknown    = models.IntegerField()
 
 
-class NoSizesAvailableError(Exception):
-    pass
-
-
-def update_distribution(func):
-    def func_wrapper(self):
-        def lock():
-            print('ATTEMPTING LOCK')
-            with transaction.atomic():
-                cutoff_time = timezone.now() + timedelta(minutes=2)
-                if self.updating_distribution and self.updating_distribution_time < cutoff_time:
-                    raise BackoffError()
-                else:
-                    print('LOCKING')
-                    self.updating_distribution = True
-                    self.updating_distribution_time = timezone.now()
-                    self.save()
-
-        def unlock():
-            print('ATTEMPTING UNLOCK')
-            saved = False
-            while not saved:
-                try:
-                    with transaction.atomic():
-                        # load model at runtime to avoid import complexity
-                        ComputeGroup = apps.get_model(app_label='stratosphere', model_name='ComputeGroup')
-                        # don't re-save if deleted earlier
-                        if ComputeGroup.objects.filter(pk=self.pk).exists():
-                            print('UNLOCKING')
-                            self.updating_distribution = False
-                            self.save()
-
-                        saved = True
-
-                except OperationalError:
-                    pass
-
-        try:
-            lock()
-            func(self)
-        finally:
-            call_with_retry(unlock, OperationalError, tries=10)
-
-    return func_wrapper
-
-
 class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
     class Meta:
         abstract = True
@@ -149,7 +103,6 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
         return provider_states_map
 
-    @update_distribution
     def check_instance_distribution(self):
         with transaction.atomic():
             self.logger.warning('Got lock on compute group %d' % self.pk)
@@ -208,6 +161,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
         self.save()
 
         self._create_compute_instances()
+
+    def terminate_instance(self, instance):
+        with transaction.atomic():
+            self.instance_count -= 1
+            self.save()
+
+            instance.terminate()
 
     @retry(OperationalError)
     def terminate(self):

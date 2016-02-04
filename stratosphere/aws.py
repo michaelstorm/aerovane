@@ -44,7 +44,19 @@ def run_instances(request):
 
     provider_size = provider_configuration.provider_sizes.get(external_id=args['instance_type'])
 
-    provider_image = ProviderImage.objects.get(image_id=args['image_id'], provider__name__startswith='aws')
+    region = request.get_host().split('.')[1]
+    image_id = args['image_id']
+
+    if image_id.startswith('ami-'):
+        provider_image = ProviderImage.objects.get(image_id=image_id)
+    elif image_id.startswith('avmi-'):
+        provider_name = 'aws_%s' % region.replace('-', '_')
+        provider_image = ProviderImage.objects.get(
+                            disk_image__disk_image_mappings__operating_system_image__pk=int(image_id[5:]),
+                            provider__name=provider_name)
+    else:
+        raise Exception('Invalid image ID format')
+
     operating_system_image = provider_image.disk_image.disk_image_mappings.first().operating_system_image
 
     user_configuration = provider_configuration.user_configuration
@@ -69,15 +81,56 @@ def run_instances(request):
     compute_group = ComputeGroup.objects.create(**attributes)
     compute_group.rebalance_instances()
 
-    response_xml = run_instances_response(compute_group.pk, args['image_id'], args['instance_type'])
+    instance_ids = ['avi-%d' % i for i in compute_group.instances.values_list('id', flat=True)]
+
+    response_xml = run_instances_response(group_id=compute_group.pk, image_id=args['image_id'],
+                                          instance_type=args['instance_type'], instance_ids=instance_ids)
     return HttpResponse(response_xml, 201)
 
 
-def describe_instances(request):
-    instance_id = request.POST['InstanceId.1']
-    compute_group = ComputeGroup.objects.get(pk=instance_id)
+def _get_instances_from_args(args):
+    instances = {}
 
-    response_xml = describe_instances_response(compute_group.pk, compute_group.state)
+    for k in args.keys():
+        if k.startswith('InstanceId.'):
+            instance_id = args[k]
+
+            if instance_id.startswith('i-'):
+                instances[instance_id] = ComputeInstance.objects.get(external_id=instance_id)
+            else:
+                instances[instance_id] = ComputeInstance.objects.get(pk=instance_id[4:])
+
+    return instances
+
+
+def describe_instances(request):
+    instances = _get_instances_from_args(request.POST)
+
+    instance_id = list(instances.keys())[0]
+    instance = instances[instance_id]
+
+    # FIXME changes if instance is moved to a different provider
+    instance_type = instance.provider_size.external_id
+
+    image_id = 'avmi-%d' % instance.group.image.pk
+
+    print('instance_id:', instance_id, 'instance:', instance)
+
+    response_xml = describe_instances_response(group_id=instance.group.pk, image_id=image_id,
+                                               instance_type=instance_type, instance_id=instance_id,
+                                               state=instance.state)
+    return HttpResponse(response_xml, 200)
+
+
+def terminate_instances(request):
+    instances = _get_instances_from_args(request.POST)
+
+    instance_id = list(instances.keys())[0]
+    instance = instances[instance_id]
+
+    instance.group.terminate_instance(instance)
+
+    response_xml = terminate_instances_response(instance_id=instance_id)
     return HttpResponse(response_xml, 200)
 
 
@@ -100,6 +153,11 @@ def initial(request):
 
         elif action == 'DescribeInstances':
             r = describe_instances(request)
+            print('RESPONSE (%d):' % r.status_code, r.content, '\n\n\n')
+            return r
+
+        elif action == 'TerminateInstances':
+            r = terminate_instances(request)
             print('RESPONSE (%d):' % r.status_code, r.content, '\n\n\n')
             return r
 
