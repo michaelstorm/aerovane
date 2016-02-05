@@ -1,4 +1,6 @@
+--extra-index-url https://repo.fury.io/4esCz6G5mvKjmsE1rjtL/me/
 amqp==1.4.7
+apache-libcloud==0.19.1.dev0
 anyjson==0.3.3
 Babel==2.2.0
 backports-abc==0.4
