@@ -16,10 +16,10 @@ echo "Ec2ProviderConfiguration.create_regions(
 echo "[pc.load_available_images(lambda image: image.id.startswith('ami-'))
 	   for pc in Ec2ProviderConfiguration.objects.all()]" | python manage.py shell_plus
 
-echo "Provider.objects.create(
-			name='linode',
-			pretty_name='Linode',
-			icon_path='/static/stratosphere/aws_icon.png')" | python manage.py shell_plus
+#echo "Provider.objects.create(
+#			name='linode',
+#			pretty_name='Linode',
+#			icon_path='/static/stratosphere/aws_icon.png')" | python manage.py shell_plus
 
 #echo "LinodeProviderConfiguration.objects.create(
 #			provider=Provider.objects.get(name='linode'),

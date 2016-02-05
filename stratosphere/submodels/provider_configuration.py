@@ -1,4 +1,5 @@
 from django.contrib.auth.models import User
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import models, OperationalError, transaction
 from django.db.models import Q
 
@@ -311,7 +312,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
             provider = Provider.objects.create(
                 name=name,
                 pretty_name='AWS %s' % pretty_name,
-                icon_path='/static/stratosphere/aws_icon.png')
+                icon_path=staticfiles_storage.url('stratosphere/aws_icon.png'))
 
             Ec2ProviderConfiguration.objects.create(
                 provider=provider,
