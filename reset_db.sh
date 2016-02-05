@@ -13,8 +13,7 @@ echo "Ec2ProviderConfiguration.create_regions(
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
 
-echo "[pc.load_available_images(lambda image: image.id.startswith('ami-'))
-	   for pc in Ec2ProviderConfiguration.objects.all()]" | python manage.py shell_plus
+echo "[pc.load_available_images() for pc in Ec2ProviderConfiguration.objects.all()]" | python manage.py shell_plus
 
 #echo "Provider.objects.create(
 #			name='linode',

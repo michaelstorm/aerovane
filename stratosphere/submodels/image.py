@@ -48,8 +48,7 @@ class ProviderImage(models.Model, SaveTheChange):
     provider = models.ForeignKey('Provider', related_name='provider_images')
 
     # TODO make this a many-to-many relation to support shared private images
-    provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_images',
-                                               null=True, blank=True)
+    provider_configurations = models.ManyToManyField('ProviderConfiguration', related_name='provider_images')
 
     def to_libcloud_image(self, provider_configuration):
         return NodeImage(id=self.image_id, name=self.name, driver=provider_configuration.driver,

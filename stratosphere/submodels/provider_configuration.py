@@ -194,16 +194,26 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                 extra_json = json.loads(json.dumps(driver_image.extra))
                 provider_configuration = None if extra_json.get('is_public', True) else self
 
-                provider_image = ProviderImage(provider_configuration=provider_configuration,
-                                               name=driver_image.name, image_id=driver_image.id,
+                provider_image = ProviderImage(name=driver_image.name, image_id=driver_image.id,
                                                extra=extra_json, disk_image=disk_image,
                                                provider=self.provider)
 
                 provider_images.append(provider_image)
 
-        ProviderImage.objects.bulk_create(provider_images)
+        provider_images = ProviderImage.objects.bulk_create(provider_images)
         end = time.time()
         print('Created %d ProviderImages in %d seconds' % (len(provider_images), end - start))
+
+        print('Adding ProviderConfigurations to ProviderImages...')
+        start = time.time()
+
+        for driver_image in filtered_driver_images:
+            provider_image = ProviderImage.objects.get(image_id=driver_image.id)
+            if not provider_image.extra.get('is_public', True):
+                provider_image.provider_configurations.add(self)
+
+        end = time.time()
+        print('Done in %d seconds' % (end - start))
 
         # for os_name in self.default_operating_systems:
         #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)

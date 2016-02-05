@@ -4,12 +4,7 @@ from simple_history.models import HistoricalRecords
 
 from .submodels.authentication_method import *
 from .submodels.compute_instance import *
-
-
-class Provider(models.Model):
-    name = models.CharField(max_length=32)
-    pretty_name = models.CharField(max_length=32)
-    icon_path = models.CharField(max_length=128)
+from .submodels.provider import *
 
 
 # we have to force the actual model to be in the right module, or django-simple-history

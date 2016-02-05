@@ -8,4 +8,4 @@ class Provider(models.Model, SaveTheChange):
 
     name = models.CharField(max_length=32)
     pretty_name = models.CharField(max_length=32)
-    icon_path = models.CharField(max_length=128)
+    icon_path = models.TextField()
