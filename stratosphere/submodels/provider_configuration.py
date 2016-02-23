@@ -2,6 +2,8 @@ from django.contrib.auth.models import User
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import models, OperationalError, transaction
 from django.db.models import Q
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 from libcloud.compute.types import Provider as LibcloudProvider
 from libcloud.compute.providers import get_driver
@@ -13,6 +15,7 @@ from polymorphic import PolymorphicModel
 from save_the_change.mixins import SaveTheChange
 
 from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderImage, ProviderSize, Provider
+from ..tasks import load_provider_info
 from ..util import *
 
 import json
@@ -51,15 +54,15 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     @property
     def available_disk_images(self):
         return DiskImage.objects.filter(
-                      Q(provider_images__provider_configuration=self)
-                    | (Q(provider_images__provider_configuration=None)
+                      Q(provider_images__provider_configurations=self)
+                    | (Q(provider_images__provider_configurations=None)
                        & Q(provider_images__provider=self.provider)))
 
     @property
     def available_provider_images(self):
         return ProviderImage.objects.filter(
-                      Q(provider_configuration=self)
-                    | (Q(provider_configuration=None)
+                      Q(provider_configurations=self)
+                    | (Q(provider_configurations=None)
                        & Q(provider=self.provider)))
 
     def _destroy_all_nodes(self):
@@ -190,9 +193,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             if not ProviderImage.objects.filter(image_id=driver_image.id).exists():
                 image_name = driver_image_name(driver_image)
                 disk_image = DiskImage.objects.filter(name=image_name).first()
-
                 extra_json = json.loads(json.dumps(driver_image.extra))
-                provider_configuration = None if extra_json.get('is_public', True) else self
 
                 provider_image = ProviderImage(name=driver_image.name, image_id=driver_image.id,
                                                extra=extra_json, disk_image=disk_image,
@@ -373,3 +374,9 @@ class LinodeProviderConfiguration(ProviderConfiguration):
         location = NodeLocation(id='2', name='Dallas, TX, USA', country='USA', driver=self.driver)
         return super(LinodeProviderConfiguration, self).create_libcloud_node(name=name, libcloud_image=libcloud_image,
                         libcloud_size=libcloud_size, libcloud_auth=libcloud_auth, location=location)
+
+
+@receiver(post_save, sender=ProviderConfiguration)
+def schedule_load_provider_info(sender, created, instance, **kwargs):
+    if created:
+        schedule_random_default_delay(load_provider_info, instance.pk)

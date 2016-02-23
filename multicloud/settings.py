@@ -110,6 +110,10 @@ LOGGING = {
             'handlers': ['console'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
+        # 'django.db.backends': {
+        #     'level': 'DEBUG',
+        #     'handlers': ['console'],
+        # },
     },
 }
 
@@ -150,19 +154,25 @@ DAB_FIELD_RENDERER = 'django_admin_bootstrapped.renderers.BootstrapFieldRenderer
 # Database
 # https://docs.djangoproject.com/en/1.8/ref/settings/#databases
 
-from stratosphere.logging_connection import LoggingCursor
+# from stratosphere.logging_connection import LoggingCursor
 
-default_db_config = dj_database_url.config(default='postgres://postgres:password@localhost:5432/aerovane')
+def create_db_config(isolation_level):
+    db_config = dj_database_url.config(default='postgres://postgres:password@localhost:5432/aerovane')
 
-db_options = default_db_config['OPTIONS'] if 'OPTIONS' in default_db_config else {}
-db_options['isolation_level'] = psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE
-db_options['cursor_factory'] = LoggingCursor
+    db_options = db_config['OPTIONS'] if 'OPTIONS' in db_config else {}
+    db_options['isolation_level'] = isolation_level
 
-default_db_config['ENGINE'] = 'transaction_hooks.backends.postgresql_psycopg2'
-default_db_config['OPTIONS'] = db_options
+    db_config['ENGINE'] = 'transaction_hooks.backends.postgresql_psycopg2'
+    db_config['OPTIONS'] = db_options
+
+    return db_config
+
+default_db_config = create_db_config(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
+read_committed_db_config = create_db_config(psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED)
 
 DATABASES = {
-    'default': default_db_config
+    'default': default_db_config,
+    'read_committed': read_committed_db_config
 }
 
 # Celery

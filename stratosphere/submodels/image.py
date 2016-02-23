@@ -46,8 +46,6 @@ class ProviderImage(models.Model, SaveTheChange):
     extra = JSONField()
 
     provider = models.ForeignKey('Provider', related_name='provider_images')
-
-    # TODO make this a many-to-many relation to support shared private images
     provider_configurations = models.ManyToManyField('ProviderConfiguration', related_name='provider_images')
 
     def to_libcloud_image(self, provider_configuration):

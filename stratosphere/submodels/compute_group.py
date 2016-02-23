@@ -177,23 +177,32 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
             self.save()
 
     def create_phantom_instance_states_snapshot(self, now):
-        instances = list(self.instances.all())
+        # TODO figure out how to make this more consistent without causing a bunch of transaction conflicts
+        if self._state.db != 'read_committed':
+            instance = ComputeGroup.objects.using('read_committed').get(pk=self.pk)
+            return instance.create_phantom_instance_states_snapshot()
+        else:
+            instances = list(self.instances.all())
 
-        two_minutes_ago = now - timedelta(minutes=2)
-        args = {
-            'group': self,
-            'running': len(list(filter(lambda i: i.state    == ComputeInstance.RUNNING    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'rebooting': len(list(filter(lambda i: i.state  == ComputeInstance.REBOOTING  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'terminated': len(list(filter(lambda i: i.state == ComputeInstance.TERMINATED and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'pending': len(list(filter(lambda i: i.state    in [None, ComputeInstance.PENDING] and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'stopped': len(list(filter(lambda i: i.state    == ComputeInstance.STOPPED    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'suspended': len(list(filter(lambda i: i.state  == ComputeInstance.SUSPENDED  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'paused': len(list(filter(lambda i: i.state     == ComputeInstance.PAUSED     and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'error': len(list(filter(lambda i: i.state      == ComputeInstance.ERROR      and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-            'unknown': len(list(filter(lambda i: i.state    == ComputeInstance.UNKNOWN    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-        }
+            two_minutes_ago = now - timedelta(minutes=2)
+            print("instances: %s" % [(i.state, i.terminated, i.last_request_start_time < two_minutes_ago) for i in instances])
 
-        return GroupInstanceStatesSnapshot(**args)
+            args = {
+                'group': self,
+                'running': len(list(filter(lambda i: i.state    == ComputeInstance.RUNNING    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'rebooting': len(list(filter(lambda i: i.state  == ComputeInstance.REBOOTING  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'terminated': len(list(filter(lambda i: i.state == ComputeInstance.TERMINATED and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'pending': len(list(filter(lambda i: i.state    in [None, ComputeInstance.PENDING] and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'stopped': len(list(filter(lambda i: i.state    == ComputeInstance.STOPPED    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'suspended': len(list(filter(lambda i: i.state  == ComputeInstance.SUSPENDED  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'paused': len(list(filter(lambda i: i.state     == ComputeInstance.PAUSED     and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'error': len(list(filter(lambda i: i.state      == ComputeInstance.ERROR      and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'unknown': len(list(filter(lambda i: i.state    == ComputeInstance.UNKNOWN    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+            }
+
+            print("args: %s" % args)
+
+            return GroupInstanceStatesSnapshot(**args)
 
     def _get_best_sizes(self, allowed_provider_ids=None):
         best_sizes = {}

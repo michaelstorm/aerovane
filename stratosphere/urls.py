@@ -2,6 +2,7 @@ from django.conf.urls import url, include
 from django.views.generic.base import RedirectView
 
 from . import views, aws
+# from .modelviews.password_authentication_method.new import NewPasswordAuthenticationMethodView
 
 urlpatterns = [
     url(r'^$', RedirectView.as_view(url='/compute_groups/', permanent=False)),
@@ -10,6 +11,7 @@ urlpatterns = [
     url(r'^compute/(?P<group_id>\d+)/$', views.compute),
     url(r'^compute/state_history/$', views.state_history),
     url(r'^authentication_methods/$', views.authentication_methods),
+    #views.new_password_authentication_method.as_url(),
     url(r'^authentication_methods/(?P<method_id>\d+)/$', views.authentication_methods),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),
     url(r'^providers/(?P<provider_id>\d+)/disk_images/$', views.provider_disk_images),

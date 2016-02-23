@@ -11,6 +11,11 @@ import re
 from .forms import *
 from .util import unix_time_millis
 
+from .modelviews.password_authentication_method.new import NewPasswordAuthenticationMethodView
+
+
+new_password_authentication_method = NewPasswordAuthenticationMethodView('authentication_methods_test/')
+
 
 def view_or_basicauth(view, request, *args, **kwargs):
     if 'HTTP_AUTHORIZATION' in request.META:
@@ -198,6 +203,7 @@ def authentication(request):
         'password_methods': PasswordAuthenticationMethod.objects.all(),
         'add_key_method': KeyAuthenticationMethodForm(),
         'add_password_method': PasswordAuthenticationMethodForm(),
+        # 'rendered': new_password_authentication_method.render(),
         'left_nav_section': 'authentication',
     }
 
@@ -223,7 +229,7 @@ def authentication_methods(request, method_id=None):
 @login_required
 def compute(request, group_id=None):
     if request.method == 'GET':
-        compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
+        compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.using('read_committed').all()]
 
         return JsonResponse(compute_groups, safe=False)
 
@@ -339,12 +345,11 @@ def provider_disk_images(request, provider_id):
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
 
     terms = [t for t in re.split(r'\s+', query) if len(t) > 0]
-    print('terms', terms)
     if len(terms) > 0:
         f = Q()
         for term in terms:
             f = f & (Q(name__icontains=term) | Q(provider_images__image_id__icontains=term))
-        print(f)
+
         disk_images = provider_configuration.available_disk_images.filter(f)
 
         disk_images_json = [_disk_image_to_json(d) for d in disk_images[:10]]
@@ -355,8 +360,20 @@ def provider_disk_images(request, provider_id):
 
 @login_required
 def state_history(request):
-    history = request.user.configuration.instance_states_snapshots
+    def get_history_dict(h):
+        return {'time': unix_time_millis(h.time),
+                'running': h.running,
+                'rebooting': h.rebooting,
+                'terminated': h.terminated,
+                'pending': h.pending,
+                'stopped': h.stopped,
+                'suspended': h.suspended,
+                'paused': h.paused,
+                'error': h.error,
+                'unknown': h.unknown}
+
+    history = InstanceStatesSnapshot.objects.using('read_committed').filter(user_configuration=request.user.configuration)
     history = history.order_by('-time')[:15]
     history = list(reversed(history))
-    history = [{'time': unix_time_millis(h.time), 'running': h.running, 'pending': h.pending, 'terminated': h.terminated} for h in history]
+    history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)
