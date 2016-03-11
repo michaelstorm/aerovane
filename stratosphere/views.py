@@ -11,11 +11,6 @@ import re
 from .forms import *
 from .util import unix_time_millis
 
-from .modelviews.password_authentication_method.new import NewPasswordAuthenticationMethodView
-
-
-new_password_authentication_method = NewPasswordAuthenticationMethodView('authentication_methods_test/')
-
 
 def view_or_basicauth(view, request, *args, **kwargs):
     if 'HTTP_AUTHORIZATION' in request.META:
@@ -201,7 +196,6 @@ def authentication(request):
         'password_methods': PasswordAuthenticationMethod.objects.all(),
         'add_key_method': KeyAuthenticationMethodForm(),
         'add_password_method': PasswordAuthenticationMethodForm(),
-        # 'rendered': new_password_authentication_method.render(),
         'left_nav_section': 'authentication',
     }
 
