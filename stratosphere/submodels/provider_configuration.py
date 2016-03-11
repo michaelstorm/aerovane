@@ -1,5 +1,4 @@
 from django.contrib.auth.models import User
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import models, OperationalError, transaction
 from django.db.models import Q
 from django.db.models.signals import post_save
@@ -95,7 +94,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             raise LibcloudDestroyError()
 
     def update_instance_statuses(self):
-        instances = ComputeInstance.objects.filter(provider_configuration=self)
+        instances = ComputeInstance.objects.using('read_committed').filter(provider_configuration=self)
 
         try:
             libcloud_nodes = self.driver.list_nodes()
@@ -106,7 +105,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             traceback.print_exc()
             for instance in instances:
                 instance.state = ComputeInstance.UNKNOWN
-                instance.save()
+                instance.save(using='read_committed')
 
         else:
             user_configurations_with_instance_state_changes = set()
@@ -129,7 +128,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                     if 'state' in instance.changed_fields:
                         self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
 
-                    instance.save()
+                    instance.save(using='read_committed')
                     user_configurations_with_instance_state_changes.add(instance.group.user_configuration)
 
             for user_configuration in user_configurations_with_instance_state_changes:
@@ -323,7 +322,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
             provider = Provider.objects.create(
                 name=name,
                 pretty_name='AWS %s' % pretty_name,
-                icon_path=staticfiles_storage.url('stratosphere/aws_icon.png'))
+                icon_path='stratosphere/aws_icon.png')
 
             Ec2ProviderConfiguration.objects.create(
                 provider=provider,

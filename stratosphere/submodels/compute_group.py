@@ -3,6 +3,7 @@ from annoying.fields import JSONField
 from datetime import datetime, timedelta
 
 from django.apps import apps
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import connection, models, transaction, OperationalError
 from django.db.models import Q
 from django.utils import timezone
@@ -93,12 +94,14 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
             terminated_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING) and not i.terminated,
                                                provider_instances)))
 
+            icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
+
             provider_states_map[provider_name] = {
                 'running': running_count,
                 'pending': pending_count,
                 'terminated': terminated_count,
                 'pretty_name': provider_configuration.provider.pretty_name,
-                'icon_path': provider_configuration.provider.icon_path,
+                'icon_path': icon_path,
             }
 
         return provider_states_map
@@ -185,22 +188,21 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
             instances = list(self.instances.all())
 
             two_minutes_ago = now - timedelta(minutes=2)
-            print("instances: %s" % [(i.state, i.terminated, i.last_request_start_time < two_minutes_ago) for i in instances])
+            def filter_instance_states(two_minutes_ago, states):
+                return lambda i: i.state in states and (not i.terminated or i.last_request_start_time < two_minutes_ago)
 
             args = {
                 'group': self,
-                'running': len(list(filter(lambda i: i.state    == ComputeInstance.RUNNING    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'rebooting': len(list(filter(lambda i: i.state  == ComputeInstance.REBOOTING  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'terminated': len(list(filter(lambda i: i.state == ComputeInstance.TERMINATED and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'pending': len(list(filter(lambda i: i.state    in [None, ComputeInstance.PENDING] and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'stopped': len(list(filter(lambda i: i.state    == ComputeInstance.STOPPED    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'suspended': len(list(filter(lambda i: i.state  == ComputeInstance.SUSPENDED  and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'paused': len(list(filter(lambda i: i.state     == ComputeInstance.PAUSED     and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'error': len(list(filter(lambda i: i.state      == ComputeInstance.ERROR      and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
-                'unknown': len(list(filter(lambda i: i.state    == ComputeInstance.UNKNOWN    and (not i.terminated or i.last_request_start_time < two_minutes_ago), instances))),
+                'running': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.RUNNING]), instances))),
+                'rebooting': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.REBOOTING]), instances))),
+                'terminated': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.TERMINATED]), instances))),
+                'pending': len(list(filter(filter_instance_states(two_minutes_ago, [None, ComputeInstance.PENDING]), instances))),
+                'stopped': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.STOPPED]), instances))),
+                'suspended': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.SUSPENDED]), instances))),
+                'paused': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.PAUSED]), instances))),
+                'error': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.ERROR]), instances))),
+                'unknown': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.UNKNOWN]), instances))),
             }
-
-            print("args: %s" % args)
 
             return GroupInstanceStatesSnapshot(**args)
 

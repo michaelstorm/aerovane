@@ -99,7 +99,7 @@ def check_instance_distribution_all():
 def update_instance_statuses(provider_configuration_id):
     from .models import ProviderConfiguration
 
-    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
+    provider_configuration = ProviderConfiguration.objects.using('read_committed').get(pk=provider_configuration_id)
     provider_configuration.update_instance_statuses()
 
 
@@ -117,7 +117,7 @@ def clean_up_terminated_instances():
     from .models import ComputeInstance
 
     two_minutes_ago = timezone.now() - timedelta(minutes=2)
-    leftover_terminated_instances = ComputeInstance.objects.filter(
+    leftover_terminated_instances = ComputeInstance.objects.using('read_committed').filter(
         Q(terminated=True, last_request_start_time__lte=two_minutes_ago)
         & ~Q(state=ComputeInstance.TERMINATED))
 

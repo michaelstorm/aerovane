@@ -94,13 +94,11 @@ def operating_systems(request):
         operating_system.disk_image_mappings.all().delete()
 
         for provider_json in params['providers']:
-            print('provider_json:', provider_json)
             provider_configuration = ProviderConfiguration.objects.get(pk=provider_json['id'])
 
             disk_image_json = provider_json.get('disk_image')
             if isinstance(disk_image_json, dict): # Angular sometimes sends null value as empty string
                 new_disk_image = DiskImage.objects.get(pk=disk_image_json['id'])
-                print('Adding disk image %d' % new_disk_image.pk)
                 DiskImageMapping.objects.get_or_create(provider=provider_configuration.provider,
                                 disk_image=new_disk_image, operating_system_image=operating_system)
 
