@@ -27,9 +27,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SECRET_KEY = 'r$&@my(i!cyx5v_1m21ii28yb771u+t)!%r++6&tdlx2=s5+_%'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['dashboard.aerovane.io']
 
 
 # Application definition
@@ -67,6 +67,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
+    'stratosphere.middleware.ssl_middleware.SSLMiddleware'
 )
 
 ROOT_URLCONF = 'multicloud.urls'
