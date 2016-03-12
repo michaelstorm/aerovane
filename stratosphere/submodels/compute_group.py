@@ -94,14 +94,12 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
             terminated_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING) and not i.terminated,
                                                provider_instances)))
 
-            icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
-
             provider_states_map[provider_name] = {
                 'running': running_count,
                 'pending': pending_count,
                 'terminated': terminated_count,
                 'pretty_name': provider_configuration.provider.pretty_name,
-                'icon_path': icon_path,
+                'icon_path': provider_configuration.provider.icon_path,
             }
 
         return provider_states_map
