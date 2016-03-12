@@ -294,12 +294,12 @@ def configure_provider(request, provider_name):
         provider_configuration = request.user.configuration.provider_configurations.instance_of(Ec2ProviderConfiguration).first()
         if provider_configuration is None:
             Ec2ProviderConfiguration.create_regions(request.user,
-                            request.POST['aws_access_key_id'], request.POST['secret_access_key'])
+                            request.POST['aws_access_key_id'], request.POST['aws_secret_access_key'])
 
         else:
             credentials = provider_configuration.credentials
             credentials.access_key_id = request.POST['aws_access_key_id']
-            credentials.secret_access_key = request.POST['secret_access_key']
+            credentials.secret_access_key = request.POST['aws_secret_access_key']
             credentials.save()
 
     else:
@@ -329,6 +329,18 @@ def provider_action(request, provider_id, action):
         return HttpResponse(status=422)
 
     return HttpResponse('')
+
+
+@login_required
+def providers_loaded(request):
+    user = User.objects.using('read_committed').get(pk=request.user.pk)
+    loaded = True
+    for provider_configuration in user.configuration.provider_configurations.all():
+        if not provider_configuration.loaded:
+            loaded = False
+            break
+
+    return JsonResponse({'loaded': loaded})
 
 
 @login_required
@@ -364,8 +376,9 @@ def state_history(request):
                 'error': h.error,
                 'unknown': h.unknown}
 
-    history = InstanceStatesSnapshot.objects.using('read_committed').filter(user_configuration=request.user.configuration)
-    history = history.order_by('-time')[:15]
+    user = User.objects.using('read_committed').get(pk=request.user.pk)
+    history = user.configuration.instance_states_snapshots
+    history = history.order_by('-time') #[:15]
     history = list(reversed(history))
     history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)

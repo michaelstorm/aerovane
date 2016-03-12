@@ -10,6 +10,11 @@
     </div>
 
     <div class="wrapper wrapper-content">
+        <div class="row" id="loading-alert" style="display: none;">
+            <div class="col-lg-12">
+                <div class="alert alert-info" role="alert">Loading provider data...</div>
+            </div>
+        </div>
         <div class="row">
             <div class="col-lg-4">
                 <div class="panel panel-primary">
@@ -17,7 +22,8 @@
                         <div class="panel-title"><img src="{% static "/stratosphere/aws_icon.png" %}"><span>AWS</span></div>
                     </div>
                     <div class="panel-body">
-                        <form action="/settings/aws/" method="post">
+                        <form action="/providers/aws/" method="post">
+                            {% csrf_token %}
                             <div class="form-group">
                                 <label>Access key ID</label>
                                 <input type="text" class="form-control" name="aws_access_key_id">
@@ -31,21 +37,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="col-lg-4">
-                <div class="panel panel-primary">
-                    <div class="panel-heading">
-                        <div class="panel-title"><img src="{% static "/stratosphere/linode_icon.png" %}"><span>Linode</span></div>
-                    </div>
-                    <div class="panel-body">
-                        <form action="/settings/linode/" method="post">
-                            {% csrf_token %}
-                            {% bootstrap_form linode %}
-                            <input type="submit" value="Save" class="btn btn-primary">
-                        </form>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -53,20 +44,16 @@
 
 {% block body_script %}
     $(document).ready(function() {
-        $('.delete-method-button').click(function() {
+        setInterval(function() {
             $.ajax({
-                url: '/authentication_methods/' + $(this).attr('method-id') + '/',
-                method: 'DELETE',
-                success: function() {
-                    location.reload();
+                url: '/providers/loaded/',
+                method: 'GET',
+                success: function(data) {
+                    var loaded = data['loaded'];
+                    $('#loading-alert').toggle(!loaded);
                 },
             });
-        });
-
-        $('#myTabs a').click(function (e) {
-            e.preventDefault();
-            $(this).tab('show');
-        })
+        }, 1000);
     });
 {% endblock %}
 

@@ -39,6 +39,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True, related_name='provider_configurations')
     simulated_failure = models.BooleanField(default=False)
+    loaded = models.BooleanField(default=False)
 
     @property
     def driver(self):
@@ -379,3 +380,9 @@ class LinodeProviderConfiguration(ProviderConfiguration):
 def schedule_load_provider_info(sender, created, instance, **kwargs):
     if created:
         schedule_random_default_delay(load_provider_info, instance.pk)
+
+
+@receiver(post_save, sender=Ec2ProviderCredentials)
+def schedule_load_provider_info_credentials(sender, created, instance, **kwargs):
+    for provider_configuration in instance.configurations.all():
+        schedule_random_default_delay(load_provider_info, provider_configuration.pk)

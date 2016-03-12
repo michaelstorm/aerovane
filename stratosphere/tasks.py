@@ -28,6 +28,18 @@ def load_provider_info(provider_configuration_id):
     provider_configuration.load_available_sizes()
     provider_configuration.load_available_images()
 
+    provider_configuration.loaded = True
+    provider_configuration.save()
+
+
+@periodic_task(run_every=timedelta(minutes=10))
+def update_provider_info_all():
+    from .models import ProviderConfiguration
+
+    provider_configuration_ids = ProviderConfiguration.objects.using('read_committed').all().values_list('pk', flat=True)
+    for provider_configuration_id in provider_configuration_ids:
+        schedule_random_default_delay(load_provider_info, provider_configuration_id)
+
 
 @app.task()
 def check_instance_states_snapshots(user_configuration_id):
