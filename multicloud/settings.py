@@ -29,7 +29,7 @@ SECRET_KEY = 'r$&@my(i!cyx5v_1m21ii28yb771u+t)!%r++6&tdlx2=s5+_%'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = ['dashboard.aerovane.io']
+ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOSTS', '').split(',')]
 
 
 # Application definition
