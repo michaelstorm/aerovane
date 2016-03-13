@@ -11,7 +11,7 @@ import random
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..tasks import create_libcloud_node, terminate_libcloud_node
-from ..util import decode_node_extra, schedule_random_default_delay
+from ..util import decode_node_extra, schedule_random_default_delay, thread_local
 
 
 class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
@@ -58,6 +58,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
         # delay a few seconds to avoid transaction conflicts
         schedule_random_default_delay(create_libcloud_node, self.pk)
 
+    @thread_local(DB_OVERRIDE='serializable')
     def terminate(self):
         with transaction.atomic():
             self.state = 'UNKNOWN'

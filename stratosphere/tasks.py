@@ -15,7 +15,7 @@ from multicloud.celery import app
 
 import random
 
-from .util import BackoffError, NodeJSONEncoder, schedule_random_default_delay
+from .util import NodeJSONEncoder, schedule_random_default_delay, thread_local
 
 # we don't import import models here, since doing so seems to screw up bootstrapping
 
@@ -36,7 +36,7 @@ def load_provider_info(provider_configuration_id):
 def update_provider_info_all():
     from .models import ProviderConfiguration
 
-    provider_configuration_ids = ProviderConfiguration.objects.using('read_committed').all().values_list('pk', flat=True)
+    provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
         schedule_random_default_delay(load_provider_info, provider_configuration_id)
 
@@ -55,7 +55,7 @@ def check_instance_states_snapshots(user_configuration_id):
         else:
             return snapshots_values(first) == snapshots_values(second)
 
-    user_configuration = UserConfiguration.objects.using('read_committed').get(pk=user_configuration_id)
+    user_configuration = UserConfiguration.objects.get(pk=user_configuration_id)
 
     user_snapshot, group_snapshots = user_configuration.create_phantom_instance_states_snapshot()
     last_user_snapshot = user_configuration.instance_states_snapshots.order_by('-time').first()
@@ -74,18 +74,18 @@ def check_instance_states_snapshots(user_configuration_id):
 
     if not_equal:
         with transaction.atomic():
-            user_snapshot.save(using='read_committed')
+            user_snapshot.save()
 
             for group_snapshot in group_snapshots:
                 group_snapshot.user_snapshot = user_snapshot
-                group_snapshot.save(using='read_committed')
+                group_snapshot.save()
 
 
 @periodic_task(run_every=timedelta(seconds=5))
 def check_instance_states_snapshots_all():
     from .models import UserConfiguration
 
-    user_configuration_ids = UserConfiguration.objects.using('read_committed').all().values_list('pk', flat=True)
+    user_configuration_ids = UserConfiguration.objects.all().values_list('pk', flat=True)
     for user_configuration_id in user_configuration_ids:
         check_instance_states_snapshots.delay(user_configuration_id)
 
@@ -102,7 +102,7 @@ def check_instance_distribution(compute_group_id):
 def check_instance_distribution_all():
     from .models import ComputeGroup
 
-    compute_group_ids = ComputeGroup.objects.using('read_committed').all().values_list('pk', flat=True)
+    compute_group_ids = ComputeGroup.objects.all().values_list('pk', flat=True)
     for compute_group_id in compute_group_ids:
         schedule_random_default_delay(check_instance_distribution, compute_group_id)
 
@@ -111,7 +111,7 @@ def check_instance_distribution_all():
 def update_instance_statuses(provider_configuration_id):
     from .models import ProviderConfiguration
 
-    provider_configuration = ProviderConfiguration.objects.using('read_committed').get(pk=provider_configuration_id)
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
     provider_configuration.update_instance_statuses()
 
 
@@ -119,7 +119,7 @@ def update_instance_statuses(provider_configuration_id):
 def update_instance_statuses_all():
     from .models import ProviderConfiguration
 
-    provider_configuration_ids = ProviderConfiguration.objects.using('read_committed').all().values_list('pk', flat=True)
+    provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
         schedule_random_default_delay(update_instance_statuses, provider_configuration_id)
 
@@ -129,7 +129,7 @@ def clean_up_terminated_instances():
     from .models import ComputeInstance
 
     two_minutes_ago = timezone.now() - timedelta(minutes=2)
-    leftover_terminated_instances = ComputeInstance.objects.using('read_committed').filter(
+    leftover_terminated_instances = ComputeInstance.objects.filter(
         Q(terminated=True, last_request_start_time__lte=two_minutes_ago)
         & ~Q(state=ComputeInstance.TERMINATED))
 

@@ -221,7 +221,7 @@ def authentication_methods(request, method_id=None):
 @login_required
 def compute(request, group_id=None):
     if request.method == 'GET':
-        compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.using('read_committed').all()]
+        compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
 
         return JsonResponse(compute_groups, safe=False)
 
@@ -333,7 +333,7 @@ def provider_action(request, provider_id, action):
 
 @login_required
 def providers_loaded(request):
-    user = User.objects.using('read_committed').get(pk=request.user.pk)
+    user = User.objects.get(pk=request.user.pk)
     loaded = True
     for provider_configuration in user.configuration.provider_configurations.all():
         if not provider_configuration.loaded:
@@ -376,7 +376,7 @@ def state_history(request):
                 'error': h.error,
                 'unknown': h.unknown}
 
-    user = User.objects.using('read_committed').get(pk=request.user.pk)
+    user = User.objects.get(pk=request.user.pk)
     history = user.configuration.instance_states_snapshots
     history = history.order_by('-time') #[:15]
     history = list(reversed(history))

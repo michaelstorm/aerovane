@@ -168,13 +168,15 @@ def create_db_config(isolation_level):
 
     return db_config
 
-default_db_config = create_db_config(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
+serializable_db_config = create_db_config(psycopg2.extensions.ISOLATION_LEVEL_SERIALIZABLE)
 read_committed_db_config = create_db_config(psycopg2.extensions.ISOLATION_LEVEL_READ_COMMITTED)
 
 DATABASES = {
-    'default': default_db_config,
-    'read_committed': read_committed_db_config
+    'default': read_committed_db_config,
+    'serializable': serializable_db_config
 }
+
+DATABASE_ROUTERS = ['stratosphere.settings_router.SettingsRouter']
 
 # Celery
 BROKER_URL = 'amqp://aerovane:aerovane_password@localhost:5672/aerovane_vhost'

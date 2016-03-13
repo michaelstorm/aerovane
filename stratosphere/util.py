@@ -2,6 +2,7 @@ import datetime
 import json
 import logging
 import random
+import threading
 import time
 import traceback
 
@@ -18,10 +19,6 @@ epoch = datetime.datetime.utcfromtimestamp(0)
 
 def unix_time_millis(dt):
     return (timezone.make_naive(dt) - epoch).total_seconds() * 1000
-
-
-class BackoffError(Exception):
-    pass
 
 
 class HasLogger(object):
@@ -174,3 +171,64 @@ def schedule_random_delay(task, base_delay, half_interval, *args):
 
 def schedule_random_default_delay(task, *args):
     schedule_random_delay(task, 5, 2, *args)
+
+
+# from https://dzone.com/articles/django-switching-databases
+_stratosphere_threadlocal = threading.local()
+
+
+class thread_local(object):
+    """ a decorator that wraps a function in a thread local definition block
+    useful for passing variables down the stack w/o actually passing them
+    examples: what database to read from, whether to cache queries, etc
+    adapted from django.test.utils.override_settings
+
+    Usage:
+
+    @thread_local(SITE_NAME_SHORT='foobar')
+    def override(request):
+        ...
+
+    """
+
+    def __init__(self, **kwargs):
+        self.options = kwargs
+
+    def __enter__(self):
+        for attr, value in self.options.items():
+            if not hasattr(_stratosphere_threadlocal, attr):
+                setattr(_stratosphere_threadlocal, attr, [])
+
+            getattr(_stratosphere_threadlocal, attr).append(value)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        for attr in self.options.keys():
+            getattr(_stratosphere_threadlocal, attr).pop()
+
+    def __call__(self, test_func):
+
+        @wraps(test_func)
+        def inner(*args, **kwargs):
+            # the thread_local class is also a context manager
+            # which means it will call __enter__ and __exit__
+            with self:
+                return test_func(*args, **kwargs)
+
+        return inner
+
+
+def get_thread_local(attr, default=None):
+    """ use this method from lower in the stack to get the value """
+    stack = getattr(_stratosphere_threadlocal, attr, [])
+    return stack[-1] if len(stack) > 0 else default
+
+
+# no-argument decorators work differently than with-argument decorators, so we
+# have to do some bridging between them
+class static_thread_local(thread_local):
+    def __init__(self, func, **kwargs):
+        self.func = func
+        super().__init__(**kwargs)
+
+    def __call__(self, *args, **kwargs):
+        return super().__call__(self.func)(*args, **kwargs)

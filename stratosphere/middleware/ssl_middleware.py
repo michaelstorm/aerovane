@@ -2,6 +2,7 @@ from django.conf import settings
 from django.http import HttpResponseRedirect
 
 
+# from http://stackoverflow.com/a/9207726
 class SSLMiddleware(object):
     def process_request(self, request):
         if not any([settings.DEBUG, request.is_secure(), request.META.get("HTTP_X_FORWARDED_PROTO", "") == 'https']):

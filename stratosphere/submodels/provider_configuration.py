@@ -9,6 +9,8 @@ from libcloud.compute.providers import get_driver
 from libcloud.compute.base import NodeLocation
 from libcloud.compute.types import NodeState
 
+import libcloud.common.exceptions
+
 from polymorphic import PolymorphicModel
 
 from save_the_change.mixins import SaveTheChange
@@ -91,11 +93,17 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                                        **extra_args)
 
     def destroy_libcloud_node(self, libcloud_node):
-        if not self.driver.destroy_node(libcloud_node):
-            raise LibcloudDestroyError()
+        try:
+            if not self.driver.destroy_node(libcloud_node):
+                raise LibcloudDestroyError()
+        except libcloud.common.exceptions.BaseHTTPError as e:
+            if 'InvalidInstanceID.NotFound' in e.message:
+                self.logger.warning('Instance %s already destroyed (%s)' % (libcloud_node.id, e.message))
+            else:
+                raise e
 
     def update_instance_statuses(self):
-        instances = ComputeInstance.objects.using('read_committed').filter(provider_configuration=self)
+        instances = ComputeInstance.objects.filter(provider_configuration=self)
 
         try:
             libcloud_nodes = self.driver.list_nodes()
@@ -106,7 +114,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             traceback.print_exc()
             for instance in instances:
                 instance.state = ComputeInstance.UNKNOWN
-                instance.save(using='read_committed')
+                instance.save()
 
         else:
             user_configurations_with_instance_state_changes = set()
@@ -129,11 +137,12 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                     if 'state' in instance.changed_fields:
                         self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
 
-                    instance.save(using='read_committed')
+                    instance.save()
                     user_configurations_with_instance_state_changes.add(instance.group.user_configuration)
 
-            for user_configuration in user_configurations_with_instance_state_changes:
-                user_configuration.take_instance_states_snapshot()
+                with thread_local(DB_OVERRIDE='serializable'):
+                    for user_configuration in user_configurations_with_instance_state_changes:
+                        user_configuration.take_instance_states_snapshot()
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
@@ -177,7 +186,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                 disk_image = DiskImage(name=image_name)
                 disk_images.append(disk_image)
 
-        DiskImage.objects.using('read_committed').bulk_create(disk_images)
+        DiskImage.objects.bulk_create(disk_images)
         end = time.time()
         print('Created %d DiskImages in %d seconds' % (len(disk_images), end - start))
 
@@ -190,12 +199,12 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             if created % 100 == 0:
                 print(round(float(created) / float(len(filtered_driver_images)) * 100))
 
-            provider_image = ProviderImage.objects.using('read_committed').filter(provider=self.provider, image_id=driver_image.id).first()
+            provider_image = ProviderImage.objects.filter(provider=self.provider, image_id=driver_image.id).first()
             if provider_image is None:
                 provider_image = ProviderImage(provider=self.provider, image_id=driver_image.id)
 
             image_name = driver_image_name(driver_image)
-            disk_image = DiskImage.objects.using('read_committed').filter(name=image_name).first()
+            disk_image = DiskImage.objects.filter(name=image_name).first()
             extra_json = json.loads(json.dumps(driver_image.extra))
 
             provider_image.name = image_name
@@ -206,7 +215,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             if not provider_image.extra.get('is_public', True):
                 provider_image.provider_configurations.add(self)
 
-            provider_image.save(using='read_committed')
+            provider_image.save()
 
         end = time.time()
         print('Created %d ProviderImages in %d seconds' % (created, end - start))

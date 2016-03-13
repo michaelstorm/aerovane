@@ -11,7 +11,7 @@ from django.utils import timezone
 from save_the_change.mixins import SaveTheChange
 
 from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
-from ..util import HasLogger, retry, call_with_retry, BackoffError
+from ..util import HasLogger, retry, call_with_retry, thread_local
 
 import json
 
@@ -104,6 +104,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
         return provider_states_map
 
+    @thread_local(DB_OVERRIDE='serializable')
     def check_instance_distribution(self):
         with transaction.atomic():
             self.logger.warning('Got lock on compute group %d' % self.pk)
@@ -147,6 +148,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
             if running_count != self.instance_count:
                 self.rebalance_instances(good_provider_ids)
 
+    @thread_local(DB_OVERRIDE='serializable')
     def rebalance_instances(self, provider_ids=None):
         best_sizes = self._get_best_sizes(provider_ids)
 
@@ -163,6 +165,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
         self._create_compute_instances()
 
+    @thread_local(DB_OVERRIDE='serializable')
     def terminate_instance(self, instance):
         with transaction.atomic():
             self.instance_count -= 1
@@ -179,30 +182,26 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
     def create_phantom_instance_states_snapshot(self, now):
         # TODO figure out how to make this more consistent without causing a bunch of transaction conflicts
-        if self._state.db != 'read_committed':
-            instance = ComputeGroup.objects.using('read_committed').get(pk=self.pk)
-            return instance.create_phantom_instance_states_snapshot()
-        else:
-            instances = list(self.instances.all())
+        instances = list(self.instances.all())
 
-            two_minutes_ago = now - timedelta(minutes=2)
-            def filter_instance_states(two_minutes_ago, states):
-                return lambda i: i.state in states and (not i.terminated or i.last_request_start_time < two_minutes_ago)
+        two_minutes_ago = now - timedelta(minutes=2)
+        def filter_instance_states(two_minutes_ago, states):
+            return lambda i: i.state in states and (not i.terminated or i.last_request_start_time < two_minutes_ago)
 
-            args = {
-                'group': self,
-                'running': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.RUNNING]), instances))),
-                'rebooting': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.REBOOTING]), instances))),
-                'terminated': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.TERMINATED]), instances))),
-                'pending': len(list(filter(filter_instance_states(two_minutes_ago, [None, ComputeInstance.PENDING]), instances))),
-                'stopped': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.STOPPED]), instances))),
-                'suspended': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.SUSPENDED]), instances))),
-                'paused': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.PAUSED]), instances))),
-                'error': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.ERROR]), instances))),
-                'unknown': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.UNKNOWN]), instances))),
-            }
+        args = {
+            'group': self,
+            'running': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.RUNNING]), instances))),
+            'rebooting': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.REBOOTING]), instances))),
+            'terminated': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.TERMINATED]), instances))),
+            'pending': len(list(filter(filter_instance_states(two_minutes_ago, [None, ComputeInstance.PENDING]), instances))),
+            'stopped': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.STOPPED]), instances))),
+            'suspended': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.SUSPENDED]), instances))),
+            'paused': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.PAUSED]), instances))),
+            'error': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.ERROR]), instances))),
+            'unknown': len(list(filter(filter_instance_states(two_minutes_ago, [ComputeInstance.UNKNOWN]), instances))),
+        }
 
-            return GroupInstanceStatesSnapshot(**args)
+        return GroupInstanceStatesSnapshot(**args)
 
     def _get_best_sizes(self, allowed_provider_ids=None):
         best_sizes = {}
@@ -272,8 +271,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
         return instance_counts
 
-
-    def pending_or_running_count(self, provider_size):
+    def _pending_or_running_count(self, provider_size):
         now = timezone.now()
         return self.instances.filter(
             Q(provider_size=provider_size)
@@ -293,7 +291,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
                 provider_configuration = provider_size.provider_configuration
 
-                pending_or_running_count = self.pending_or_running_count(provider_size)
+                pending_or_running_count = self._pending_or_running_count(provider_size)
 
                 running_provider_instances = self.instances.filter(provider_size=provider_size,
                                                                    state=ComputeInstance.RUNNING)
@@ -328,7 +326,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
                         with transaction.atomic():
                             intended_instance_count = self.size_distribution[str(provider_size.pk)]
-                            current_instance_count = self.pending_or_running_count(provider_size)
+                            current_instance_count = self._pending_or_running_count(provider_size)
 
                             print('size_distribution: %s' % self.size_distribution)
                             print('%s: current_instance_count < intended_instance_count = %d < %d = %s' %
