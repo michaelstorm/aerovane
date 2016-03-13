@@ -135,15 +135,22 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             for user_configuration in user_configurations_with_instance_state_changes:
                 user_configuration.take_instance_states_snapshot()
 
-
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
         for driver_size in driver_sizes:
-            if ProviderSize.objects.filter(provider_configuration=self, external_id=driver_size.id).first() is None:
-                vcpus = driver_size.extra.get('vcpus')
-                ProviderSize.objects.create(provider_configuration=self, external_id=driver_size.id, name=driver_size.name, price=driver_size.price,
-                                            ram=driver_size.ram, disk=driver_size.disk, bandwidth=driver_size.bandwidth, vcpus=vcpus,
-                                            extra=json.loads(json.dumps(driver_size.extra)))
+            provider_size = ProviderSize.objects.filter(external_id=driver_size.id).first()
+            if provider_size is None:
+                provider_size = ProviderSize(external_id=driver_size.id)
+
+            provider_size.name = driver_size.name
+            provider_size.price = driver_size.price
+            provider_size.ram = driver_size.ram
+            provider_size.disk = driver_size.disk
+            provider_size.vcpus = driver_size.extra.get('vcpus')
+            provider_size.bandwidth = driver_size.bandwidth
+            provider_size.extra = json.loads(json.dumps(driver_size.extra))
+
+            provider_size.save()
 
     def load_available_images(self):
         self._load_available_images()
@@ -154,12 +161,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
         print('Retrieved %d images' % len(driver_images))
 
         filtered_driver_images = list(filter(image_filter, driver_images))[:100] # TODO remove driver images limit
-
-        # for os_name in self.default_operating_systems:
-        #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
-        #     if driver_image_id is not None:
-        #         if len([i for i in filtered_driver_images if i.id == driver_image_id]) == 0:
-        #             filtered_driver_images.append([i for i in driver_images if i.id == driver_image_id][0])
 
         def driver_image_name(driver_image):
             return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
@@ -176,13 +177,12 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                 disk_image = DiskImage(name=image_name)
                 disk_images.append(disk_image)
 
-        DiskImage.objects.bulk_create(disk_images)
+        DiskImage.objects.using('read_committed').bulk_create(disk_images)
         end = time.time()
         print('Created %d DiskImages in %d seconds' % (len(disk_images), end - start))
 
         print('Creating ProviderImages...')
         start = time.time()
-        provider_images = []
         created = 0
         for driver_image in filtered_driver_images:
             created += 1
@@ -190,43 +190,26 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             if created % 100 == 0:
                 print(round(float(created) / float(len(filtered_driver_images)) * 100))
 
-            if not ProviderImage.objects.filter(image_id=driver_image.id).exists():
-                image_name = driver_image_name(driver_image)
-                disk_image = DiskImage.objects.filter(name=image_name).first()
-                extra_json = json.loads(json.dumps(driver_image.extra))
+            provider_image = ProviderImage.objects.using('read_committed').filter(provider=self.provider, image_id=driver_image.id).first()
+            if provider_image is None:
+                provider_image = ProviderImage(provider=self.provider, image_id=driver_image.id)
 
-                provider_image = ProviderImage(name=driver_image.name, image_id=driver_image.id,
-                                               extra=extra_json, disk_image=disk_image,
-                                               provider=self.provider)
+            image_name = driver_image_name(driver_image)
+            disk_image = DiskImage.objects.using('read_committed').filter(name=image_name).first()
+            extra_json = json.loads(json.dumps(driver_image.extra))
 
-                provider_images.append(provider_image)
+            provider_image.name = image_name
+            provider_image.image_id = driver_image.id
+            provider_image.extra = extra_json
+            provider_image.disk_image = disk_image
 
-        provider_images = ProviderImage.objects.bulk_create(provider_images)
-        end = time.time()
-        print('Created %d ProviderImages in %d seconds' % (len(provider_images), end - start))
-
-        print('Adding ProviderConfigurations to ProviderImages...')
-        start = time.time()
-
-        for driver_image in filtered_driver_images:
-            provider_image = ProviderImage.objects.get(image_id=driver_image.id)
             if not provider_image.extra.get('is_public', True):
                 provider_image.provider_configurations.add(self)
 
+            provider_image.save(using='read_committed')
+
         end = time.time()
-        print('Done in %d seconds' % (end - start))
-
-        # for os_name in self.default_operating_systems:
-        #     driver_image_id = self.default_operating_systems[os_name].get(self.provider_name)
-        #     if driver_image_id is not None:
-        #         provider_image = self.provider_images.filter(image_id=driver_image_id).first()
-
-        #         os_image = OperatingSystemImage.objects.filter(name=os_name).first()
-        #         if os_image is None:
-        #             os_image = OperatingSystemImage.objects.create(name=os_name)
-
-        #         disk_image = provider_image.disk_image
-        #         os_image.disk_images.add(disk_image)
+        print('Created %d ProviderImages in %d seconds' % (created, end - start))
 
 
 class Ec2ProviderCredentials(models.Model):
