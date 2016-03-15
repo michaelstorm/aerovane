@@ -15,7 +15,6 @@
                         </div>
                         <div class="ibox float-e-margins">
                             <div class="ibox-title">
-                                <img src="{% static "stratosphere/aws_icon.png" %}">
                                 <h5>Compute groups</h5>
                             </div>
                             <div class="ibox-content">
@@ -53,13 +52,6 @@
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block footer %}
-    {% for provider in providers %}
-        <button class="btn btn-success restore-button" provider="{{ provider.pk }}" style="display: none;">Restore {{ provider.provider.pretty_name }}</button>
-        <button class="btn btn-warning fail-button" provider="{{ provider.pk }}" style="display: none;">Simulate {{ provider.provider.pretty_name }} Failure</button>
-    {% endfor %}
 {% endblock %}
 
 {% block body_script %}

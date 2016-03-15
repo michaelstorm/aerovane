@@ -9,3 +9,6 @@ class Provider(models.Model, SaveTheChange):
     name = models.CharField(max_length=32)
     pretty_name = models.CharField(max_length=32)
     icon_path = models.TextField()
+
+    def __repr__(self):
+        return '<Provider %s: %d>' % (self.name, self.pk)

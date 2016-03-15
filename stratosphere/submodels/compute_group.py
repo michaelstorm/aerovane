@@ -6,6 +6,8 @@ from django.apps import apps
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import connection, models, transaction, OperationalError
 from django.db.models import Q
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
 from django.utils import timezone
 
 from save_the_change.mixins import SaveTheChange
@@ -78,28 +80,43 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
     name = models.CharField(max_length=128)
     provider_policy = JSONField()
     size_distribution = JSONField()
-    updating_distribution = models.BooleanField(default=False)
-    updating_distribution_time = models.DateTimeField(blank=True, null=True)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
     authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
+    last_state_update_time = models.DateTimeField()
 
     def provider_states(self):
         provider_states_map = {}
+        now = timezone.now()
+        two_minutes_ago = now - timedelta(minutes=2)
+        four_minutes_ago = now - timedelta(minutes=4)
+
+        def instance_terminated(i):
+            pending_or_running_states = None, ComputeInstance.RUNNING, ComputeInstance.PENDING
+            not_pending_or_running = i.state not in pending_or_running_states
+            pending_or_running_and_expired = i.state in pending_or_running_states and i.last_request_start_time < two_minutes_ago
+            unknown_and_not_expired = i.state not in pending_or_running_states and i.last_state_update_time >= four_minutes_ago
+            return not_pending_or_running or pending_or_running_and_expired or unknown_and_not_expired
 
         for provider_name in self.provider_policy:
-            provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name)
-            provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
+            provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name, user_configuration=self.user_configuration)
+            provider_instances = self.instances.filter(provider_image__provider__name=provider_name, terminated=False)
+
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, provider_instances)))
-            pending_count = len(list(filter(lambda i: i.state in (None, ComputeInstance.PENDING, ComputeInstance.REBOOTING), provider_instances)))
-            terminated_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.RUNNING, ComputeInstance.PENDING, ComputeInstance.REBOOTING) and not i.terminated,
-                                               provider_instances)))
+            pending_count = len(list(filter(lambda i: i.state in (None, ComputeInstance.PENDING) and i.last_request_start_time >= two_minutes_ago, provider_instances)))
+
+            if running_count >= self.instance_count:
+                terminated_count = 0
+            else:
+                terminated_count = len(list(filter(instance_terminated, provider_instances)))
+
+            icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
 
             provider_states_map[provider_name] = {
                 'running': running_count,
                 'pending': pending_count,
                 'terminated': terminated_count,
                 'pretty_name': provider_configuration.provider.pretty_name,
-                'icon_path': provider_configuration.provider.icon_path,
+                'icon_path': icon_path,
             }
 
         return provider_states_map
@@ -107,16 +124,11 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
     @thread_local(DB_OVERRIDE='serializable')
     def check_instance_distribution(self):
         with transaction.atomic():
-            self.logger.warning('Got lock on compute group %d' % self.pk)
-
-            self.logger.warning('%s state: %s' % (self.name, self.state))
-
             instances_flat = list(self.instances.all())
+
             running_count = len(list(filter(lambda i: i.state == ComputeInstance.RUNNING, instances_flat)))
             non_pending_count = len(list(filter(lambda i: i.state not in (None, ComputeInstance.PENDING), instances_flat)))
             non_terminated_count = len(list(filter(lambda i: i.state not in (ComputeInstance.TERMINATED, ComputeInstance.UNKNOWN), instances_flat)))
-
-            good_provider_ids = [provider.pk for provider in self.user_configuration.provider_configurations.all()]
 
             if self.state == self.TERMINATED:
                 self.logger.info('Compute group state is TERMINATED. Remaining non-terminated instances: %d' % non_terminated_count)
@@ -124,29 +136,36 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
                     self.logger.warn('Deleting self')
                     self.delete()
 
-            else:
-                if self.state == self.PENDING and non_pending_count >= self.instance_count:
-                    self.state = self.RUNNING
-                    self.save()
+            elif self.state == self.PENDING and non_pending_count >= self.instance_count:
+                self.logger.info('State is currently pending and non-pending count >= instance_count (%d >= %d); ' + \
+                                 'setting group state to RUNNING' % (non_pending_count, self.instance_count))
+                self.state = self.RUNNING
+                self.save()
 
-                if self.state == self.RUNNING:
-                    self.logger.warn('running_count < self.instance_count = %d < %d = %s' %
-                                     (running_count, self.instance_count, running_count < self.instance_count))
+            elif self.state == self.RUNNING:
+                self.logger.info('Group state is RUNNING; ensuring running instance count no less than expected')
+                self.logger.info('running_count < self.instance_count = %d < %d' % (running_count, self.instance_count))
 
-                    if running_count < self.instance_count:
-                        # state__in=[None] returns empty list no matter what
-                        bad_instances = self.instances.exclude(state__in=(ComputeInstance.PENDING, ComputeInstance.RUNNING)).exclude(state=None)
-                        self.logger.warning('bad instances: %s' % [i.pk for i in bad_instances])
+                if running_count < self.instance_count:
+                    self.logger.warn('Running count is less than expected count')
 
-                        bad_provider_ids = set([instance.provider_configuration.pk for instance in bad_instances])
-                        good_provider_ids = [provider.pk for provider in
-                                             self.user_configuration.provider_configurations.exclude(pk__in=bad_provider_ids)]
+                    # state__in=[None] returns empty list no matter what
+                    bad_instances = self.instances.exclude(state__in=(ComputeInstance.PENDING, ComputeInstance.RUNNING)).exclude(state=None)
+                    self.logger.warn('bad instances: %s' % [i.pk for i in bad_instances])
 
-                        self.logger.warning('bad_provider_ids: %s' % bad_provider_ids)
-                        self.logger.warning('good_provider_ids: %s' % good_provider_ids)
+                    bad_provider_ids = set([instance.provider_configuration.pk for instance in bad_instances])
+                    good_provider_ids = [provider.pk for provider in
+                                         self.user_configuration.provider_configurations.exclude(pk__in=bad_provider_ids)]
 
-            if running_count != self.instance_count:
-                self.rebalance_instances(good_provider_ids)
+                    self.logger.warn('bad providers: %s' % bad_provider_ids)
+                    self.logger.warn('good providers: %s' % good_provider_ids)
+
+                else:
+                    good_provider_ids = self.user_configuration.provider_configurations.values_list('id', flat=True)
+
+                if running_count != self.instance_count:
+                    self.logger.warn('Rebalancing instances')
+                    self.rebalance_instances(good_provider_ids)
 
     @thread_local(DB_OVERRIDE='serializable')
     def rebalance_instances(self, provider_ids=None):
@@ -155,11 +174,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
         # if there aren't any providers left, then fuck it; deploy the required number of
         # instances to every provider in hopes that one of them will work
         if len(best_sizes) == 0:
+            self.logger.warn('No sizes available for any provider; rebalancing across all providers as a Hail Mary')
             best_sizes = self._get_best_sizes()
             instance_counts_by_size_id = self._get_emergency_size_distribution(best_sizes)
         else:
             instance_counts_by_size_id = self._get_size_distribution(best_sizes)
 
+        self.logger.warn('New size distribution: %s' % instance_counts_by_size_id)
         self.size_distribution = instance_counts_by_size_id
         self.save()
 
@@ -206,19 +227,29 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
     def _get_best_sizes(self, allowed_provider_ids=None):
         best_sizes = {}
         for provider_name in self.provider_policy:
+            self.logger.debug('Getting sizes for provider %s and image %s' % (provider_name, self.image))
             provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
 
             if allowed_provider_ids is None or provider_configuration.pk in allowed_provider_ids:
                 available_sizes = []
 
                 provider_image = provider_configuration.available_provider_images.filter(disk_image__disk_image_mappings__operating_system_image=self.image).first()
-                if provider_image is not None:
+                if provider_image is None:
+                    self.logger.debug('No provider image available')
+                else:
                     provider_sizes = provider_configuration.get_available_sizes(provider_image=provider_image, cpu=self.cpu, memory=self.memory)
+                    self.logger.debug('Provider sizes for image %s, cpu %d, memory %d: %s' % (provider_image, self.cpu, self.memory, provider_sizes))
                     available_sizes.extend(provider_sizes)
 
                 available_sizes.sort(key=lambda s: s.price)
                 if len(available_sizes) > 0:
-                    best_sizes[provider_name] = available_sizes[0]
+                    best_size = available_sizes[0]
+                    self.logger.debug('Best size: %s' % best_size)
+                    best_sizes[provider_name] = best_size
+                else:
+                    self.logger.debug('No sizes available')
+            else:
+                self.logger.debug('Provider %s not allowed' % provider_name)
 
         return best_sizes
 
@@ -235,7 +266,6 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
     def _get_size_distribution(self, sizes):
         sizes_list = self._sorted_sizes(sizes)
-        self.logger.warning('sizes_list: %s' % sizes_list)
 
         instance_counts = {}
 
@@ -284,10 +314,10 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
 
     def _create_compute_instances(self):
         with transaction.atomic():
-            self.logger.warning('size_distribution: %s' % self.size_distribution)
+            self.logger.info('Size distribution: %s' % self.size_distribution)
             terminate_instances = []
 
-            for provider_size_id, instance_count in self.size_distribution.items():
+            for provider_size_id, size_instance_count in self.size_distribution.items():
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
                 provider_configuration = provider_size.provider_configuration
 
@@ -297,7 +327,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
                                                                    state=ComputeInstance.RUNNING)
                 running_count = running_provider_instances.count()
 
-                print('pending_or_running_count: %d, running_count: %d' % (pending_or_running_count, running_count))
+                self.logger.info('pending_or_running_count: %d, running_count: %d' % (pending_or_running_count, running_count))
 
                 # filter on provider as well, since available_provider_images could contain shared images
                 # TODO wait, does that make sense?
@@ -306,9 +336,11 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
                                         disk_image__disk_image_mappings__operating_system_image=self.image,
                                         disk_image__disk_image_mappings__provider=provider_configuration.provider)
 
-                if pending_or_running_count < instance_count:
-                    for i in range(instance_count - pending_or_running_count):
-                        self.logger.warning('creating instance for size %s' % provider_size)
+                if pending_or_running_count < size_instance_count:
+                    instances_to_create = size_instance_count - pending_or_running_count
+                    self.logger.warn('Creating %d instances' % instances_to_create)
+
+                    for i in range(instances_to_create):
                         instance_name = '%s-%d' % (self.name, i)
 
                         compute_instance_args = {
@@ -324,24 +356,14 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
                             'last_request_start_time': timezone.now(),
                         }
 
-                        with transaction.atomic():
-                            intended_instance_count = self.size_distribution[str(provider_size.pk)]
-                            current_instance_count = self._pending_or_running_count(provider_size)
+                        compute_instance = ComputeInstance.objects.create(**compute_instance_args)
+                        print('created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
 
-                            print('size_distribution: %s' % self.size_distribution)
-                            print('%s: current_instance_count < intended_instance_count = %d < %d = %s' %
-                                  (provider_size, current_instance_count, intended_instance_count,
-                                   current_instance_count < intended_instance_count))
+                        # lexical scoping in loop
+                        connection.on_commit(lambda c=compute_instance: c.schedule_create_libcloud_node_job())
 
-                            if current_instance_count < intended_instance_count:
-                                compute_instance = ComputeInstance.objects.create(**compute_instance_args)
-                                print('created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
-
-                                # lexical scoping in loop
-                                connection.on_commit(lambda c=compute_instance: c.schedule_create_libcloud_node_job())
-
-                elif running_count > instance_count:
-                    terminate_instances.extend(list(running_provider_instances)[:running_count - instance_count])
+                elif running_count > size_instance_count:
+                    terminate_instances.extend(list(running_provider_instances)[:running_count - size_instance_count])
 
             # TODO make sure this squares with multi-row transaction isolation
             missing_size_instances = self.instances.filter(~Q(provider_size__pk__in=self.size_distribution.keys()))

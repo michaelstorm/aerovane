@@ -90,12 +90,17 @@ TEMPLATES = [
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,
+    'disable_existing_loggers': False, # True
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
+        # 'file': {
+        #     'level': 'DEBUG',
+        #     'class': 'logging.FileHandler',
+        #     'filename': 'log/debug.log',
+        # },
     },
     'formatters': {
         'simple': {
@@ -104,11 +109,11 @@ LOGGING = {
     },
     'loggers': {
         '': {
-            'handlers': ['console'],
+            'handlers': ['console'], #, 'file'],
             'level': os.getenv('LOG_LEVEL', 'DEBUG'),
         },
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console'], #, 'file'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
         # 'django.db.backends': {
@@ -219,6 +224,7 @@ PROJECT_DIR = os.path.dirname(__file__)
 DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 AWS_STORAGE_BUCKET_NAME = 'stratospherecdn2'
+AWS_QUERYSTRING_AUTH = False
 
 AWS_HEADERS = {
     'Cache-Control': 'public,max-age=86400',

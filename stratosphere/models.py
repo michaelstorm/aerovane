@@ -24,3 +24,14 @@ class ComputeGroup(ComputeGroupBase):
 
 
 from .submodels.user import *
+
+
+@receiver(pre_save, sender=ComputeGroup)
+def set_state_updated_time(sender, instance, raw, using, update_fields, **kwargs):
+    if instance.id:
+        old_instance = ComputeGroup.objects.get(pk=instance.id)
+        if instance.state != old_instance.state:
+            instance.last_state_update_time = timezone.now()
+    # instance is being created
+    else:
+        instance.last_state_update_time = timezone.now()

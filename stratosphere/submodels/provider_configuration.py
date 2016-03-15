@@ -124,7 +124,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                 if len(nodes) == 0:
                     # exclude ComputeInstances whose libcloud node creation jobs have not yet run
                     if instance.state != None:
-                        instance.state = ComputeInstance.UNKNOWN
+                        instance.state = ComputeInstance.TERMINATED
                 else:
                     node = nodes[0]
 
@@ -149,7 +149,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
         for driver_size in driver_sizes:
             provider_size = ProviderSize.objects.filter(external_id=driver_size.id).first()
             if provider_size is None:
-                provider_size = ProviderSize(external_id=driver_size.id)
+                provider_size = ProviderSize(external_id=driver_size.id, provider_configuration=self)
 
             provider_size.name = driver_size.name
             provider_size.price = driver_size.price

@@ -81,7 +81,7 @@ def check_instance_states_snapshots(user_configuration_id):
                 group_snapshot.save()
 
 
-@periodic_task(run_every=timedelta(seconds=5))
+@periodic_task(run_every=timedelta(seconds=15))
 def check_instance_states_snapshots_all():
     from .models import UserConfiguration
 
@@ -144,7 +144,7 @@ def terminate_libcloud_node(compute_instance_id):
     instance = ComputeInstance.objects.get(pk=compute_instance_id)
 
     if instance.external_id is None:
-        print('No external_id for instance %d; not terminating libcloud node' % compute_instance.pk)
+        print('No external_id for instance %d; not terminating libcloud node' % instance.pk)
     else:
         instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
 
