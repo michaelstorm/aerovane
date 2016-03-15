@@ -146,10 +146,14 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
+        provider_size_ids = set(self.provider_sizes.values_list('id', flat=True))
+
         for driver_size in driver_sizes:
-            provider_size = ProviderSize.objects.filter(external_id=driver_size.id).first()
+            provider_size = ProviderSize.objects.filter(external_id=driver_size.id, provider_configuration=self).first()
             if provider_size is None:
                 provider_size = ProviderSize(external_id=driver_size.id, provider_configuration=self)
+            else:
+                provider_size_ids.remove(provider_size.pk)
 
             provider_size.name = driver_size.name
             provider_size.price = driver_size.price
@@ -161,9 +165,13 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
             provider_size.save()
 
+        for provider_size_id in provider_size_ids:
+            ProviderSize.objects.delete(pk__in=provider_size_ids)
+
     def load_available_images(self):
         self._load_available_images()
 
+    # TODO locally delete images deleted remotely
     def _load_available_images(self, image_filter=lambda image: True):
         print('Querying images for provider %s' % self.provider_name)
         driver_images = self.driver.list_images()
