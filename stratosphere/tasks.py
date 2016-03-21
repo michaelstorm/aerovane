@@ -32,7 +32,7 @@ def load_provider_info(provider_configuration_id):
     provider_configuration.save()
 
 
-@periodic_task(run_every=timedelta(minutes=10))
+# @periodic_task(run_every=timedelta(minutes=10))
 def update_provider_info_all():
     from .models import ProviderConfiguration
 
@@ -45,40 +45,8 @@ def update_provider_info_all():
 def check_instance_states_snapshots(user_configuration_id):
     from .models import UserConfiguration
 
-    def snapshots_values(snapshot):
-        return {x: y for x, y in last_user_snapshot.__dict__.items()
-                if not x.startswith('_') and x != 'time' and x != 'id'}
-
-    def snapshot_values_equal(first, second):
-        if first is None or second is None:
-            return first is None and second is None
-        else:
-            return snapshots_values(first) == snapshots_values(second)
-
     user_configuration = UserConfiguration.objects.get(pk=user_configuration_id)
-
-    user_snapshot, group_snapshots = user_configuration.create_phantom_instance_states_snapshot()
-    last_user_snapshot = user_configuration.instance_states_snapshots.order_by('-time').first()
-
-    not_equal = snapshot_values_equal(user_snapshot, last_user_snapshot)
-
-    if not not_equal and last_user_snapshot is not None:
-        group_snapshots_map = {group.pk: group for group in last_user_snapshot.group_snapshots.all()}
-        last_group_snapshots_map = {group.pk: group for group in last_user_snapshot.group_snapshots.all()}
-
-        all_group_ids = [list(group_snapshots_map.keys()) + list(last_group_snapshots_map.key())]
-        for group_id in all_group_ids:
-            if not snapshot_values_equal(group_snapshots_map[group_id], last_group_snapshots_map[group_id]):
-                not_equal = True
-                break
-
-    if not_equal:
-        with transaction.atomic():
-            user_snapshot.save()
-
-            for group_snapshot in group_snapshots:
-                group_snapshot.user_snapshot = user_snapshot
-                group_snapshot.save()
+    user_configuration.take_instance_states_snapshot_if_changed()
 
 
 @periodic_task(run_every=timedelta(seconds=15))
@@ -130,7 +98,7 @@ def clean_up_terminated_instances():
 
     two_minutes_ago = timezone.now() - timedelta(minutes=2)
     leftover_terminated_instances = ComputeInstance.objects.filter(
-        Q(terminated=True, last_request_start_time__lte=two_minutes_ago)
+        Q(terminated=True, last_state_update_time__lt=two_minutes_ago)
         & ~Q(state=ComputeInstance.TERMINATED))
 
     for instance in leftover_terminated_instances:

@@ -1,6 +1,9 @@
 from annoying.fields import JSONField
 
+from datetime import timedelta
+
 from django.db import connection, models, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from libcloud.compute.base import Node
@@ -10,7 +13,7 @@ import random
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
-from ..tasks import create_libcloud_node, terminate_libcloud_node
+from ..tasks import terminate_libcloud_node
 from ..util import decode_node_extra, schedule_random_default_delay, thread_local
 
 
@@ -51,19 +54,49 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     public_ips = JSONField()
     private_ips = JSONField()
     extra = JSONField()
-    last_request_start_time = models.DateTimeField(blank=True, null=True)
+    last_state_update_time = models.DateTimeField()
     terminated = models.BooleanField(default=False)
 
-    def schedule_create_libcloud_node_job(self):
-        # delay a few seconds to avoid transaction conflicts
-        schedule_random_default_delay(create_libcloud_node, self.pk)
+    # TODO include REBOOTING here?
+    # state__in=[None] returns empty list no matter what
+    pending_states_query = Q(state='PENDING') | Q(state=None)
+
+    @classmethod
+    def running_instances_query(cls, now):
+        two_minutes_ago = now - timedelta(minutes=2)
+        return Q(state=ComputeInstanceBase.RUNNING, last_state_update_time__gt=two_minutes_ago)
+
+    @classmethod
+    def pending_instances_query(cls, now):
+        two_minutes_ago = now - timedelta(minutes=2)
+        return ComputeInstanceBase.pending_states_query & Q(last_state_update_time__gt=two_minutes_ago)
+
+    @classmethod
+    def terminated_instances_query(cls, now):
+        not_pending_or_running = ~(cls.running_instances_query(now) | cls.pending_instances_query(now))
+        return not_pending_or_running & ~Q(terminated=True)
+
+    # TODO fix this so it doesn't hit the database again
+    def _is_in_state(self, state_query):
+        instances = self.__class__.objects.filter(state_query & Q(pk=self.pk))
+        return instances.exists()
+
+    def is_running(self, now):
+        state_query = self.__class__.running_instances_query(now)
+        return self._is_in_state(state_query)
+
+    def is_pending(self, now):
+        state_query = self.__class__.pending_instances_query(now)
+        return self._is_in_state(state_query)
+
+    def is_terminated(self, now):
+        state_query = self.__class__.terminated_instances_query(now)
+        return self._is_in_state(state_query)
 
     @thread_local(DB_OVERRIDE='serializable')
     def terminate(self):
         with transaction.atomic():
-            self.state = 'UNKNOWN'
             self.terminated = True
-            self.last_request_start_time = timezone.now()
             self.save()
 
             connection.on_commit(lambda: schedule_random_default_delay(terminate_libcloud_node, self.pk))

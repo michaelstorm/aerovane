@@ -247,13 +247,12 @@ def compute(request, group_id=None):
                 provider_name = match.group(1)
                 provider_policy[provider_name] = 'auto'
 
-        if params['deployment_type'] == 'os':
-            os_id = params['operating_system']
-            operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
-            group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
-                                                instance_count=instance_count, name=name, provider_policy=provider_policy,
-                                                size_distribution={}, image=operating_system_image,
-                                                authentication_method=authentication_method)
+        os_id = params['operating_system']
+        operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
+        group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
+                                            instance_count=instance_count, name=name, provider_policy=provider_policy,
+                                            size_distribution={}, image=operating_system_image,
+                                            authentication_method=authentication_method)
 
         group.rebalance_instances()
 
@@ -367,14 +366,8 @@ def state_history(request):
     def get_history_dict(h):
         return {'time': unix_time_millis(h.time),
                 'running': h.running,
-                'rebooting': h.rebooting,
-                'terminated': h.terminated,
                 'pending': h.pending,
-                'stopped': h.stopped,
-                'suspended': h.suspended,
-                'paused': h.paused,
-                'error': h.error,
-                'unknown': h.unknown}
+                'terminated': h.terminated}
 
     user = User.objects.get(pk=request.user.pk)
     history = user.configuration.instance_states_snapshots

@@ -27,28 +27,16 @@ class UserConfiguration(models.Model, SaveTheChange):
         args = {
             'user_configuration': self,
             'time': now,
-            'running': 0,
-            'rebooting': 0,
-            'terminated': 0,
             'pending': 0,
-            'stopped': 0,
-            'suspended': 0,
-            'paused': 0,
-            'error': 0,
-            'unknown': 0,
+            'running': 0,
+            'terminated': 0,
         }
 
         group_snapshots = [g.create_phantom_instance_states_snapshot(now) for g in self.compute_groups.all()]
         for group_snapshot in group_snapshots:
-            args['running'] += group_snapshot.running
-            args['rebooting'] += group_snapshot.rebooting
-            args['terminated'] += group_snapshot.terminated
             args['pending'] += group_snapshot.pending
-            args['stopped'] += group_snapshot.stopped
-            args['suspended'] += group_snapshot.suspended
-            args['paused'] += group_snapshot.paused
-            args['error'] += group_snapshot.error
-            args['unknown'] += group_snapshot.unknown
+            args['running'] += group_snapshot.running
+            args['terminated'] += group_snapshot.terminated
 
         return InstanceStatesSnapshot(**args), group_snapshots
 
@@ -61,6 +49,41 @@ class UserConfiguration(models.Model, SaveTheChange):
             for group_snapshot in group_snapshots:
                 group_snapshot.user_snapshot = user_snapshot
                 group_snapshot.save()
+
+    def take_instance_states_snapshot_if_changed(self):
+        def snapshots_values(snapshot):
+            return {state: getattr(snapshot, state) for state in ('pending', 'running', 'terminated')}
+
+        def snapshot_values_equal(first, second):
+            if first is None or second is None:
+                return first is None and second is None
+            else:
+                return snapshots_values(first) == snapshots_values(second)
+
+        user_snapshot, group_snapshots = self.create_phantom_instance_states_snapshot()
+        last_user_snapshot = self.instance_states_snapshots.order_by('-time').first()
+
+        not_equal = not snapshot_values_equal(user_snapshot, last_user_snapshot)
+
+        if not not_equal and last_user_snapshot is not None:
+            group_snapshots_map = {gs.group.pk: gs for gs in group_snapshots}
+            last_group_snapshots_map = {gs.group.pk: gs for gs in last_user_snapshot.group_snapshots.all()}
+
+            all_group_ids = set(list(group_snapshots_map.keys()) + list(last_group_snapshots_map.keys()))
+            for group_id in all_group_ids:
+                if not snapshot_values_equal(group_snapshots_map.get(group_id),
+                                             last_group_snapshots_map.get(group_id)):
+                    not_equal = True
+                    break
+
+        if not_equal:
+            print('creating snapshot')
+            with transaction.atomic():
+                user_snapshot.save()
+
+                for group_snapshot in group_snapshots:
+                    group_snapshot.user_snapshot = user_snapshot
+                    group_snapshot.save()
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)

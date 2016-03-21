@@ -73,7 +73,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
         print('found %d nodes in %s' % (len(nodes), self.provider_name))
         for node in nodes:
             print('destroying %s' % node.id)
-            self.driver.destroy_node(node)
+            try:
+                self.driver.destroy_node(node)
+            except Exception as e:
+                print(e)
 
     # @retry(OperationalError)
     def simulate_restore(self):
@@ -117,7 +120,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                 instance.save()
 
         else:
-            user_configurations_with_instance_state_changes = set()
+            states_changed = False
             for instance in instances:
                 nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
 
@@ -127,6 +130,8 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                         instance.state = ComputeInstance.TERMINATED
                 else:
                     node = nodes[0]
+
+                    self.logger.warn('Remote node %s state: %s' % (instance.pk, NodeState.tostring(node.state)))
 
                     instance.state = NodeState.tostring(node.state)
                     instance.private_ips = node.private_ips
@@ -138,11 +143,10 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                         self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
 
                     instance.save()
-                    user_configurations_with_instance_state_changes.add(instance.group.user_configuration)
+                    states_changed = True
 
-                with thread_local(DB_OVERRIDE='serializable'):
-                    for user_configuration in user_configurations_with_instance_state_changes:
-                        user_configuration.take_instance_states_snapshot()
+            with thread_local(DB_OVERRIDE='serializable'):
+                self.user_configuration.take_instance_states_snapshot_if_changed()
 
     def load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()

@@ -22,7 +22,7 @@ class DiskImageMapping(models.Model, SaveTheChange):
         app_label = "stratosphere"
         unique_together = ('provider', 'disk_image', 'operating_system_image')
 
-    provider = models.ForeignKey('Provider')
+    provider = models.ForeignKey('Provider', related_name='disk_image_mappings')
     disk_image = models.ForeignKey('DiskImage', related_name='disk_image_mappings')
     operating_system_image = models.ForeignKey('OperatingSystemImage', related_name='disk_image_mappings')
 

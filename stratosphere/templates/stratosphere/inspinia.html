@@ -54,10 +54,6 @@
                 return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
             };
 
-            function getUnavailableCount(snapshot) {
-                return snapshot.rebooting + snapshot.terminated + snapshot.stopped + snapshot.suspended + snapshot.paused + snapshot.error + snapshot.unknown;
-            }
-
             var drawInstancesChart = function(data) {
                 var series = [{
                     data: [],
@@ -87,7 +83,7 @@
 
                 for (var i = 0; i < data.length; i += 1) {
                     var snapshot = data[i];
-                    series[2].data.push([snapshot.time, getUnavailableCount(snapshot)]);
+                    series[2].data.push([snapshot.time, snapshot.terminated]);
                 }
 
                 // extend last value to edge of graph, or it'll end in a vertical line
@@ -96,7 +92,7 @@
                     var last_snapshot = data[data.length-1];
                     series[0].data.push([now, last_snapshot.running]);
                     series[1].data.push([now, last_snapshot.pending]);
-                    series[2].data.push([now, getUnavailableCount(last_snapshot)]);
+                    series[2].data.push([now, snapshot.terminated]);
                 }
 
                 if ($('#instances-chart').length) {
