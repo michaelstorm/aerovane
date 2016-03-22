@@ -21,15 +21,11 @@ from .util import NodeJSONEncoder, schedule_random_default_delay, thread_local
 
 
 @app.task()
-def load_provider_info(provider_configuration_id):
+def load_provider_data(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.load_available_sizes()
-    provider_configuration.load_available_images()
-
-    provider_configuration.loaded = True
-    provider_configuration.save()
+    provider_configuration.load_data()
 
 
 # @periodic_task(run_every=timedelta(minutes=10))
@@ -116,8 +112,34 @@ def terminate_libcloud_node(compute_instance_id):
     else:
         instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
 
-    instance.state = ComputeInstance.TERMINATED
-    instance.save()
+
+# TODO not sure whether this should be kept
+# @periodic_task(run_every=timedelta(minutes=4))
+def recreate_stale_pending_instances():
+    from .models import ComputeInstance
+
+    two_minutes_ago = timezone.now() - timedelta(minutes=2)
+    stale_pending_instances = ComputeInstance.objects.filter(
+        Q(terminated=False, last_state_update_time__lt=two_minutes_ago)
+        & (Q(state=None) | Q(state=ComputeInstance.PENDING)))
+
+    print('Found %d stale pending instances' % stale_pending_instances.count())
+    for instance in stale_pending_instances:
+        print('Pending instance %d is stale' % instance.pk)
+        compute_instance_args = {
+            'name': instance.name,
+            'provider_image': instance.provider_image,
+            'group': instance.group,
+            'provider_size': instance.provider_size,
+            'extra': {},
+            'provider_configuration': instance.provider_configuration,
+            'state': None,
+            'public_ips': [],
+            'private_ips': [],
+        }
+
+        compute_instance = ComputeInstance.objects.create(**compute_instance_args)
+        print('Recreated instance %d for provider_size %s' % (compute_instance.pk, instance.provider_size))
 
 
 @app.task()
@@ -137,7 +159,7 @@ def create_libcloud_node(compute_instance_id):
     libcloud_size = provider_size.to_libcloud_size()
     libcloud_image = compute_instance.provider_image.to_libcloud_image(provider_configuration)
 
-    print('creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
+    print('Creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
     libcloud_node_args = {
         'name': compute_instance.name,
         'libcloud_image': libcloud_image,
@@ -146,8 +168,7 @@ def create_libcloud_node(compute_instance_id):
     }
     libcloud_node = provider_configuration.create_libcloud_node(**libcloud_node_args)
 
-    print('done creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
-    compute_instance.state = ComputeInstance.PENDING
+    print('Done creating libcloud node for instance %d, size %s' % (compute_instance.pk, provider_size))
     compute_instance.external_id = libcloud_node.id
     compute_instance.public_ips = json.loads(json.dumps(libcloud_node.public_ips))
     compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))

@@ -29,17 +29,10 @@ from .submodels.user import *
 
 
 @receiver(pre_save, sender=ComputeInstance)
-def set_state_updated_time(sender, instance, raw, using, update_fields, **kwargs):
-    if instance.id:
-        old_instance = ComputeInstance.objects.get(pk=instance.id)
-        if instance.state != old_instance.state:
-            instance.last_state_update_time = timezone.now()
-    else:
-        # instance is being created
-        instance.last_state_update_time = timezone.now()
+def compute_instance_pre_save(sender, instance, raw, using, update_fields, **kwargs):
+    ComputeInstance.handle_pre_save(sender, instance, raw, using, update_fields, **kwargs)
 
 
 @receiver(post_save, sender=ComputeInstance)
-def schedule_create_libcloud_node_job(sender, created, instance, **kwargs):
-    if created:
-        schedule_random_default_delay(create_libcloud_node, instance.pk)
+def compute_instance_post_save(sender, created, instance, **kwargs):
+    ComputeInstance.handle_post_save(sender, created, instance, **kwargs)

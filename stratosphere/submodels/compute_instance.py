@@ -63,18 +63,33 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
 
     @classmethod
     def running_instances_query(cls, now):
-        two_minutes_ago = now - timedelta(minutes=2)
-        return Q(state=ComputeInstanceBase.RUNNING, last_state_update_time__gt=two_minutes_ago)
+        expiration_time = now - timedelta(minutes=2)
+        return Q(state=ComputeInstanceBase.RUNNING, last_state_update_time__gt=expiration_time)
 
     @classmethod
     def pending_instances_query(cls, now):
-        two_minutes_ago = now - timedelta(minutes=2)
-        return ComputeInstanceBase.pending_states_query & Q(last_state_update_time__gt=two_minutes_ago)
+        expiration_time = now - timedelta(minutes=10)
+        return ComputeInstanceBase.pending_states_query & Q(last_state_update_time__gt=expiration_time)
 
     @classmethod
     def terminated_instances_query(cls, now):
         not_pending_or_running = ~(cls.running_instances_query(now) | cls.pending_instances_query(now))
-        return not_pending_or_running & ~Q(terminated=True)
+        return not_pending_or_running & Q(terminated=False)
+
+    @classmethod
+    def handle_pre_save(cls, sender, instance, raw, using, update_fields, **kwargs):
+        if instance.id:
+            old_instance = cls.objects.get(pk=instance.id)
+            if instance.state != old_instance.state:
+                instance.last_state_update_time = timezone.now()
+        else:
+            # instance is being created
+            instance.last_state_update_time = timezone.now()
+
+    @classmethod
+    def handle_post_save(cls, sender, created, instance, **kwargs):
+        if created:
+            schedule_random_default_delay(create_libcloud_node, instance.pk)
 
     # TODO fix this so it doesn't hit the database again
     def _is_in_state(self, state_query):
