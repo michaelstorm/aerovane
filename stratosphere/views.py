@@ -317,20 +317,6 @@ def configure_provider(request, provider_name):
 
 
 @login_required
-def provider_action(request, provider_id, action):
-    provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
-
-    if action == 'restore':
-        provider_configuration.simulate_restore()
-    elif action == 'fail':
-        provider_configuration.simulate_failure()
-    else:
-        return HttpResponse(status=422)
-
-    return HttpResponse('')
-
-
-@login_required
 def providers_loaded(request):
     user = User.objects.get(pk=request.user.pk)
     loaded = True

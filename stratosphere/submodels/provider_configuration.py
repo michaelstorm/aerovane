@@ -16,17 +16,22 @@ from polymorphic import PolymorphicModel
 from save_the_change.mixins import SaveTheChange
 
 from ..models import ComputeInstance, DiskImage, OperatingSystemImage, ProviderImage, ProviderSize, Provider
-from ..tasks import load_provider_info
+from ..tasks import load_provider_data
 from ..util import *
 
 import json
 import socket
+import threading
 import traceback
 
 
-CLOUD_PROVIDER_DRIVERS = {}
+_cloud_provider_drivers = threading.local()
 
-SIMULATED_FAILURE_DRIVER = SimulatedFailureDriver()
+
+class CachedDriver(object):
+    def __init__(self, driver, credentials):
+        self.driver = driver
+        self.credentials = credentials
 
 
 class LibcloudDestroyError(Exception):
@@ -40,18 +45,26 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     provider = models.ForeignKey('Provider', related_name='configurations')
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True, related_name='provider_configurations')
-    simulated_failure = models.BooleanField(default=False)
     loaded = models.BooleanField(default=False)
 
     @property
     def driver(self):
-        if self.simulated_failure:
-            return SIMULATED_FAILURE_DRIVER
-        else:
-            if self.provider_name not in CLOUD_PROVIDER_DRIVERS:
-                CLOUD_PROVIDER_DRIVERS[self.provider_name] = self.create_driver()
+        driver_attr = 'driver_%d' % self.pk
+        credentials = self._get_credentials_dict()
+        create_new_driver = False
 
-            return CLOUD_PROVIDER_DRIVERS[self.provider_name]
+        if not hasattr(_cloud_provider_drivers, driver_attr):
+            create_new_driver = True
+        else:
+            existing_cached_driver = getattr(_cloud_provider_drivers, driver_attr)
+            if existing_cached_driver.credentials != credentials:
+                create_new_driver = True
+
+        if create_new_driver:
+            cached_driver = CachedDriver(self.create_driver(), credentials)
+            setattr(_cloud_provider_drivers, driver_attr, cached_driver)
+
+        return getattr(_cloud_provider_drivers, driver_attr).driver
 
     @property
     def available_disk_images(self):
@@ -77,19 +90,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                 self.driver.destroy_node(node)
             except Exception as e:
                 print(e)
-
-    # @retry(OperationalError)
-    def simulate_restore(self):
-        self.logger.info('Simulating restore')
-        self.simulated_failure = False
-        self.save()
-
-    # @retry(OperationalError)
-    def simulate_failure(self):
-        self.logger.info('Simulating failure')
-        with transaction.atomic():
-            self.simulated_failure = True
-            self.save()
 
     def create_libcloud_node(self, name, libcloud_image, libcloud_size, libcloud_auth, **extra_args):
         return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
@@ -121,13 +121,12 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
         else:
             states_changed = False
-            for instance in instances:
+            # exclude ComputeInstances whose libcloud node creation jobs have not yet run
+            for instance in instances.filter(~Q(external_id=None)):
                 nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
 
                 if len(nodes) == 0:
-                    # exclude ComputeInstances whose libcloud node creation jobs have not yet run
-                    if instance.state != None:
-                        instance.state = ComputeInstance.TERMINATED
+                    instance.state = ComputeInstance.TERMINATED
                 else:
                     node = nodes[0]
 
@@ -148,7 +147,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             with thread_local(DB_OVERRIDE='serializable'):
                 self.user_configuration.take_instance_states_snapshot_if_changed()
 
-    def load_available_sizes(self):
+    def _load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
         provider_size_ids = set(self.provider_sizes.values_list('id', flat=True))
 
@@ -169,11 +168,8 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
             provider_size.save()
 
-        for provider_size_id in provider_size_ids:
-            ProviderSize.objects.delete(pk__in=provider_size_ids)
-
-    def load_available_images(self):
-        self._load_available_images()
+        # remaining elements of provider_size_ids are those elements deleted remotely
+        ProviderSize.objects.delete(pk__in=provider_size_ids)
 
     # TODO locally delete images deleted remotely
     def _load_available_images(self, image_filter=lambda image: True):
@@ -231,6 +227,12 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
 
         end = time.time()
         print('Created %d ProviderImages in %d seconds' % (created, end - start))
+
+    def load_data(self):
+        self._load_available_sizes()
+        self._load_available_images()
+        self.loaded = True
+        self.save()
 
 
 class Ec2ProviderCredentials(models.Model):
@@ -360,6 +362,10 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
     def load_available_images(self):
         self._load_available_images(image_filter=lambda image: image.id.startswith('ami-'))
 
+    def _get_credentials_dict(self):
+        return {'access_key_id': self.credentials.access_key_id,
+                'secret_access_key': self.credentials.secret_access_key}
+
 
 class LinodeProviderConfiguration(ProviderConfiguration):
     class Meta:
@@ -379,14 +385,17 @@ class LinodeProviderConfiguration(ProviderConfiguration):
         return super(LinodeProviderConfiguration, self).create_libcloud_node(name=name, libcloud_image=libcloud_image,
                         libcloud_size=libcloud_size, libcloud_auth=libcloud_auth, location=location)
 
+    def _get_credentials_dict(self):
+        return {'api_key': self.api_key}
+
 
 @receiver(post_save, sender=ProviderConfiguration)
 def schedule_load_provider_info(sender, created, instance, **kwargs):
     if created:
-        schedule_random_default_delay(load_provider_info, instance.pk)
+        schedule_random_default_delay(load_provider_data, instance.pk)
 
 
 @receiver(post_save, sender=Ec2ProviderCredentials)
 def schedule_load_provider_info_credentials(sender, created, instance, **kwargs):
     for provider_configuration in instance.configurations.all():
-        schedule_random_default_delay(load_provider_info, provider_configuration.pk)
+        schedule_random_default_delay(load_provider_data, provider_configuration.pk)

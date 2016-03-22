@@ -15,7 +15,7 @@ urlpatterns = [
     url(r'^providers/loaded/$', views.providers_loaded),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),
     url(r'^providers/(?P<provider_id>\d+)/disk_images/$', views.provider_disk_images),
-    url(r'^providers/(?P<provider_id>\d+)/(?P<action>restore|fail)/$', views.provider_action),
+    url(r'^providers/(?P<provider_id>\d+)/disk_images/$', views.provider_disk_images),
 
     url(r'^compute_groups/$', views.compute_groups),
     url(r'^compute_groups/add/$', views.add_compute_group),
