@@ -165,6 +165,10 @@
                 return $resource('/compute/:id/');
             });
 
+            dashboardApp.factory('Provider', function($resource) {
+                return $resource('/providers/:id/');
+            });
+
             dashboardApp.factory('OperatingSystem', function($resource) {
                 return $resource('/operating_system/:id/');
             });
@@ -226,6 +230,23 @@
                 $scope.update = function(group) {
                     ComputeGroup.save(group);
                 };
+            }]);
+
+            dashboardApp.controller('ProviderListCtrl', ['$scope', 'Provider', '$timeout', '$interval', '$http',
+                                                         function ($scope, Provider, $timeout, $interval, $http) {
+                Provider.query(function(data) {
+                    $scope.providers = data;
+                });
+
+                $interval(function() {
+                    Provider.query(function(data) {
+                        $scope.providers = data;
+                    });
+                }, 3000);
+
+                $scope.changeProviderEnabled = function(provider) {
+                    $http.post('/providers/' + provider.id + '/enabled/', {enabled: provider.enabled});
+                }
             }]);
 
             dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval', '$http',

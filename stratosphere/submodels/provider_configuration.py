@@ -46,6 +46,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True, related_name='provider_configurations')
     loaded = models.BooleanField(default=False)
+    enabled = models.BooleanField(default=True)
 
     @property
     def driver(self):
@@ -105,9 +106,40 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             else:
                 raise e
 
-    def update_instance_statuses(self):
-        instances = ComputeInstance.objects.filter(provider_configuration=self)
+    def set_enabled(self, enabled):
+        with transaction.atomic():
+            if enabled:
+                now = timezone.now()
+                terminated_instances = self.instances.filter(ComputeInstance.terminated_instances_query(now))
+                for instance in terminated_instances:
+                    instance.ignored = True
+                    instance.save()
 
+                self.enabled = True
+                self.save()
+
+            else:
+                self.enabled = False
+                self.save()
+
+    @thread_local(DB_OVERRIDE='serializable')
+    def check_enabled(self):
+        instance_count = self.instances.count()
+        max_terminated_instance_count = instance_count if instance_count < 3 else 3
+
+        now = timezone.now()
+        terminated_instances_query = ComputeInstance.terminated_instances_query(now) & Q(ignored=False)
+        terminated_instance_count = self.instances.filter(terminated_instances_query).count()
+
+        self.logger.info('Instance count: %d, max terminated instance count: %d, terminated instance count: %d' %
+                         (instance_count, max_terminated_instance_count, terminated_instance_count))
+
+        if max_terminated_instance_count > 0 and terminated_instance_count >= max_terminated_instance_count:
+            self.logger.warn('Disabling provider %d (%s)' % (self.pk, self.provider.pretty_name))
+            self.enabled = False
+            self.save()
+
+    def update_instance_statuses(self):
         try:
             libcloud_nodes = self.driver.list_nodes()
 
@@ -115,14 +147,13 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             print('Error listing nodes of %s' % self)
 
             traceback.print_exc()
-            for instance in instances:
+            for instance in self.instances:
                 instance.state = ComputeInstance.UNKNOWN
                 instance.save()
 
         else:
-            states_changed = False
             # exclude ComputeInstances whose libcloud node creation jobs have not yet run
-            for instance in instances.filter(~Q(external_id=None)):
+            for instance in self.instances.filter(~Q(external_id=None)):
                 nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
 
                 if len(nodes) == 0:
@@ -142,7 +173,6 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
                         self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
 
                     instance.save()
-                    states_changed = True
 
             with thread_local(DB_OVERRIDE='serializable'):
                 self.user_configuration.take_instance_states_snapshot_if_changed()
@@ -169,7 +199,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             provider_size.save()
 
         # remaining elements of provider_size_ids are those elements deleted remotely
-        ProviderSize.objects.delete(pk__in=provider_size_ids)
+        ProviderSize.objects.filter(pk__in=provider_size_ids).delete()
 
     # TODO locally delete images deleted remotely
     def _load_available_images(self, image_filter=lambda image: True):
@@ -231,6 +261,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     def load_data(self):
         self._load_available_sizes()
         self._load_available_images()
+
         self.loaded = True
         self.save()
 
@@ -397,5 +428,6 @@ def schedule_load_provider_info(sender, created, instance, **kwargs):
 
 @receiver(post_save, sender=Ec2ProviderCredentials)
 def schedule_load_provider_info_credentials(sender, created, instance, **kwargs):
+    # TODO is this method called before or after the relation is created?
     for provider_configuration in instance.configurations.all():
         schedule_random_default_delay(load_provider_data, provider_configuration.pk)

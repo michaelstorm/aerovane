@@ -4,7 +4,7 @@
 {% block angular-app-name %}dashboardApp{% endblock %}
 
 {% block content %}
-    <div class="row" ng-controller="ComputeGroupListCtrl">
+    <div class="row">
         <div class="col-lg-12">
             <div class="wrapper wrapper-content">
                 <div class="row">
@@ -13,7 +13,18 @@
                             <div id="instances-chart"></div>
                             <div id="instances-chart-range-slider"></div>
                         </div>
-                        <div class="ibox float-e-margins">
+                        <div class="ibox float-e-margins" ng-controller="ProviderListCtrl">
+                            <div class="ibox-title">
+                                <h5>Providers</h5>
+                            </div>
+                            <div class="ibox-content">
+                                <div class="checkbox checkbox-success" ng-repeat="provider in providers" ng-cloak>
+                                    <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
+                                    <label for="provider-enabled-{$ provider.id $}">{$ provider.pretty_name $}</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ibox float-e-margins" ng-controller="ComputeGroupListCtrl">
                             <div class="ibox-title">
                                 <h5>Compute groups</h5>
                             </div>
@@ -56,30 +67,6 @@
 
 {% block body_script %}
     $(document).ready(function() {
-        {% for provider in providers %}
-            {% if provider.simulated_failure %}
-                $('button.restore-button[provider="{{ provider.pk }}"]').show();
-            {% else %}
-                $('button.fail-button[provider="{{ provider.pk }}"]').show();
-            {% endif %}
-        {% endfor %}
-
-        $('.restore-button').click(function() {
-            var button = $(this);
-            $.post('/providers/' + $(this).attr('provider') + '/restore/').done(function() {
-                button.hide();
-                $('button.fail-button[provider="' + button.attr('provider') + '"]').show();
-            });
-        });
-
-        $('.fail-button').click(function() {
-            var button = $(this);
-            $.post('/providers/' + $(this).attr('provider') + '/fail/').done(function() {
-                button.hide();
-                $('button.restore-button[provider="' + button.attr('provider') + '"]').show();
-            });
-        });
-
         $("#instances-chart-range-slider").noUiSlider({
             start: [0, 10],
             behaviour: 'drag',

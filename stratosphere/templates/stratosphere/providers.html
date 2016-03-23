@@ -10,11 +10,6 @@
     </div>
 
     <div class="wrapper wrapper-content">
-        <div class="row" id="loading-alert" style="display: none;">
-            <div class="col-lg-12">
-                <div class="alert alert-info" role="alert">Loading provider data...</div>
-            </div>
-        </div>
         <div class="row">
             <div class="col-lg-4">
                 <div class="panel panel-primary">
@@ -43,18 +38,6 @@
 {% endblock %}
 
 {% block body_script %}
-    $(document).ready(function() {
-        setInterval(function() {
-            $.ajax({
-                url: '/providers/loaded/',
-                method: 'GET',
-                success: function(data) {
-                    var loaded = data['loaded'];
-                    $('#loading-alert').toggle(!loaded);
-                },
-            });
-        }, 1000);
-    });
 {% endblock %}
 
 {% block style %}

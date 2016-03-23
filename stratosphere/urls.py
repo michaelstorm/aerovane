@@ -13,8 +13,11 @@ urlpatterns = [
     url(r'^authentication_methods/$', views.authentication_methods),
     url(r'^authentication_methods/(?P<method_id>\d+)/$', views.authentication_methods),
     url(r'^providers/loaded/$', views.providers_loaded),
+    url(r'^providers/refresh/$', views.providers_refresh),
+    url(r'^providers/$', views.get_providers),
+    url(r'^providers/(?P<provider_id>\d+)/$', views.get_providers),
+    url(r'^providers/(?P<provider_id>\d+)/enabled/$', views.set_provider_enabled),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),
-    url(r'^providers/(?P<provider_id>\d+)/disk_images/$', views.provider_disk_images),
     url(r'^providers/(?P<provider_id>\d+)/disk_images/$', views.provider_disk_images),
 
     url(r'^compute_groups/$', views.compute_groups),

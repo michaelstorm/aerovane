@@ -12,6 +12,18 @@
     </div>
 
     <div class="wrapper wrapper-content" ng-controller="OperatingSystemListCtrl">
+        <div class="row" id="loading-alert" style="display: none;">
+            <div class="col-lg-12">
+                <div class="alert alert-info" role="alert">Loading provider images and sizes...</div>
+            </div>
+        </div>
+        <div class="row" id="refresh-provider-container" style="display: none;">
+            <div class="col-lg-12">
+                <div class="alert">
+                    <button type="button" id="refresh-provider" class="btn btn-info">Refresh images and sizes</button>
+                </div>
+            </div>
+        </div>
         <div class="row" id="operating-systems">
             <div class="col-lg-6" ng-repeat="os in operating_systems track by os.id" ng-cloak>
                 <div class="panel panel-primary">
@@ -55,7 +67,38 @@
 {% endblock %}
 
 {% block body_script %}
+    function startCheckLoadedInterval() {
+        clearInterval(window.checkLoadedInterval);
+
+        window.checkLoadedInterval = setInterval(function() {
+            $.ajax({
+                url: '/providers/loaded/',
+                method: 'GET',
+                success: function(data) {
+                    var loaded = data['loaded'];
+                    $('#loading-alert').toggle(!loaded);
+                    $('#refresh-provider-container').toggle(loaded);
+                    if (loaded)
+                        clearInterval(window.checkLoadedInterval);
+                },
+            });
+        }, 1000);
+    }
+
     $(document).ready(function() {
+        startCheckLoadedInterval();
+
+        $('#refresh-provider').click(function() {
+            $.ajax({
+                url: '/providers/refresh/',
+                method: 'POST',
+                success: function() {
+                    $('#loading-alert').show();
+                    $('#refresh-provider-container').hide();
+                    startCheckLoadedInterval();
+                }
+            });
+        });
     });
 {% endblock %}
 

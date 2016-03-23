@@ -95,6 +95,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
             icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
 
             provider_states_map[provider_name] = {
+                'id': provider_configuration.pk,
                 'running': running_count,
                 'pending': pending_count,
                 'terminated': terminated_count,
@@ -122,26 +123,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
                 running_count = self.instances.filter(ComputeInstance.running_instances_query(now)).count()
                 self.logger.info('running_count < self.instance_count = %d < %d' % (running_count, self.instance_count))
 
-                if running_count < self.instance_count:
-                    self.logger.warn('Running count is less than expected count')
-
-                    # state__in=[None] returns empty list no matter what
-                    bad_instances = self.instances.filter(ComputeInstance.terminated_instances_query(now))
-                    self.logger.warn('bad instances: %s' % [i.pk for i in bad_instances])
-
-                    bad_provider_ids = set([instance.provider_configuration.pk for instance in bad_instances])
-
-                else:
-                    bad_provider_ids = set()
-
                 if running_count >= self.instance_count and self.state == self.PENDING:
                     self.state = self.RUNNING
                     self.save()
 
-                good_provider_ids = [provider.pk for provider in
-                                     self.user_configuration.provider_configurations.exclude(pk__in=bad_provider_ids)]
+                provider_configurations = self.user_configuration.provider_configurations
+                good_provider_ids = [provider.pk for provider in provider_configurations.filter(enabled=True)]
 
-                self.logger.warn('bad providers: %s' % bad_provider_ids)
                 self.logger.warn('good providers: %s' % good_provider_ids)
 
             if running_count != self.instance_count:

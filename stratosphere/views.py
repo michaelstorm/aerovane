@@ -9,7 +9,8 @@ import json
 import re
 
 from .forms import *
-from .util import unix_time_millis
+from .tasks import load_provider_data
+from .util import schedule_random_default_delay, unix_time_millis
 
 
 def view_or_basicauth(view, request, *args, **kwargs):
@@ -326,6 +327,46 @@ def providers_loaded(request):
             break
 
     return JsonResponse({'loaded': loaded})
+
+
+@login_required
+def providers_refresh(request):
+    provider_configurations = request.user.configuration.provider_configurations.all()
+
+    for provider_configuration in provider_configurations:
+        provider_configuration.loaded = False
+        provider_configuration.save()
+
+        schedule_random_default_delay(load_provider_data, provider_configuration.pk)
+
+    return HttpResponse('')
+
+
+def _provider_json(provider_configuration):
+    return {'id': provider_configuration.pk,
+            'pretty_name': provider_configuration.provider.pretty_name,
+            'enabled': provider_configuration.enabled}
+
+
+@login_required
+def get_providers(request, provider_id=None):
+    if provider_id is None:
+        provider_configurations = request.user.configuration.provider_configurations.all()
+        return JsonResponse([_provider_json(pc) for pc in provider_configurations], safe=False)
+    else:
+        provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
+        return JsonResponse(_provider_json(provider_configuration))
+
+
+@login_required
+def set_provider_enabled(request, provider_id):
+    params = json.loads(request.body.decode('utf-8'))
+    enabled = params['enabled']
+
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
+    provider_configuration.set_enabled(enabled)
+
+    return HttpResponse('')
 
 
 @login_required

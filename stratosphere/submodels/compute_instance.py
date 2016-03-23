@@ -13,7 +13,7 @@ import random
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
-from ..tasks import terminate_libcloud_node
+from ..tasks import create_libcloud_node, terminate_libcloud_node
 from ..util import decode_node_extra, schedule_random_default_delay, thread_local
 
 
@@ -56,6 +56,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     extra = JSONField()
     last_state_update_time = models.DateTimeField()
     terminated = models.BooleanField(default=False)
+    ignored = models.BooleanField(default=False)
 
     # TODO include REBOOTING here?
     # state__in=[None] returns empty list no matter what
