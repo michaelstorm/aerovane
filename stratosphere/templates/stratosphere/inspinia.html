@@ -238,14 +238,22 @@
                     $scope.providers = data;
                 });
 
+                var changingEnabled = false;
+
                 $interval(function() {
                     Provider.query(function(data) {
-                        $scope.providers = data;
+                        // fixes race condition between user changing value and receiving periodic update
+                        if (!changingEnabled)
+                            $scope.providers = data;
                     });
                 }, 3000);
 
                 $scope.changeProviderEnabled = function(provider) {
-                    $http.post('/providers/' + provider.id + '/enabled/', {enabled: provider.enabled});
+                    changingEnabled = true;
+                    $http.post('/providers/' + provider.id + '/enabled/', {enabled: provider.enabled}).then(function() {
+                            changingEnabled = false;
+                        }
+                    );
                 }
             }]);
 

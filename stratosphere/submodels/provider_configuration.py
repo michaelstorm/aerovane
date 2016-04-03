@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.db import models, OperationalError, transaction
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 from libcloud.compute.types import Provider as LibcloudProvider
 from libcloud.compute.providers import get_driver
@@ -110,9 +113,9 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
         with transaction.atomic():
             if enabled:
                 now = timezone.now()
-                terminated_instances = self.instances.filter(ComputeInstance.terminated_instances_query(now))
+                terminated_instances = self.instances.filter(~Q(failed_at=None))
                 for instance in terminated_instances:
-                    instance.ignored = True
+                    instance.failure_ignored = True
                     instance.save()
 
                 self.enabled = True
@@ -125,19 +128,34 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
     @thread_local(DB_OVERRIDE='serializable')
     def check_enabled(self):
         instance_count = self.instances.count()
-        max_terminated_instance_count = instance_count if instance_count < 3 else 3
+        max_failure_count = instance_count if instance_count < 3 else 3
 
         now = timezone.now()
-        terminated_instances_query = ComputeInstance.terminated_instances_query(now) & Q(ignored=False)
-        terminated_instance_count = self.instances.filter(terminated_instances_query).count()
+        one_hour_ago = now - timedelta(hours=1)
+        failure_count = self.instances.filter(failed_at__gt=one_hour_ago, failure_ignored=False).count()
 
-        self.logger.info('Instance count: %d, max terminated instance count: %d, terminated instance count: %d' %
-                         (instance_count, max_terminated_instance_count, terminated_instance_count))
+        self.logger.info('Instance count: %d, max failure count: %d, failure count: %d' %
+                         (instance_count, max_failure_count, failure_count))
 
-        if max_terminated_instance_count > 0 and terminated_instance_count >= max_terminated_instance_count:
-            self.logger.warn('Disabling provider %d (%s)' % (self.pk, self.provider.pretty_name))
-            self.enabled = False
-            self.save()
+        if self.enabled:
+            if max_failure_count > 0 and failure_count >= max_failure_count:
+                self.logger.warn('Disabling provider %d (%s)' % (self.pk, self.provider.name))
+                self.enabled = False
+                self.save()
+        else:
+            self.logger.info('Provider %d (%s) already disabled' % (self.pk, self.provider.name))
+
+    def check_failed_instances(self):
+        now = timezone.now()
+        query = ComputeInstance.terminated_instances_query(now) & Q(failed_at=None)
+        terminated_not_failed_instances = self.instances.filter(query)
+
+        self.logger.info('Found %d terminated instances that are not yet failed for provider %d' % (terminated_not_failed_instances.count(), self.provider.pk))
+
+        for instance in terminated_not_failed_instances:
+            self.logger.warn('Marking instance %d failed' % instance.pk)
+            instance.failed_at = now
+            instance.save()
 
     def update_instance_statuses(self):
         try:
@@ -147,7 +165,7 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             print('Error listing nodes of %s' % self)
 
             traceback.print_exc()
-            for instance in self.instances:
+            for instance in self.instances.all():
                 instance.state = ComputeInstance.UNKNOWN
                 instance.save()
 
@@ -155,6 +173,8 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
             # exclude ComputeInstances whose libcloud node creation jobs have not yet run
             for instance in self.instances.filter(~Q(external_id=None)):
                 nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
+
+                previous_state = instance.state
 
                 if len(nodes) == 0:
                     instance.state = ComputeInstance.TERMINATED
@@ -201,66 +221,97 @@ class ProviderConfiguration(PolymorphicModel, HasLogger, SaveTheChange):
         # remaining elements of provider_size_ids are those elements deleted remotely
         ProviderSize.objects.filter(pk__in=provider_size_ids).delete()
 
+    def _get_driver_images(self, include_public):
+        return self.driver.list_images()
+
     # TODO locally delete images deleted remotely
-    def _load_available_images(self, image_filter=lambda image: True):
-        print('Querying images for provider %s' % self.provider_name)
-        driver_images = self.driver.list_images()
-        print('Retrieved %d images' % len(driver_images))
-
-        filtered_driver_images = list(filter(image_filter, driver_images))[:100] # TODO remove driver images limit
-
+    def _load_available_images(self, include_public):
         def driver_image_name(driver_image):
             return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
 
-        import time
+        def get_provider_images(driver_images):
+            driver_image_ids = [driver_image.id for driver_image in driver_images]
+            provider_images_list = ProviderImage.objects.filter(provider=self.provider, image_id__in=driver_image_ids)
+            return {provider_image.id: provider_image for provider_image in provider_images_list}
+
+        def get_disks_by_driver_images(driver_images):
+            drivers_by_image_name = {driver_image_name(driver_image): driver_image
+                                     for driver_image in driver_images_chunk}
+
+            disk_images_list = DiskImage.objects.filter(name__in=drivers_by_image_name.keys())
+            disk_images = {disk_image.name: disk_image for disk_image in disk_images_list}
+
+            return {driver_image: disk_images[image_name]
+                    for image_name, driver_image in drivers_by_image_name.items()}
+
+        import itertools
+        def grouper(n, iterable):
+            it = iter(iterable)
+            while True:
+               chunk = tuple(itertools.islice(it, n))
+               if not chunk:
+                   return
+               yield chunk
+
+        print('Querying images for provider %s' % self.provider_name)
+        start = timezone.now()
+        driver_images = self._get_driver_images(include_public)
+        end = timezone.now()
+        print('Retrieved %d images in %s' % (len(driver_images), (end - start)))
+
+        filtered_driver_images = list(driver_images)[:1000] # TODO remove driver images limit
 
         print('Creating DiskImages...')
-        start = time.time()
-        disk_images = []
-        for driver_image in filtered_driver_images: # TODO remove driver images limit
-            image_name = driver_image_name(driver_image)
+        start = timezone.now()
+        new_disk_image_names = []
+        for driver_images_chunk in grouper(100, filtered_driver_images): # TODO remove driver images limit
+            image_names = [driver_image_name(driver_image) for driver_image in driver_images_chunk]
 
-            if not DiskImage.objects.filter(name=image_name).exists():
-                disk_image = DiskImage(name=image_name)
-                disk_images.append(disk_image)
+            disk_images_names = set(DiskImage.objects.filter(name__in=image_names).values_list('name', flat=True))
+            new_disk_image_names.extend([image_name for image_name in image_names if image_name not in disk_images_names])
 
-        DiskImage.objects.bulk_create(disk_images)
-        end = time.time()
-        print('Created %d DiskImages in %d seconds' % (len(disk_images), end - start))
+        new_disk_images = [DiskImage(name=image_name) for image_name in new_disk_image_names]
+        DiskImage.objects.bulk_create(new_disk_images)
+
+        end = timezone.now()
+        print('Created %d DiskImages in %s seconds' % (len(new_disk_images), end - start))
 
         print('Creating ProviderImages...')
-        start = time.time()
-        created = 0
-        for driver_image in filtered_driver_images:
-            created += 1
+        start = timezone.now()
+        modified = 0
+        scanned = 0
+        for driver_images_chunk in grouper(100, filtered_driver_images):
+            scanned += len(driver_images_chunk)
 
-            if created % 100 == 0:
-                print(round(float(created) / float(len(filtered_driver_images)) * 100))
+            # if scanned % 100 == 0:
+            print(round(float(scanned) / float(len(filtered_driver_images)) * 100))
 
-            provider_image = ProviderImage.objects.filter(provider=self.provider, image_id=driver_image.id).first()
-            if provider_image is None:
-                provider_image = ProviderImage(provider=self.provider, image_id=driver_image.id)
+            provider_images = get_provider_images(driver_images)
+            disks_by_driver_images = get_disks_by_driver_images(driver_images_chunk)
 
-            image_name = driver_image_name(driver_image)
-            disk_image = DiskImage.objects.filter(name=image_name).first()
-            extra_json = json.loads(json.dumps(driver_image.extra))
+            for driver_image, disk_image in disks_by_driver_images.items():
+                provider_image = provider_images.get(disk_image.name)
+                if provider_image is None:
+                    provider_image = ProviderImage(provider=self.provider, name=disk_image.name,
+                                                   disk_image=disk_image)
 
-            provider_image.name = image_name
-            provider_image.image_id = driver_image.id
-            provider_image.extra = extra_json
-            provider_image.disk_image = disk_image
+                provider_image.image_id = driver_image.id
+                provider_image.extra = json.loads(json.dumps(driver_image.extra))
 
-            if not provider_image.extra.get('is_public', True):
-                provider_image.provider_configurations.add(self)
+                # TODO this is Amazon-specific
+                if not provider_image.extra.get('is_public'):
+                    provider_image.provider_configurations.add(self)
 
-            provider_image.save()
+                if provider_image.pk is None or provider_image.has_changed:
+                    modified += 1
+                    provider_image.save()
 
-        end = time.time()
-        print('Created %d ProviderImages in %d seconds' % (created, end - start))
+        end = timezone.now()
+        print('Modified %d ProviderImages in %d seconds' % (modified, int((end - start).total_seconds())))
 
-    def load_data(self):
+    def load_data(self, include_public):
         self._load_available_sizes()
-        self._load_available_images()
+        self._load_available_images(include_public)
 
         self.loaded = True
         self.save()
@@ -390,12 +441,15 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
 
         return list(filter(filter_size, sizes))
 
-    def load_available_images(self):
-        self._load_available_images(image_filter=lambda image: image.id.startswith('ami-'))
-
     def _get_credentials_dict(self):
         return {'access_key_id': self.credentials.access_key_id,
                 'secret_access_key': self.credentials.secret_access_key}
+
+    def _get_driver_images(self, include_public):
+        if include_public:
+            return self.driver.list_images(ex_filters={'image-type': 'machine'})
+        else:
+            return self.driver.list_images(ex_filters={'image-type': 'machine', 'is-public': False})
 
 
 class LinodeProviderConfiguration(ProviderConfiguration):

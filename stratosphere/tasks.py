@@ -25,7 +25,7 @@ def load_provider_data(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.load_data()
+    provider_configuration.load_data(False)
 
 
 # @periodic_task(run_every=timedelta(minutes=10))
@@ -35,6 +35,23 @@ def update_provider_info_all():
     provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
         schedule_random_default_delay(load_provider_info, provider_configuration_id)
+
+
+@app.task()
+def check_failed_instances(provider_configuration_id):
+    from .models import ProviderConfiguration
+
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
+    provider_configuration.check_failed_instances()
+
+
+@periodic_task(run_every=timedelta(seconds=10))
+def check_failed_instances_all():
+    from .models import ProviderConfiguration
+
+    provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
+    for provider_configuration_id in provider_configuration_ids:
+        schedule_random_default_delay(check_failed_instances, provider_configuration_id)
 
 
 @app.task()

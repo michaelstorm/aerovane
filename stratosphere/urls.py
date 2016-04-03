@@ -24,7 +24,6 @@ urlpatterns = [
     url(r'^compute_groups/add/$', views.add_compute_group),
     url(r'^check_configure/$', views.check_configure),
     url(r'^authentication/$', views.authentication),
-    url(r'^providers/$', views.providers),
     url(r'^images/$', views.images),
 
     url(r'^aws/.*$', aws.initial),

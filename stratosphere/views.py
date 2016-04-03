@@ -276,17 +276,6 @@ provider_configuration_form_classes = {
 
 
 @login_required
-def providers(request):
-    provider_configurations = request.user.configuration.provider_configurations
-    context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
-               for key, form_class in provider_configuration_form_classes.items()}
-
-    context['left_nav_section'] = 'providers'
-
-    return render(request, 'stratosphere/providers.html', context=context)
-
-
-@login_required
 def configure_provider(request, provider_name):
     context = {}
 
@@ -350,7 +339,15 @@ def _provider_json(provider_configuration):
 
 @login_required
 def get_providers(request, provider_id=None):
-    if provider_id is None:
+    if 'text/html' in request.META.get('HTTP_ACCEPT'):
+        provider_configurations = request.user.configuration.provider_configurations
+        context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
+                   for key, form_class in provider_configuration_form_classes.items()}
+
+        context['left_nav_section'] = 'providers'
+
+        return render(request, 'stratosphere/providers.html', context=context)
+    elif provider_id is None:
         provider_configurations = request.user.configuration.provider_configurations.all()
         return JsonResponse([_provider_json(pc) for pc in provider_configurations], safe=False)
     else:

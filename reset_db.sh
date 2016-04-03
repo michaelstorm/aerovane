@@ -13,8 +13,6 @@ echo "Ec2ProviderConfiguration.create_regions(
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
 
-echo "[pc.load_available_images() for pc in Ec2ProviderConfiguration.objects.all()]" | python manage.py shell_plus
-
 #echo "Provider.objects.create(
 #			name='linode',
 #			pretty_name='Linode',
@@ -28,7 +26,7 @@ echo "[pc.load_available_images() for pc in Ec2ProviderConfiguration.objects.all
 
 #echo "LinodeProviderConfiguration.objects.first().load_available_images()" | python manage.py shell_plus
 
-echo "[pc.load_available_sizes() for pc in ProviderConfiguration.objects.all()]" | python manage.py shell_plus
+echo "[pc.load_data(False) for pc in ProviderConfiguration.objects.all()]" | python manage.py shell_plus
 
 echo "KeyAuthenticationMethod.objects.create(
 	name='Production deployment key',

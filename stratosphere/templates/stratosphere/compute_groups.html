@@ -18,7 +18,7 @@
                                 <h5>Providers</h5>
                             </div>
                             <div class="ibox-content">
-                                <div class="checkbox checkbox-success" ng-repeat="provider in providers" ng-cloak>
+                                <div class="checkbox checkbox-success" ng-repeat="provider in providers track by provider.id" ng-cloak>
                                     <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
                                     <label for="provider-enabled-{$ provider.id $}">{$ provider.pretty_name $}</label>
                                 </div>

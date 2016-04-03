@@ -56,21 +56,19 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     extra = JSONField()
     last_state_update_time = models.DateTimeField()
     terminated = models.BooleanField(default=False)
-    ignored = models.BooleanField(default=False)
-
-    # TODO include REBOOTING here?
-    # state__in=[None] returns empty list no matter what
-    pending_states_query = Q(state='PENDING') | Q(state=None)
+    failed_at = models.DateTimeField(null=True, blank=True)
+    failure_ignored = models.BooleanField(default=False)
 
     @classmethod
     def running_instances_query(cls, now):
-        expiration_time = now - timedelta(minutes=2)
-        return Q(state=ComputeInstanceBase.RUNNING, last_state_update_time__gt=expiration_time)
+        return Q(state=ComputeInstanceBase.RUNNING)
 
     @classmethod
     def pending_instances_query(cls, now):
-        expiration_time = now - timedelta(minutes=10)
-        return ComputeInstanceBase.pending_states_query & Q(last_state_update_time__gt=expiration_time)
+        expiration_time = now - timedelta(minutes=5)
+        # state__in=[None] returns an empty list no matter what
+        # TODO include REBOOTING?
+        return (Q(state=None) | Q(state='PENDING')) & Q(last_state_update_time__gt=expiration_time)
 
     @classmethod
     def terminated_instances_query(cls, now):

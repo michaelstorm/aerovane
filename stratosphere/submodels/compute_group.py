@@ -227,39 +227,41 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
         return str(provider_size.pk)
 
     def _get_size_distribution(self, sizes):
-        sizes_list = self._sorted_sizes(sizes)
-
-        instance_counts = {}
+        instance_counts = {self._get_provider_size_key(provider_size): 0 for provider_size in sizes.values()}
 
         # if len(sizes) == 0, the following gets into an infinite loop
         if len(sizes) > 0:
+            sizes_list = self._sorted_sizes(sizes)
+
             while sum(instance_counts.values()) < self.instance_count:
                 remaining_instance_count = self.instance_count - sum(instance_counts.values())
                 provider_instance_count = int(remaining_instance_count/len(sizes))
 
                 for provider_size in sizes_list:
+                    # correct for rounding down when dividing remaining instances by number of sizes
                     if provider_instance_count == 0 and sum(instance_counts.values()) < self.instance_count:
-                        adjusted_provider_instance_count = 1
+                        corrected_provider_instance_count = 1
                     else:
-                        adjusted_provider_instance_count = provider_instance_count
+                        corrected_provider_instance_count = provider_instance_count
 
                     key = self._get_provider_size_key(provider_size)
-                    if key in instance_counts:
-                        instance_counts[key] += adjusted_provider_instance_count
-                    else:
-                        instance_counts[key] = adjusted_provider_instance_count
+                    instance_counts[key] += corrected_provider_instance_count
 
         return instance_counts
 
     def _get_emergency_size_distribution(self, sizes):
         sizes_list = self._sorted_sizes(sizes)
-        self.logger.warning('sizes_list: %s' % sizes_list)
-
         instance_counts = {}
 
         for provider_size in sizes_list:
             key = self._get_provider_size_key(provider_size)
-            instance_counts[key] = self.instance_count
+
+            # cap the number of instances that can be created in Hail Mary mode
+            if provider_size.provider_configuration.failure_count < self.instance_count * 3:
+                instance_counts[key] = self.instance_count
+            else:
+                self.logger.warn('Not creating more instances in Hail Mary mode for provider %d' %
+                                 provider_size.provider_configuration.pk)
 
         return instance_counts
 
