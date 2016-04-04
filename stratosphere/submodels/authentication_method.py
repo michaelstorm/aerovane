@@ -2,12 +2,12 @@ from django.db import models
 
 from polymorphic import PolymorphicModel
 
-from save_the_change.mixins import SaveTheChange
+from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..util import *
 
 
-class AuthenticationMethod(PolymorphicModel, SaveTheChange):
+class AuthenticationMethod(PolymorphicModel, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 

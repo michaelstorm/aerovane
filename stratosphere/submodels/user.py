@@ -7,13 +7,13 @@ from django.utils import timezone
 
 import hashlib
 
-from save_the_change.mixins import SaveTheChange
+from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..models import InstanceStatesSnapshot
 from ..util import *
 
 
-class UserConfiguration(models.Model, SaveTheChange):
+class UserConfiguration(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 

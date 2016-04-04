@@ -375,7 +375,7 @@ def provider_disk_images(request, provider_id):
     if len(terms) > 0:
         f = Q()
         for term in terms:
-            f = f & (Q(name__icontains=term) | Q(provider_images__image_id__icontains=term))
+            f = f & (Q(name__icontains=term) | Q(provider_images__external_id__icontains=term))
 
         disk_images = provider_configuration.available_disk_images.filter(f)
 

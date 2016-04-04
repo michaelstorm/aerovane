@@ -5,19 +5,24 @@ from django.db import models
 
 from libcloud.compute.base import NodeImage
 
-from save_the_change.mixins import SaveTheChange
+from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..util import *
 
+import uuid
 
-class DiskImage(models.Model, SaveTheChange):
+
+class DiskImage(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=128, db_index=True)
 
 
-class DiskImageMapping(models.Model, SaveTheChange):
+# DiskImages can have ProviderImages from different Providers under them, so it's necessary
+# to disambiguate which Provider's ProviderImage belongs to the given OperatingSystemImage
+class DiskImageMapping(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
         unique_together = ('provider', 'disk_image', 'operating_system_image')
@@ -27,7 +32,7 @@ class DiskImageMapping(models.Model, SaveTheChange):
     operating_system_image = models.ForeignKey('OperatingSystemImage', related_name='disk_image_mappings')
 
 
-class OperatingSystemImage(models.Model, SaveTheChange):
+class OperatingSystemImage(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
@@ -35,13 +40,14 @@ class OperatingSystemImage(models.Model, SaveTheChange):
     name = models.CharField(max_length=128)
 
 
-class ProviderImage(models.Model, SaveTheChange):
+class ProviderImage(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # has to be nullable so we can add after bulk create
     disk_image = models.ForeignKey('DiskImage', related_name='provider_images', null=True, blank=True)
-    image_id = models.CharField(max_length=256, db_index=True)
+    external_id = models.CharField(max_length=256, db_index=True)
     name = models.CharField(max_length=256, null=True, blank=True, db_index=True)
     extra = JSONField()
 
@@ -49,5 +55,5 @@ class ProviderImage(models.Model, SaveTheChange):
     provider_configurations = models.ManyToManyField('ProviderConfiguration', related_name='provider_images')
 
     def to_libcloud_image(self, provider_configuration):
-        return NodeImage(id=self.image_id, name=self.name, driver=provider_configuration.driver,
+        return NodeImage(id=self.external_id, name=self.name, driver=provider_configuration.driver,
                          extra=self.extra)

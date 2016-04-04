@@ -48,7 +48,7 @@ def run_instances(request):
     image_id = args['image_id']
 
     if image_id.startswith('ami-'):
-        provider_image = ProviderImage.objects.get(image_id=image_id)
+        provider_image = ProviderImage.objects.get(external_id=image_id)
     elif image_id.startswith('avmi-'):
         provider_name = 'aws_%s' % region.replace('-', '_')
         provider_image = ProviderImage.objects.get(

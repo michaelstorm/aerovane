@@ -10,7 +10,7 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from save_the_change.mixins import SaveTheChange
+from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
 from ..util import HasLogger, retry, call_with_retry, thread_local
@@ -44,7 +44,7 @@ class GroupInstanceStatesSnapshot(models.Model):
     terminated = models.IntegerField()
 
 
-class ComputeGroupBase(models.Model, HasLogger, SaveTheChange):
+class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     class Meta:
         abstract = True
 
