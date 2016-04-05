@@ -32,23 +32,6 @@ class HasLogger(object):
         return self._logger
 
 
-class SimulatedFailureDriver(object):
-    def list_nodes(*args, **kwargs):
-        raise Exception()
-
-    def list_sizes(*args, **kwargs):
-        raise Exception()
-
-    def list_images(*args, **kwargs):
-        raise Exception()
-
-    def create_node(*args, **kwargs):
-        raise Exception()
-
-    def destroy_node(*args, **kwargs):
-        raise Exception()
-
-
 class NodeJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, EC2NetworkInterface):
