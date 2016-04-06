@@ -19,7 +19,7 @@ class ProviderSizeAdmin(admin.ModelAdmin):
 
 
 admin.site.register(DiskImage)
-admin.site.register(OperatingSystemImage)
+admin.site.register(ComputeImage)
 admin.site.register(ProviderImage)
 admin.site.register(ProviderSize, ProviderSizeAdmin)
 admin.site.register(ComputeGroup)

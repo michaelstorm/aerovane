@@ -59,7 +59,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     )
 
     user_configuration = models.ForeignKey('UserConfiguration', related_name='compute_groups')
-    image = models.ForeignKey('OperatingSystemImage', related_name='compute_groups')
+    image = models.ForeignKey('ComputeImage', related_name='compute_groups')
     instance_count = models.IntegerField()
     cpu = models.IntegerField()
     memory = models.IntegerField()
@@ -71,9 +71,9 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
     @classmethod
     def quick_create(cls, instance_count=5):
-        from ..models import UserConfiguration, OperatingSystemImage, AuthenticationMethod, Provider
-        image = OperatingSystemImage.objects.first()
-        providers = Provider.objects.filter(disk_image_mappings__operating_system_image=image)
+        from ..models import UserConfiguration, ComputeImage, AuthenticationMethod, Provider
+        image = ComputeImage.objects.first()
+        providers = Provider.objects.filter(disk_image_mappings__compute_image=image)
         provider_policy = {p.name: 'auto' for p in providers}
         return cls.objects.create(user_configuration=UserConfiguration.objects.first(),
                                   image=image, cpu=1, memory=512,
@@ -195,7 +195,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
             if allowed_provider_ids is None or provider_configuration.pk in allowed_provider_ids:
                 available_sizes = []
 
-                provider_image = provider_configuration.available_provider_images.filter(disk_image__disk_image_mappings__operating_system_image=self.image).first()
+                provider_image = provider_configuration.available_provider_images.filter(disk_image__disk_image_mappings__compute_image=self.image).first()
                 if provider_image is None:
                     self.logger.debug('No provider image available')
                 else:
@@ -297,7 +297,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                 # TODO wait, does that make sense?
                 # TODO could this also produce multiple images if we don't specify the provider size?
                 provider_image = provider_configuration.available_provider_images.get(
-                                        disk_image__disk_image_mappings__operating_system_image=self.image,
+                                        disk_image__disk_image_mappings__compute_image=self.image,
                                         disk_image__disk_image_mappings__provider=provider_configuration.provider)
 
                 if pending_or_running_count < size_instance_count:

@@ -52,12 +52,12 @@ def run_instances(request):
     elif image_id.startswith('avmi-'):
         provider_name = 'aws_%s' % region.replace('-', '_')
         provider_image = ProviderImage.objects.get(
-                            disk_image__disk_image_mappings__operating_system_image__pk=int(image_id[5:]),
+                            disk_image__disk_image_mappings__compute_image__pk=int(image_id[5:]),
                             provider__name=provider_name)
     else:
         raise Exception('Invalid image ID format')
 
-    operating_system_image = provider_image.disk_image.disk_image_mappings.first().operating_system_image
+    compute_image = provider_image.disk_image.disk_image_mappings.first().compute_image
 
     user_configuration = provider_configuration.user_configuration
     provider_policy = {pc.provider_name: 'auto' for pc
@@ -69,7 +69,7 @@ def run_instances(request):
         'cpu': int(provider_size.vcpus),
         'memory': int(provider_size.ram),
         'instance_count': int(args['max_count']),
-        'image': operating_system_image,
+        'image': compute_image,
         'provider_policy': provider_policy,
         'size_distribution': {},
         'authentication_method': user_configuration.authentication_methods.instance_of(KeyAuthenticationMethod).first(),

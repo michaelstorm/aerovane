@@ -53,7 +53,7 @@ def operating_systems(request):
     def operating_system_to_json(os):
         def provider_to_json(provider_configuration):
             selected_disk_image = DiskImage.objects.filter(disk_image_mappings__provider=provider_configuration.provider,
-                                                           disk_image_mappings__operating_system_image=os).first()
+                                                           disk_image_mappings__compute_image=os).first()
 
             return {
                 'id': provider_configuration.pk,
@@ -70,7 +70,7 @@ def operating_systems(request):
         }
 
     if request.method == 'GET':
-        operating_systems = OperatingSystemImage.objects.all()
+        operating_systems = ComputeImage.objects.all()
         operating_systems_json = [operating_system_to_json(os) for os in operating_systems]
 
         return JsonResponse(operating_systems_json, safe=False)
@@ -81,9 +81,9 @@ def operating_systems(request):
         os_id = params.get('id')
 
         if os_id is None:
-            operating_system = OperatingSystemImage.objects.create(name=params['name'], user=request.user)
+            operating_system = ComputeImage.objects.create(name=params['name'], user=request.user)
         else:
-            operating_system = OperatingSystemImage.objects.get(pk=os_id)
+            operating_system = ComputeImage.objects.get(pk=os_id)
 
         operating_system.name = params['name']
 
@@ -96,7 +96,7 @@ def operating_systems(request):
             if isinstance(disk_image_json, dict): # Angular sometimes sends null value as empty string
                 new_disk_image = DiskImage.objects.get(pk=disk_image_json['id'])
                 DiskImageMapping.objects.get_or_create(provider=provider_configuration.provider,
-                                disk_image=new_disk_image, operating_system_image=operating_system)
+                                disk_image=new_disk_image, compute_image=operating_system)
 
         operating_system.save()
 
@@ -105,7 +105,7 @@ def operating_systems(request):
 
 @login_required
 def images(request):
-    operating_systems = OperatingSystemImage.objects.all()
+    operating_systems = ComputeImage.objects.all()
 
     context = {
         'left_nav_section': 'images',
@@ -129,11 +129,11 @@ def compute_groups(request):
 
 @login_required
 def add_compute_group(request):
-    operating_system_images = OperatingSystemImage.objects.filter(user=request.user)
+    compute_images = ComputeImage.objects.filter(user=request.user)
 
     os_images_map = {os_image: Provider.objects.filter(
-                            provider_images__disk_image__disk_image_mappings__operating_system_image=os_image).distinct()
-                     for os_image in operating_system_images}
+                            provider_images__disk_image__disk_image_mappings__compute_image=os_image).distinct()
+                     for os_image in compute_images}
 
     possible_providers = [
         {
@@ -249,10 +249,10 @@ def compute(request, group_id=None):
                 provider_policy[provider_name] = 'auto'
 
         os_id = params['operating_system']
-        operating_system_image = OperatingSystemImage.objects.get(pk=os_id)
+        compute_image = ComputeImage.objects.get(pk=os_id)
         group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
                                             instance_count=instance_count, name=name, provider_policy=provider_policy,
-                                            size_distribution={}, image=operating_system_image,
+                                            size_distribution={}, image=compute_image,
                                             authentication_method=authentication_method)
 
         group.rebalance_instances()

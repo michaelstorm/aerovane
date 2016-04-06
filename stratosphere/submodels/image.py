@@ -21,18 +21,18 @@ class DiskImage(models.Model, SaveTheChange, TrackChanges):
 
 
 # DiskImages can have ProviderImages from different Providers under them, so it's necessary
-# to disambiguate which Provider's ProviderImage belongs to the given OperatingSystemImage
+# to disambiguate which Provider's ProviderImage belongs to the given ComputeImage
 class DiskImageMapping(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
-        unique_together = ('provider', 'disk_image', 'operating_system_image')
+        unique_together = ('provider', 'disk_image', 'compute_image')
 
     provider = models.ForeignKey('Provider', related_name='disk_image_mappings')
     disk_image = models.ForeignKey('DiskImage', related_name='disk_image_mappings')
-    operating_system_image = models.ForeignKey('OperatingSystemImage', related_name='disk_image_mappings')
+    compute_image = models.ForeignKey('ComputeImage', related_name='disk_image_mappings')
 
 
-class OperatingSystemImage(models.Model, SaveTheChange, TrackChanges):
+class ComputeImage(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
