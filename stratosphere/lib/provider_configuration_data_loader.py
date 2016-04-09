@@ -49,9 +49,9 @@ class ProviderConfigurationDataLoader(object):
             return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
 
         def get_provider_images_by_external_id(driver_images):
-            driver_images_by_id = {driver_image.id: driver_image for driver_image in driver_images}
+            driver_image_ids = [driver_image.id for driver_image in driver_images]
             provider_images = ProviderImage.objects.filter(provider=self.provider,
-                                                           external_id__in=driver_images_by_id.keys())
+                                                           external_id__in=driver_image_ids)
             return {provider_image.external_id: provider_image for provider_image in provider_images}
 
         import itertools
@@ -76,8 +76,7 @@ class ProviderConfigurationDataLoader(object):
         print('Scanning driver and updating provider images...')
         start = timezone.now()
 
-        modified = 0
-        scanned = 0
+        modified, scanned = 0, 0
         new_driver_images_by_provider_id = {}
         for driver_images_chunk in grouper(row_retrieval_chunk_size, filtered_driver_images):
             provider_images_by_external_id = get_provider_images_by_external_id(driver_images_chunk)
@@ -95,7 +94,6 @@ class ProviderConfigurationDataLoader(object):
                         provider_image.save()
 
             scanned += len(driver_images_chunk)
-            print('%d%%' % round(float(scanned) / float(len(filtered_driver_images)) * 100))
 
         end = timezone.now()
         print('Scanned %d driver images and modified %d ProviderImages in %s' %
@@ -133,23 +131,24 @@ class ProviderConfigurationDataLoader(object):
             print('Linking ProviderImages to DiskImages...')
             start = timezone.now()
 
-            scanned = 0
-            linked = 0
+            scanned, linked, unlinked = 0, 0, 0
             new_driver_images = new_driver_images_by_provider_id.values()
-            for driver_images_chunk in grouper(row_retrieval_chunk_size, new_driver_images):
+            for driver_images_chunk in grouper(row_retrieval_chunk_size, filtered_driver_images):
                 provider_images_by_external_id = get_provider_images_by_external_id(driver_images_chunk)
 
                 for driver_image in driver_images_chunk:
                     provider_image = provider_images_by_external_id[driver_image.id]
 
                     # TODO this is Amazon-specific
-                    if not provider_image.extra.get('is_public'):
-                        linked += len(driver_images_chunk)
+                    if provider_image.extra.get('is_public'):
+                        unlinked += 1
+                        provider_image.provider_configurations.remove(self)
+                    else:
+                        linked += 1
                         provider_image.provider_configurations.add(self)
-                        provider_image.save()
 
                 scanned += len(driver_images_chunk)
-                print('%d%%' % round(float(scanned) / float(len(new_driver_images)) * 100))
 
             end = timezone.now()
-            print('Linked %d ProviderImages to DiskImages in %s' % (linked, end - start))
+            print('Scanned %d ProviderImages, linked %d, unlinked %d to DiskImages in %s' %
+                  (scanned, linked, unlinked, end - start))
