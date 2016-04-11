@@ -63,34 +63,13 @@
                                     </div>
                                     <div class="row">
                                         <div class="col-lg-3">
-                                            <div class="form-group">
-                                                <label>Deployment type</label>
-                                                <div class="radio radio-primary">
-                                                    <input type="radio" name="deployment_type" ng-model="group.deployment_type" id="deployment_type_os" value="os">
-                                                    <label for="deployment_type_os">Operating system</label>
-                                                </div>
-                                                <div class="radio radio-primary">
-                                                    <input type="radio" name="deployment_type" ng-model="group.deployment_type" id="deployment_type_image" value="image">
-                                                    <label for="deployment_type_image">Disk image</label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-lg-3">
                                             <div class="form-group" id="select-os-container">
-                                                <label>Operating system</label>
+                                                <label>Compute image</label>
                                                 <select class="fancy-select" ng-model="group.operating_system" name="operating_system">
                                                     <option></option>
                                                     {% for image in os_images_map %}
                                                         <option value="{{ image.pk }}">{{ image.name }}</option>
                                                     {% endfor %}
-                                                </select>
-                                            </div>
-                                            <div class="form-group" id="select-image-container">
-                                                <label>Disk image</label>
-                                                <select class="fancy-select" name="disk_image">
-                                                    <option></option>
-                                                    <option value="ubuntu_14">Ubuntu 14.04 (ami-84bba3c1)</option>
-                                                    <option value="ubuntu_12">Ubuntu 12.04 (ami-456ad56c)</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -100,7 +79,7 @@
                                             <label>Providers</label>
                                         </div>
                                     </div>
-                                    <div id="providers-list">
+                                    <div id="providers-list" class="providers-selectable">
                                         <div class="row">
                                             <div class="form-group">
                                                 {% for provider in possible_providers %}
@@ -152,39 +131,22 @@
         {% endfor %}
     }
 
-    var image_supported_providers = {
-        ubuntu_14: ['aws', 'azure', 'linode', 'cloudsigma', 'softlayer'],
-        ubuntu_12: ['aws', 'azure', 'linode', 'cloudsigma', 'google'],
-    }
-
     function hide_unsupported_providers() {
         $('#providers-list .provider').addClass('disabled');
         $('#providers-list .provider.disabled input').removeAttr('disabled');
         $('#providers-list .provider input').removeProp('checked');
 
-        if ($('input[name="deployment_type"]:checked').val() == 'image') {
-            var selected_image = $('#select-image-container select').val();
-            var supported_providers = image_supported_providers[selected_image];
-            supported_providers.forEach(function(provider) {
-                var provider = $('#provider_choice_' + provider);
+        var select_element = $('#select-os-container select');
+        // angular.element(select_element).triggerHandler('change');
+
+        var selected_os = select_element.val();
+        if (selected_os.length) {
+            var supported_providers = os_supported_providers[selected_os];
+            supported_providers.forEach(function(provider_name) {
+                var provider = $('#provider_choice_' + provider_name);
                 if (!provider.hasClass('not-available'))
                     provider.removeClass('disabled');
             });
-        }
-        else {
-            var select_element = $('#select-os-container select');
-            // angular.element(select_element).triggerHandler('change');
-
-            var selected_os = select_element.val();
-            if (selected_os.length) {
-                var supported_providers = os_supported_providers[selected_os];
-                supported_providers.forEach(function(provider_name) {
-                    var provider = $('#provider_choice_' + provider_name);
-                    console.log(provider_name, provider);
-                    if (!provider.hasClass('not-available'))
-                        provider.removeClass('disabled');
-                });
-            }
         }
 
         $('#providers-list .provider.disabled input').attr('disabled', 'true');
@@ -199,17 +161,12 @@
     $(document).ready(function() {
         var handleInputChange = function() {
             var name = $('input[name="name"]').val();
-            var deployment_type = $('input[name="deployment_type"]:checked').val();
 
             var selected_provider_count = $('#providers-list').find('input[type="checkbox"]:checked').length;
-            var selected_image_or_os = false;
-            if (deployment_type == 'image')
-                selected_image_or_os = $('#select-image-container select').val().length > 0;
-            else if (deployment_type == 'os')
-                selected_image_or_os = $('#select-os-container select').val().length > 0;
+            var selected_image = $('#select-os-container select').val().length > 0;
 
             var add_button = $('#add-group-button');
-            if (name.length > 0 && selected_provider_count > 0 && selected_image_or_os) {
+            if (name.length > 0 && selected_provider_count > 0 && selected_image) {
                 add_button.removeAttr('disabled');
             }
             else {
@@ -238,28 +195,11 @@
         createslider($('#memory-slider'), 512, 8192, 512, "MB");
         createslider($('#instance-count-slider'), 1, 16, 1, " instances");
 
-        $('select[name="authentication_method"], select[name="operating_system"], select[name="disk_image"]').on('change', function() {
+        $('select[name="authentication_method"], select[name="operating_system"]').on('change', function() {
             angular.element($(this)).triggerHandler('change');
         });
 
-        $('input[name="deployment_type"]').change(function() {
-            angular.element($('')).triggerHandler('input');
-
-            if ($(this).val() == 'image') {
-                $('#select-os-container').hide();
-                $('#select-image-container').show();
-            }
-            else {
-                $('#select-image-container').hide();
-                $('#select-os-container').show();
-            }
-
-            $('#providers-list').addClass('providers-selectable');
-
-            hide_unsupported_providers();
-        });
-
-        $('#select-os-container select, #select-image-container select').on('change', function() {
+        $('#select-os-container select').on('change', function() {
             hide_unsupported_providers();
         });
 
@@ -278,11 +218,7 @@
         $('#providers-list .provider .click-area').click(function() {
             var input = $(this).parents('.provider').find('input');
             if (input.is(':visible') && !input.is(':disabled')) {
-                if (input.get()[0].checked)
-                    input.removeProp('checked');
-                else
-                    input.prop('checked', 'true');
-
+                input.prop('checked', !input.prop('checked'));
                 input.triggerHandler('change');
             }
         });
@@ -290,14 +226,6 @@
 {% endblock %}
 
 {% block style %}
-    .provider-options {
-        display: none;
-    }
-
-    #select-os-container, #select-image-container {
-        display: none;
-    }
-
     .radio *, #providers-list * {
        -ms-user-select: none;
        -moz-user-select: -moz-none;
