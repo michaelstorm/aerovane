@@ -8,6 +8,8 @@ from libcloud.compute.types import NodeState
 from stratosphere.models import ComputeInstance
 from stratosphere.util import thread_local
 
+import traceback
+
 
 class ProviderConfigurationStatusChecker(object):
     def set_enabled(self, enabled):
