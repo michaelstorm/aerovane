@@ -257,7 +257,9 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
             key = self._get_provider_size_key(provider_size)
 
             # cap the number of instances that can be created in Hail Mary mode
-            if provider_size.provider_configuration.failure_count < self.instance_count * 3:
+            instances = provider_size.provider_configuration.instances
+            failed_instances = instances.filter(ComputeInstance.unignored_failed_instances_query())
+            if failed_instances.count() < self.instance_count * 3:
                 instance_counts[key] = self.instance_count
             else:
                 self.logger.warn('Not creating more instances in Hail Mary mode for provider %d' %

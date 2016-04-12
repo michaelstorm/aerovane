@@ -20,7 +20,7 @@ class ProviderSize(models.Model, SaveTheChange, TrackChanges):
     ram = models.IntegerField()
     disk = models.IntegerField()
     bandwidth = models.IntegerField(null=True, blank=True)
-    vcpus = models.IntegerField(null=True, blank=True)
+    cpu = models.IntegerField()
     extra = JSONField()
 
     def __str__(self):

@@ -20,21 +20,25 @@ class ProviderConfigurationDataLoader(object):
         provider_size_ids = set(self.provider_sizes.values_list('id', flat=True))
 
         for driver_size in driver_sizes:
-            provider_size = ProviderSize.objects.filter(external_id=driver_size.id, provider_configuration=self).first()
-            if provider_size is None:
-                provider_size = ProviderSize(external_id=driver_size.id, provider_configuration=self)
+            if 'cpu' not in driver_size.extra:
+                self.logger.warn("Not adding driver size %s for provider %s because it doesn't have a cpu count" %
+                                 (driver_size.id, self.pk))
             else:
-                provider_size_ids.remove(provider_size.pk)
+                provider_size = ProviderSize.objects.filter(external_id=driver_size.id, provider_configuration=self).first()
+                if provider_size is None:
+                    provider_size = ProviderSize(external_id=driver_size.id, provider_configuration=self)
+                else:
+                    provider_size_ids.remove(provider_size.pk)
 
-            provider_size.name = driver_size.name
-            provider_size.price = driver_size.price
-            provider_size.ram = driver_size.ram
-            provider_size.disk = driver_size.disk
-            provider_size.vcpus = driver_size.extra.get('vcpus')
-            provider_size.bandwidth = driver_size.bandwidth
-            provider_size.extra = json.loads(json.dumps(driver_size.extra))
+                provider_size.name = driver_size.name
+                provider_size.price = driver_size.price
+                provider_size.ram = driver_size.ram
+                provider_size.disk = driver_size.disk
+                provider_size.cpu = driver_size.extra['cpu']
+                provider_size.bandwidth = driver_size.bandwidth
+                provider_size.extra = json.loads(json.dumps(driver_size.extra))
 
-            provider_size.save()
+                provider_size.save()
 
         # remaining elements of provider_size_ids are those elements deleted remotely
         ProviderSize.objects.filter(pk__in=provider_size_ids).delete()

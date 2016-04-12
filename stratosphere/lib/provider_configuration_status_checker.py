@@ -15,9 +15,8 @@ class ProviderConfigurationStatusChecker(object):
     def set_enabled(self, enabled):
         with transaction.atomic():
             if enabled:
-                now = timezone.now()
-                terminated_instances = self.instances.filter(~Q(failed_at=None))
-                for instance in terminated_instances:
+                failed_instances = self.instances.filter(ComputeInstance.unignored_failed_instances_query())
+                for instance in failed_instances:
                     instance.failure_ignored = True
                     instance.save()
 
@@ -32,10 +31,7 @@ class ProviderConfigurationStatusChecker(object):
     def check_enabled(self):
         instance_count = self.instances.count()
         max_failure_count = instance_count if instance_count < 3 else 3
-
-        now = timezone.now()
-        one_hour_ago = now - timedelta(hours=1)
-        failure_count = self.instances.filter(failed_at__gt=one_hour_ago, failure_ignored=False).count()
+        failure_count = self.instances.filter(ComputeInstance.unignored_failed_instances_query()).count()
 
         self.logger.info('Instance count: %d, max failure count: %d, failure count: %d' %
                          (instance_count, max_failure_count, failure_count))
@@ -50,14 +46,15 @@ class ProviderConfigurationStatusChecker(object):
 
     def check_failed_instances(self):
         now = timezone.now()
-        query = ComputeInstance.terminated_instances_query(now) & Q(failed_at=None)
+        query = ComputeInstance.terminated_instances_query(now) & Q(failed=False)
         terminated_not_failed_instances = self.instances.filter(query)
 
-        self.logger.info('Found %d terminated instances that are not yet failed for provider %d' % (terminated_not_failed_instances.count(), self.provider.pk))
+        self.logger.info('Found %d terminated instances that are not yet failed for provider %d' %
+                         (terminated_not_failed_instances.count(), self.provider.pk))
 
         for instance in terminated_not_failed_instances:
             self.logger.warn('Marking instance %d failed' % instance.pk)
-            instance.failed_at = now
+            instance.failed = True
             instance.save()
 
     def update_instance_statuses(self):

@@ -117,7 +117,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
                    region=self.region)
 
     def get_available_sizes(self, provider_image, cpu, memory):
-        sizes = self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
+        sizes = self.provider_sizes.filter(cpu__gte=cpu, ram__gte=memory)
 
         def filter_size(provider_size):
             virtualization_type = provider_image.extra['virtualization_type']

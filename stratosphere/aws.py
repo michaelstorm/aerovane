@@ -66,7 +66,7 @@ def run_instances(request):
     attributes = {
         'user_configuration': provider_configuration.user_configuration,
         'name': name,
-        'cpu': int(provider_size.vcpus),
+        'cpu': int(provider_size.cpu),
         'memory': int(provider_size.ram),
         'instance_count': int(args['max_count']),
         'image': compute_image,

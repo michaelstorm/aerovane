@@ -16,7 +16,7 @@ echo "Ec2ProviderConfiguration.create_regions(
 echo "Provider.objects.create(
 			name='linode',
 			pretty_name='Linode',
-			icon_path='/static/stratosphere/linode_icon.png')" | python manage.py shell_plus
+			icon_path='/stratosphere/linode_icon.png')" | python manage.py shell_plus
 
 echo "LinodeProviderConfiguration.objects.create(
 			provider=Provider.objects.get(name='linode'),

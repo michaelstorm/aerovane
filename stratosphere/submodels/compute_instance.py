@@ -56,7 +56,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     extra = JSONField()
     last_state_update_time = models.DateTimeField()
     terminated = models.BooleanField(default=False)
-    failed_at = models.DateTimeField(null=True, blank=True)
+    failed = models.BooleanField(default=False)
     failure_ignored = models.BooleanField(default=False)
 
     @classmethod
@@ -74,6 +74,10 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     def terminated_instances_query(cls, now):
         not_pending_or_running = ~(cls.running_instances_query(now) | cls.pending_instances_query(now))
         return not_pending_or_running & Q(terminated=False)
+
+    @classmethod
+    def unignored_failed_instances_query(cls):
+        return Q(failed=True, failure_ignored=False)
 
     @classmethod
     def handle_pre_save(cls, sender, instance, raw, using, update_fields, **kwargs):

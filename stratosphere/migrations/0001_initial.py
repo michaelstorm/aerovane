@@ -2,14 +2,14 @@
 from __future__ import unicode_literals
 
 from django.db import migrations, models
-import stratosphere.lib.provider_configuration_status_checker
-import django.db.models.deletion
 import save_the_change.mixins
+import annoying.fields
+import django.db.models.deletion
+import stratosphere.lib.provider_configuration_status_checker
+import stratosphere.util
+import stratosphere.lib.provider_configuration_data_loader
 import uuid
 from django.conf import settings
-import stratosphere.lib.provider_configuration_data_loader
-import annoying.fields
-import stratosphere.util
 
 
 class Migration(migrations.Migration):
@@ -60,13 +60,13 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(serialize=False, auto_created=True, primary_key=True, verbose_name='ID')),
                 ('external_id', models.CharField(null=True, max_length=256, blank=True)),
                 ('name', models.CharField(max_length=256)),
-                ('state', models.CharField(choices=[('RUNNING', 'Running'), ('REBOOTING', 'Rebooting'), ('TERMINATED', 'Terminated'), ('PENDING', 'Pending'), ('STOPPED', 'Stopped'), ('SUSPENDED', 'Suspended'), ('PAUSED', 'Paused'), ('ERROR', 'Error'), ('UNKNOWN', 'Unknown')], null=True, max_length=16, blank=True)),
+                ('state', models.CharField(null=True, choices=[('RUNNING', 'Running'), ('REBOOTING', 'Rebooting'), ('TERMINATED', 'Terminated'), ('PENDING', 'Pending'), ('STOPPED', 'Stopped'), ('SUSPENDED', 'Suspended'), ('PAUSED', 'Paused'), ('ERROR', 'Error'), ('UNKNOWN', 'Unknown')], max_length=16, blank=True)),
                 ('public_ips', annoying.fields.JSONField()),
                 ('private_ips', annoying.fields.JSONField()),
                 ('extra', annoying.fields.JSONField()),
                 ('last_state_update_time', models.DateTimeField()),
                 ('terminated', models.BooleanField(default=False)),
-                ('failed_at', models.DateTimeField(null=True, blank=True)),
+                ('failed', models.BooleanField()),
                 ('failure_ignored', models.BooleanField(default=False)),
                 ('group', models.ForeignKey(to='stratosphere.ComputeGroup', related_name='instances')),
             ],
@@ -78,7 +78,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='DiskImage',
             fields=[
-                ('id', models.UUIDField(editable=False, serialize=False, primary_key=True, default=uuid.uuid4)),
+                ('id', models.UUIDField(serialize=False, primary_key=True, default=uuid.uuid4, editable=False)),
                 ('name', models.CharField(db_index=True, max_length=128)),
             ],
             bases=(models.Model, save_the_change.mixins.SaveTheChange, save_the_change.mixins.TrackChanges),
@@ -113,7 +113,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='HistoricalComputeGroup',
             fields=[
-                ('id', models.IntegerField(db_index=True, auto_created=True, blank=True, verbose_name='ID')),
+                ('id', models.IntegerField(db_index=True, auto_created=True, verbose_name='ID', blank=True)),
                 ('instance_count', models.IntegerField()),
                 ('cpu', models.IntegerField()),
                 ('memory', models.IntegerField()),
@@ -126,35 +126,35 @@ class Migration(migrations.Migration):
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
             ],
             options={
+                'get_latest_by': 'history_date',
                 'ordering': ('-history_date', '-history_id'),
                 'verbose_name': 'historical compute group',
-                'get_latest_by': 'history_date',
             },
         ),
         migrations.CreateModel(
             name='HistoricalComputeInstance',
             fields=[
-                ('id', models.IntegerField(db_index=True, auto_created=True, blank=True, verbose_name='ID')),
+                ('id', models.IntegerField(db_index=True, auto_created=True, verbose_name='ID', blank=True)),
                 ('external_id', models.CharField(null=True, max_length=256, blank=True)),
                 ('name', models.CharField(max_length=256)),
-                ('state', models.CharField(choices=[('RUNNING', 'Running'), ('REBOOTING', 'Rebooting'), ('TERMINATED', 'Terminated'), ('PENDING', 'Pending'), ('STOPPED', 'Stopped'), ('SUSPENDED', 'Suspended'), ('PAUSED', 'Paused'), ('ERROR', 'Error'), ('UNKNOWN', 'Unknown')], null=True, max_length=16, blank=True)),
+                ('state', models.CharField(null=True, choices=[('RUNNING', 'Running'), ('REBOOTING', 'Rebooting'), ('TERMINATED', 'Terminated'), ('PENDING', 'Pending'), ('STOPPED', 'Stopped'), ('SUSPENDED', 'Suspended'), ('PAUSED', 'Paused'), ('ERROR', 'Error'), ('UNKNOWN', 'Unknown')], max_length=16, blank=True)),
                 ('public_ips', annoying.fields.JSONField()),
                 ('private_ips', annoying.fields.JSONField()),
                 ('extra', annoying.fields.JSONField()),
                 ('last_state_update_time', models.DateTimeField()),
                 ('terminated', models.BooleanField(default=False)),
-                ('failed_at', models.DateTimeField(null=True, blank=True)),
+                ('failed', models.BooleanField()),
                 ('failure_ignored', models.BooleanField(default=False)),
                 ('history_id', models.AutoField(serialize=False, primary_key=True)),
                 ('history_date', models.DateTimeField()),
                 ('history_type', models.CharField(choices=[('+', 'Created'), ('~', 'Changed'), ('-', 'Deleted')], max_length=1)),
-                ('group', models.ForeignKey(to='stratosphere.ComputeGroup', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False)),
-                ('history_user', models.ForeignKey(to=settings.AUTH_USER_MODEL, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+')),
+                ('group', models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.ComputeGroup', related_name='+')),
+                ('history_user', models.ForeignKey(on_delete=django.db.models.deletion.SET_NULL, null=True, to=settings.AUTH_USER_MODEL, related_name='+')),
             ],
             options={
+                'get_latest_by': 'history_date',
                 'ordering': ('-history_date', '-history_id'),
                 'verbose_name': 'historical compute instance',
-                'get_latest_by': 'history_date',
             },
         ),
         migrations.CreateModel(
@@ -190,11 +190,11 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ProviderImage',
             fields=[
-                ('id', models.UUIDField(editable=False, serialize=False, primary_key=True, default=uuid.uuid4)),
+                ('id', models.UUIDField(serialize=False, primary_key=True, default=uuid.uuid4, editable=False)),
                 ('external_id', models.CharField(db_index=True, max_length=256)),
                 ('name', models.CharField(null=True, db_index=True, max_length=256, blank=True)),
                 ('extra', annoying.fields.JSONField()),
-                ('disk_image', models.ForeignKey(to='stratosphere.DiskImage', related_name='provider_images', blank=True, null=True)),
+                ('disk_image', models.ForeignKey(blank=True, null=True, to='stratosphere.DiskImage', related_name='provider_images')),
                 ('provider', models.ForeignKey(to='stratosphere.Provider', related_name='provider_images')),
             ],
             bases=(models.Model, save_the_change.mixins.SaveTheChange, save_the_change.mixins.TrackChanges),
@@ -209,7 +209,7 @@ class Migration(migrations.Migration):
                 ('ram', models.IntegerField()),
                 ('disk', models.IntegerField()),
                 ('bandwidth', models.IntegerField(null=True, blank=True)),
-                ('vcpus', models.IntegerField(null=True, blank=True)),
+                ('cpu', models.IntegerField()),
                 ('extra', annoying.fields.JSONField()),
             ],
             bases=(models.Model, save_the_change.mixins.SaveTheChange, save_the_change.mixins.TrackChanges),
@@ -225,7 +225,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Ec2ProviderConfiguration',
             fields=[
-                ('providerconfiguration_ptr', models.OneToOneField(serialize=False, to='stratosphere.ProviderConfiguration', primary_key=True, parent_link=True, auto_created=True)),
+                ('providerconfiguration_ptr', models.OneToOneField(auto_created=True, primary_key=True, to='stratosphere.ProviderConfiguration', serialize=False, parent_link=True)),
                 ('region', models.CharField(max_length=16)),
                 ('credentials', models.ForeignKey(to='stratosphere.Ec2ProviderCredentials', related_name='configurations')),
             ],
@@ -234,7 +234,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='KeyAuthenticationMethod',
             fields=[
-                ('authenticationmethod_ptr', models.OneToOneField(serialize=False, to='stratosphere.AuthenticationMethod', primary_key=True, parent_link=True, auto_created=True)),
+                ('authenticationmethod_ptr', models.OneToOneField(auto_created=True, primary_key=True, to='stratosphere.AuthenticationMethod', serialize=False, parent_link=True)),
                 ('key', models.TextField()),
             ],
             bases=('stratosphere.authenticationmethod',),
@@ -242,7 +242,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='LinodeProviderConfiguration',
             fields=[
-                ('providerconfiguration_ptr', models.OneToOneField(serialize=False, to='stratosphere.ProviderConfiguration', primary_key=True, parent_link=True, auto_created=True)),
+                ('providerconfiguration_ptr', models.OneToOneField(auto_created=True, primary_key=True, to='stratosphere.ProviderConfiguration', serialize=False, parent_link=True)),
                 ('api_key', models.CharField(max_length=128)),
             ],
             bases=('stratosphere.providerconfiguration',),
@@ -250,7 +250,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='PasswordAuthenticationMethod',
             fields=[
-                ('authenticationmethod_ptr', models.OneToOneField(serialize=False, to='stratosphere.AuthenticationMethod', primary_key=True, parent_link=True, auto_created=True)),
+                ('authenticationmethod_ptr', models.OneToOneField(auto_created=True, primary_key=True, to='stratosphere.AuthenticationMethod', serialize=False, parent_link=True)),
                 ('password', models.CharField(max_length=256)),
             ],
             bases=('stratosphere.authenticationmethod',),
@@ -268,7 +268,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='providerconfiguration',
             name='polymorphic_ctype',
-            field=models.ForeignKey(editable=False, to='contenttypes.ContentType', null=True, related_name='polymorphic_stratosphere.providerconfiguration_set+'),
+            field=models.ForeignKey(null=True, to='contenttypes.ContentType', editable=False, related_name='polymorphic_stratosphere.providerconfiguration_set+'),
         ),
         migrations.AddField(
             model_name='providerconfiguration',
@@ -278,7 +278,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='providerconfiguration',
             name='user_configuration',
-            field=models.ForeignKey(to='stratosphere.UserConfiguration', related_name='provider_configurations', blank=True, null=True),
+            field=models.ForeignKey(blank=True, null=True, to='stratosphere.UserConfiguration', related_name='provider_configurations'),
         ),
         migrations.AddField(
             model_name='instancestatessnapshot',
@@ -288,37 +288,37 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='historicalcomputeinstance',
             name='provider_configuration',
-            field=models.ForeignKey(to='stratosphere.ProviderConfiguration', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.ProviderConfiguration', related_name='+'),
         ),
         migrations.AddField(
             model_name='historicalcomputeinstance',
             name='provider_image',
-            field=models.ForeignKey(to='stratosphere.ProviderImage', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.ProviderImage', related_name='+'),
         ),
         migrations.AddField(
             model_name='historicalcomputeinstance',
             name='provider_size',
-            field=models.ForeignKey(to='stratosphere.ProviderSize', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.ProviderSize', related_name='+'),
         ),
         migrations.AddField(
             model_name='historicalcomputegroup',
             name='authentication_method',
-            field=models.ForeignKey(to='stratosphere.AuthenticationMethod', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.AuthenticationMethod', related_name='+'),
         ),
         migrations.AddField(
             model_name='historicalcomputegroup',
             name='history_user',
-            field=models.ForeignKey(to=settings.AUTH_USER_MODEL, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.SET_NULL, null=True, to=settings.AUTH_USER_MODEL, related_name='+'),
         ),
         migrations.AddField(
             model_name='historicalcomputegroup',
             name='image',
-            field=models.ForeignKey(to='stratosphere.ComputeImage', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.ComputeImage', related_name='+'),
         ),
         migrations.AddField(
             model_name='historicalcomputegroup',
             name='user_configuration',
-            field=models.ForeignKey(to='stratosphere.UserConfiguration', related_name='+', blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, db_constraint=False, blank=True, null=True, to='stratosphere.UserConfiguration', related_name='+'),
         ),
         migrations.AddField(
             model_name='groupinstancestatessnapshot',
@@ -363,7 +363,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='authenticationmethod',
             name='polymorphic_ctype',
-            field=models.ForeignKey(editable=False, to='contenttypes.ContentType', null=True, related_name='polymorphic_stratosphere.authenticationmethod_set+'),
+            field=models.ForeignKey(null=True, to='contenttypes.ContentType', editable=False, related_name='polymorphic_stratosphere.authenticationmethod_set+'),
         ),
         migrations.AddField(
             model_name='authenticationmethod',

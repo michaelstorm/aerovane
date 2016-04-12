@@ -18,7 +18,7 @@ class LinodeProviderConfiguration(ProviderConfiguration):
         return cls(self.api_key)
 
     def get_available_sizes(self, provider_image, cpu, memory):
-        return self.provider_sizes.filter(vcpus__gte=cpu, ram__gte=memory)
+        return self.provider_sizes.filter(cpu__gte=cpu, ram__gte=memory)
 
     def create_libcloud_node(self, name, libcloud_image, libcloud_size, libcloud_auth, **extra_args):
         location = NodeLocation(id='2', name='Dallas, TX, USA', country='USA', driver=self.driver)
