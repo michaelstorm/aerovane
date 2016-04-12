@@ -1,5 +1,3 @@
---allow-external apache-libcloud
---allow-unverified apache-libcloud
 --extra-index-url https://pypi.fury.io/Jmtu27PFLB2CHCyHa4LF/aerovane/
 amqp==1.4.7
 apache-libcloud==0.20.1-aerovane
