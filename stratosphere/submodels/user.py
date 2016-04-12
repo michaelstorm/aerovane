@@ -6,6 +6,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 import hashlib
+import uuid
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
@@ -17,6 +18,7 @@ class UserConfiguration(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='configuration')
 
     def avatar_url(self):

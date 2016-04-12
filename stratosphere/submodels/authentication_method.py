@@ -4,6 +4,8 @@ from polymorphic import PolymorphicModel
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
+import uuid
+
 from ..util import *
 
 
@@ -11,6 +13,7 @@ class AuthenticationMethod(PolymorphicModel, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user_configuration = models.ForeignKey('UserConfiguration', related_name='authentication_methods')
     name = models.CharField(max_length=64)
 

@@ -7,11 +7,14 @@ from libcloud.compute.types import Provider as LibcloudProvider
 
 from stratosphere.models import ProviderConfiguration, Provider
 
+import uuid
+
 
 class Ec2ProviderCredentials(models.Model):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     access_key_id = models.CharField(max_length=128)
     secret_access_key = models.CharField(max_length=128)
 

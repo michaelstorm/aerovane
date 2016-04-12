@@ -16,14 +16,15 @@ from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
 from ..util import HasLogger, retry, call_with_retry, thread_local
 
 import json
-
 import traceback
+import uuid
 
 
 class InstanceStatesSnapshot(models.Model):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user_configuration = models.ForeignKey('UserConfiguration', related_name='instance_states_snapshots')
     time = models.DateTimeField()
 
@@ -36,6 +37,7 @@ class GroupInstanceStatesSnapshot(models.Model):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user_snapshot = models.ForeignKey('InstanceStatesSnapshot', related_name='group_snapshots')
     group = models.ForeignKey('ComputeGroup', related_name='instance_states_snapshots')
 
@@ -58,6 +60,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
         (TERMINATED, 'Terminated'),
     )
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user_configuration = models.ForeignKey('UserConfiguration', related_name='compute_groups')
     image = models.ForeignKey('ComputeImage', related_name='compute_groups')
     instance_count = models.IntegerField()

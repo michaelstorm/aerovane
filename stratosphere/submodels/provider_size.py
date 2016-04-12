@@ -6,6 +6,8 @@ from libcloud.compute.base import NodeSize
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
+import uuid
+
 from ..util import *
 
 
@@ -13,6 +15,7 @@ class ProviderSize(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_sizes')
     external_id = models.CharField(max_length=256)
     name = models.CharField(max_length=256)

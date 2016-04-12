@@ -10,6 +10,7 @@ from libcloud.compute.base import Node
 from libcloud.compute.types import NodeState
 
 import random
+import uuid
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
@@ -43,6 +44,7 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
         (UNKNOWN, 'Unknown'),
     )
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='instances')
     provider_image = models.ForeignKey('ProviderImage', related_name='instances')
     group = models.ForeignKey('ComputeGroup', related_name='instances')

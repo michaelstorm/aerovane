@@ -19,6 +19,7 @@ from ..tasks import load_provider_data
 from ..util import *
 
 import threading
+import uuid
 
 
 _cloud_provider_drivers = threading.local()
@@ -40,6 +41,7 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider = models.ForeignKey('Provider', related_name='configurations')
     provider_name = models.CharField(max_length=32)
     user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True,

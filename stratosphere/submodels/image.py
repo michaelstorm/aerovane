@@ -27,6 +27,7 @@ class DiskImageMapping(models.Model, SaveTheChange, TrackChanges):
         app_label = "stratosphere"
         unique_together = ('provider', 'disk_image', 'compute_image')
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider = models.ForeignKey('Provider', related_name='disk_image_mappings')
     disk_image = models.ForeignKey('DiskImage', related_name='disk_image_mappings')
     compute_image = models.ForeignKey('ComputeImage', related_name='disk_image_mappings')
@@ -36,6 +37,7 @@ class ComputeImage(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User)
     name = models.CharField(max_length=128)
 
