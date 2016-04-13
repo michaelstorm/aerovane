@@ -1,7 +1,7 @@
 #!/bin/bash -x
-sudo su postgres -c 'psql -c "drop database aerovane;"'
-sudo su postgres -c 'psql -c "create database aerovane;"'
-sudo su postgres -c 'psql -c "grant all privileges on database aerovane to postgres;"'
+sudo su - postgres -c 'psql -c "drop database aerovane;"'
+sudo su - postgres -c 'psql -c "create database aerovane;"'
+sudo su - postgres -c 'psql -c "grant all privileges on database aerovane to postgres;"'
 
 python manage.py migrate auth
 python manage.py migrate
