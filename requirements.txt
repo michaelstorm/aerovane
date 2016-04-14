@@ -19,7 +19,7 @@ django-celery==3.1.17
 django-extensions==1.5.9
 django-mailgun==0.8.0
 django-polymorphic==0.7.2
--e git+https://github.com/karanlyons/django-save-the-change.git@e48502d2568d76bd9c7093f4c002a5b0061bc468#egg=django_save_the_change-master
+-e git+https://github.com/karanlyons/django-save-the-change.git@e48502d2568d76bd9c7093f4c002a5b0061bc468#egg=django_save_the_change
 django-simple-history==1.7.0
 django-storages==1.1.8
 django-storages-redux==1.3
