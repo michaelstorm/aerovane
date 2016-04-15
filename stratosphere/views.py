@@ -150,7 +150,7 @@ def add_compute_group(request):
         },
         {
             'name': 'linode',
-            'available': True,
+            'available': False,
         },
         {
             'name': 'azure',

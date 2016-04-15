@@ -13,16 +13,16 @@ echo "Ec2ProviderConfiguration.create_regions(
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
 
-echo "Provider.objects.create(
-			name='linode',
-			pretty_name='Linode',
-			icon_path='/stratosphere/linode_icon.png')" | python manage.py shell_plus
+# echo "Provider.objects.create(
+# 			name='linode',
+# 			pretty_name='Linode',
+# 			icon_path='/stratosphere/linode_icon.png')" | python manage.py shell_plus
 
-echo "LinodeProviderConfiguration.objects.create(
-			provider=Provider.objects.get(name='linode'),
-			provider_name='linode',
-			user_configuration=User.objects.first().configuration,
-			api_key='mf0NiIcEWYSj1OgSZbyN1AenSYZevncAWw75NHqpc5VmYeeez9cchKeXzGdO9zNI')" | python manage.py shell_plus
+# echo "LinodeProviderConfiguration.objects.create(
+# 			provider=Provider.objects.get(name='linode'),
+# 			provider_name='linode',
+# 			user_configuration=User.objects.first().configuration,
+# 			api_key='mf0NiIcEWYSj1OgSZbyN1AenSYZevncAWw75NHqpc5VmYeeez9cchKeXzGdO9zNI')" | python manage.py shell_plus
 
 echo "KeyAuthenticationMethod.objects.create(
 	name='Production deployment key',
