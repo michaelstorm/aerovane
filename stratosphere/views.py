@@ -216,7 +216,7 @@ def authentication_methods(request, method_id=None):
     elif request.method == 'DELETE':
         AuthenticationMethod.objects.filter(id=method_id).delete()
 
-    return redirect('/providers/')
+    return redirect('/authentication/')
 
 
 @login_required

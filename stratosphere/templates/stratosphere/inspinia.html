@@ -184,7 +184,7 @@
                     var providers = [
                         {% for provider in providers %}
                             {
-                                id: {{ provider.pk }},
+                                id: "{{ provider.pk }}",
                                 pretty_name: "{{ provider.provider.pretty_name }}",
                             },
                         {% endfor %}
