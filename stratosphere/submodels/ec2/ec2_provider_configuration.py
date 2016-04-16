@@ -6,6 +6,8 @@ from libcloud.compute.providers import get_driver
 from libcloud.compute.types import Provider as LibcloudProvider
 
 from stratosphere.models import ProviderConfiguration, Provider
+from stratosphere.tasks import load_provider_data
+from stratosphere.util import schedule_random_default_delay
 
 import uuid
 
