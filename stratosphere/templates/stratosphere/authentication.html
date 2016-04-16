@@ -43,7 +43,7 @@
                                 {% endfor %}
                             </tbody>
                         </table>
-                        <form action="/authentication_methods/" method="post">
+                        <form action="/authentication_methods/" method="post" autocomplete="off">
                             {% csrf_token %}
                             {% bootstrap_form add_key_method %}
                             <input type="submit" value="Add" class="btn btn-primary" >
