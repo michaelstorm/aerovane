@@ -112,6 +112,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     def check_instance_distribution(self):
         with transaction.atomic():
             now = timezone.now()
+            running_count = self.instances.filter(ComputeInstance.running_instances_query(now)).count()
 
             if self.state == self.TERMINATED:
                 non_terminated_count = self.instances.filter(~ComputeInstance.terminated_instances_query(now)).count()
@@ -123,7 +124,6 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
             else:
                 self.logger.info('Group state is %s; ensuring running instance count no less than expected' % self.state)
 
-                running_count = self.instances.filter(ComputeInstance.running_instances_query(now)).count()
                 self.logger.info('running_count < self.instance_count = %d < %d' % (running_count, self.instance_count))
 
                 if running_count >= self.instance_count and self.state == self.PENDING:

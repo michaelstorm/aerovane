@@ -8,6 +8,65 @@ import uuid
 
 
 class ProviderConfigurationDataLoader(object):
+    _ecus_by_id = {
+        'aws': {
+            'c1.medium': 5,
+            'c1.xlarge': 20,
+            'c3.2xlarge': 28,
+            'c3.4xlarge': 55,
+            'c3.8xlarge': 108,
+            'c3.large': 7,
+            'c3.xlarge': 14,
+            'c4.2xlarge': 31,
+            'c4.4xlarge': 62,
+            'c4.8xlarge': 132,
+            'c4.large': 8,
+            'c4.xlarge': 16,
+            'cc2.8xlarge': 88,
+            'cg1.4xlarge': 33.5,
+            'cr1.8xlarge': 88,
+            'd2.2xlarge': 28,
+            'd2.4xlarge': 56,
+            'd2.8xlarge': 116,
+            'd2.xlarge': 14,
+            'g2.2xlarge': 26,
+            'g2.8xlarge': 104,
+            'hi1.4xlarge': 35,
+            'hs1.8xlarge': 35,
+            'i2.2xlarge': 27,
+            'i2.4xlarge': 53,
+            'i2.8xlarge': 104,
+            'i2.xlarge': 14,
+            'm1.large': 4,
+            'm1.medium': 2,
+            'm1.small': 1,
+            'm1.xlarge': 8,
+            'm2.2xlarge': 13,
+            'm2.4xlarge': 26,
+            'm2.xlarge': 6.5,
+            'm3.2xlarge': 26,
+            'm3.large': 6.5,
+            'm3.medium': 3,
+            'm3.xlarge': 13,
+            'm4.10xlarge': 124.5,
+            'm4.2xlarge': 26,
+            'm4.4xlarge': 53.5,
+            'm4.large': 6.5,
+            'm4.xlarge': 13,
+            'r3.2xlarge': 26,
+            'r3.4xlarge': 52,
+            'r3.8xlarge': 104,
+            'r3.large': 6.5,
+            'r3.xlarge': 13,
+            't1.micro': 0,
+            't2.large': 0,
+            't2.medium': 0,
+            't2.micro': 0,
+            't2.nano': 0,
+            't2.small': 0
+        }
+    }
+
     def load_data(self, include_public):
         self._load_available_sizes()
         self._load_available_images(include_public)
@@ -20,25 +79,25 @@ class ProviderConfigurationDataLoader(object):
         provider_size_ids = set(self.provider_sizes.values_list('id', flat=True))
 
         for driver_size in driver_sizes:
-            if 'cpu' not in driver_size.extra:
-                self.logger.warn("Not adding driver size %s for provider %s because it doesn't have a cpu count" %
-                                 (driver_size.id, self.pk))
+            if driver_size.id.startswith('t'):
+                # t* instance types can only be used in VPCs
+                continue
+
+            provider_size = ProviderSize.objects.filter(external_id=driver_size.id, provider_configuration=self).first()
+            if provider_size is None:
+                provider_size = ProviderSize(external_id=driver_size.id, provider_configuration=self)
             else:
-                provider_size = ProviderSize.objects.filter(external_id=driver_size.id, provider_configuration=self).first()
-                if provider_size is None:
-                    provider_size = ProviderSize(external_id=driver_size.id, provider_configuration=self)
-                else:
-                    provider_size_ids.remove(provider_size.pk)
+                provider_size_ids.remove(provider_size.pk)
 
-                provider_size.name = driver_size.name
-                provider_size.price = driver_size.price
-                provider_size.ram = driver_size.ram
-                provider_size.disk = driver_size.disk
-                provider_size.cpu = driver_size.extra['cpu']
-                provider_size.bandwidth = driver_size.bandwidth
-                provider_size.extra = json.loads(json.dumps(driver_size.extra))
+            provider_size.name = driver_size.name
+            provider_size.price = driver_size.price
+            provider_size.ram = driver_size.ram
+            provider_size.disk = driver_size.disk
+            provider_size.cpu = self._ecus_by_id['aws'][driver_size.id]
+            provider_size.bandwidth = driver_size.bandwidth
+            provider_size.extra = json.loads(json.dumps(driver_size.extra))
 
-                provider_size.save()
+            provider_size.save()
 
         # remaining elements of provider_size_ids are those elements deleted remotely
         ProviderSize.objects.filter(pk__in=provider_size_ids).delete()
@@ -48,7 +107,7 @@ class ProviderConfigurationDataLoader(object):
 
     # TODO locally delete images deleted remotely
     # TODO don't limit driver images by default
-    def _load_available_images(self, include_public, driver_images_limit=1000, row_retrieval_chunk_size=100):
+    def _load_available_images(self, include_public, driver_images_limit=None, row_retrieval_chunk_size=100):
         def driver_image_name(driver_image):
             return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
 

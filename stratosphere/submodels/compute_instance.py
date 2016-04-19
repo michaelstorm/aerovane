@@ -83,12 +83,8 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
 
     @classmethod
     def handle_pre_save(cls, sender, instance, raw, using, update_fields, **kwargs):
-        if instance.id:
-            old_instance = cls.objects.get(pk=instance.id)
-            if instance.state != old_instance.state:
-                instance.last_state_update_time = timezone.now()
-        else:
-            # instance is being created
+        old_instance = cls.objects.filter(pk=instance.id).first() if instance.id is not None else None
+        if old_instance is None or instance.state != old_instance.state:
             instance.last_state_update_time = timezone.now()
 
     @classmethod
