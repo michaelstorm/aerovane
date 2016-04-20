@@ -86,14 +86,16 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     def provider_states(self):
         provider_states_map = {}
         now = timezone.now()
+        two_minutes_ago = now - timedelta(minutes=2)
 
         for provider_name in self.provider_policy:
             provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name, user_configuration=self.user_configuration)
             provider_instances = self.instances.filter(provider_image__provider__name=provider_name, terminated=False)
 
+            # TODO split GroupInstanceStatesSnapshot into provider snapshots and use those
             running_count = len(list(filter(lambda i: i.is_running(now), provider_instances)))
             pending_count = len(list(filter(lambda i: i.is_pending(now), provider_instances)))
-            terminated_count = len(list(filter(lambda i: i.is_terminated(now), provider_instances)))
+            terminated_count = len(list(filter(lambda i: i.is_terminated(now) and i.last_state_update_time >= two_minutes_ago, provider_instances)))
 
             icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
 
@@ -179,12 +181,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     def create_phantom_instance_states_snapshot(self, now):
         # TODO figure out how to make this more consistent without causing a bunch of transaction conflicts
         instances = list(self.instances.all())
+        two_minutes_ago = now - timedelta(minutes=2)
 
         args = {
             'group': self,
             'pending': len(list(filter(lambda i: i.is_pending(now), instances))),
             'running': len(list(filter(lambda i: i.is_running(now), instances))),
-            'terminated': len(list(filter(lambda i: i.is_terminated(now), instances))),
+            'terminated': len(list(filter(lambda i: i.is_terminated(now) and i.last_state_update_time >= two_minutes_ago, instances))),
         }
 
         return GroupInstanceStatesSnapshot(**args)

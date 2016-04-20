@@ -106,7 +106,6 @@ class ProviderConfigurationDataLoader(object):
         return self.driver.list_images()
 
     # TODO locally delete images deleted remotely
-    # TODO don't limit driver images by default
     def _load_available_images(self, include_public, driver_images_limit=None, row_retrieval_chunk_size=100):
         def driver_image_name(driver_image):
             return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
