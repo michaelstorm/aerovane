@@ -19,8 +19,8 @@ for region in regions:
     random.shuffle(nodes_to_destroy)
 
     if len(nodes_to_destroy):
-        count = random.randrange(1, len(nodes_to_destroy))
+        count = 1 #random.randrange(1, len(nodes_to_destroy))
         nodes_to_destroy = nodes_to_destroy[:count]
 
         for node in nodes_to_destroy:
-            driver.destroy_node(node.id)
+            driver.destroy_node(node)

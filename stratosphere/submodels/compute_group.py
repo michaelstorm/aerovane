@@ -116,8 +116,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
             now = timezone.now()
             running_count = self.instances.filter(ComputeInstance.running_instances_query(now)).count()
 
+            provider_configurations = self.user_configuration.provider_configurations
+            good_provider_ids = [provider.pk for provider in provider_configurations.filter(enabled=True)]
+
+            self.logger.warn('good providers: %s' % good_provider_ids)
+
             if self.state == self.TERMINATED:
-                non_terminated_count = self.instances.filter(~ComputeInstance.terminated_instances_query(now)).count()
+                non_terminated_count = self.instances.filter(~ComputeInstance.terminated_instances_query(now, include_intentionally_terminated=True)).count()
                 self.logger.info('Compute group state is TERMINATED. Remaining non-terminated instances: %d' % non_terminated_count)
                 if non_terminated_count == 0:
                     self.logger.warn('Deleting self')
@@ -131,11 +136,6 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                 if running_count >= self.instance_count and self.state == self.PENDING:
                     self.state = self.RUNNING
                     self.save()
-
-                provider_configurations = self.user_configuration.provider_configurations
-                good_provider_ids = [provider.pk for provider in provider_configurations.filter(enabled=True)]
-
-                self.logger.warn('good providers: %s' % good_provider_ids)
 
             if running_count != self.instance_count:
                 self.logger.warn('Rebalancing instances')

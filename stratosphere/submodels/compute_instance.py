@@ -73,9 +73,12 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
         return (Q(state=None) | Q(state='PENDING')) & Q(last_state_update_time__gt=expiration_time)
 
     @classmethod
-    def terminated_instances_query(cls, now):
+    def terminated_instances_query(cls, now, include_intentionally_terminated=False):
         not_pending_or_running = ~(cls.running_instances_query(now) | cls.pending_instances_query(now))
-        return not_pending_or_running & Q(terminated=False)
+        query = not_pending_or_running
+        if not include_intentionally_terminated:
+            query &= Q(terminated=False)
+        return query
 
     @classmethod
     def unignored_failed_instances_query(cls):
