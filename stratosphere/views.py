@@ -398,18 +398,24 @@ def state_history(request):
 
     limit = request.GET.get('limit')
     if limit is None:
+        limit_datetime = None
         limit_query = Q()
     else:
         limit_datetime = timezone.now() - timedelta(seconds=int(limit))
         limit_query = Q(time__gte=limit_datetime)
 
     user = User.objects.get(pk=request.user.pk)
-    history = user.configuration.instance_states_snapshots
-    history = history.filter(limit_query).order_by('-time')
-    history = list(reversed(history))
+    snapshots = user.configuration.instance_states_snapshots
+    snapshots = snapshots.order_by('time')
+    history = list(snapshots.filter(limit_query))
 
     if len(history) == 0:
-        history = [user.configuration.instance_states_snapshots.order_by('-time').first()]
+        history = [snapshots.last()]
+    elif limit_datetime is not None:
+        previous_snapshot = snapshots.filter(time__lt=limit_datetime).last()
+        if previous_snapshot is not None:
+            previous_snapshot.time = limit_datetime
+            history = [previous_snapshot] + history
 
     history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)
