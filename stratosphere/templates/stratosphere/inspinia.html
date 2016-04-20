@@ -118,8 +118,9 @@
                     window.instances_chart_plot = $("#instances-chart").plot(series, {
                         xaxis: {
                             mode: "time",
-                            show: false,
                             tickLength: 0,
+                            timezone: "browser",
+                            twelveHourClock: true,
                             min: xmin,
                             max: xmax,
                             autoscaleMargin: 0.0,
@@ -136,6 +137,9 @@
                                 fill: true,
                                 steps: true,
                             },
+                        },
+                        legend: {
+                            position: 'nw',
                         },
                         grid: {
                             borderWidth: 0,
