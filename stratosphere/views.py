@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
 import base64
 import json
@@ -393,9 +396,20 @@ def state_history(request):
                 'pending': h.pending,
                 'terminated': h.terminated}
 
+    limit = request.GET.get('limit')
+    if limit is None:
+        limit_query = Q()
+    else:
+        limit_datetime = timezone.now() - timedelta(seconds=int(limit))
+        limit_query = Q(time__gte=limit_datetime)
+
     user = User.objects.get(pk=request.user.pk)
     history = user.configuration.instance_states_snapshots
-    history = history.order_by('-time') #[:15]
+    history = history.filter(limit_query).order_by('-time')
     history = list(reversed(history))
+
+    if len(history) == 0:
+        history = [user.configuration.instance_states_snapshots.order_by('-time').first()]
+
     history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)

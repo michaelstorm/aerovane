@@ -50,6 +50,9 @@
         <script src="/static/stratosphere/angular-ui-select/select.min.js"></script>
 
         <script type="text/javascript">
+            instances_chart_range_limit = 1800;
+            changed_instances_chart_range_limit = false;
+
             String.prototype.toProperCase = function () {
                 return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
             };
@@ -102,13 +105,14 @@
                     var current_min = parseInt(current_range[0]);
                     var current_max = parseInt(current_range[1]);
 
-                    var xmin = current_min == 0 && data.length ? data[0].time : current_min;
+                    var xmin = (current_min == 0 || changed_instances_chart_range_limit) && data.length ? data[0].time : current_min;
                     var xmax = null;
-                    if (current_min == 0 || current_max == window.last_now)
+                    if (current_min == 0 || changed_instances_chart_range_limit || current_max == window.last_now)
                         xmax = now;
                     else
                         xmax = current_max;
 
+                    changed_instances_chart_range_limit = false;
                     window.last_now = now;
 
                     window.instances_chart_plot = $("#instances-chart").plot(series, {
@@ -266,7 +270,7 @@
                 var instances_chart_range_slider_moving = false;
 
                 $timeout(function() {
-                    $http.get('/compute/state_history/').then(function (res) {
+                    $http.get('/compute/state_history/', {'params': {'limit': instances_chart_range_limit}}).then(function (res) {
                         drawInstancesChart(res.data);
 
                         $("#instances-chart-range-slider").on('slide', function(event, value) {
@@ -286,11 +290,24 @@
                         $scope.groups = data;
                     });
 
-                    $http.get('/compute/state_history/').then(function (res) {
+                    $http.get('/compute/state_history/', {'params': {'limit': instances_chart_range_limit}}).then(function (res) {
                         if (!instances_chart_range_slider_moving)
                             drawInstancesChart(res.data);
                     });
                 }, 3000);
+
+                $(document).ready(function() {
+                    $('#instances-chart-max-range-buttons button').click(function() {
+                        $('#instances-chart-max-range-buttons button.btn-info').removeClass('btn-info').addClass('btn-default');
+                        $(this).removeClass('btn-default').addClass('btn-info');
+                        instances_chart_range_limit = $(this).attr('seconds') || null;
+
+                        $http.get('/compute/state_history/', {'params': {'limit': instances_chart_range_limit}}).then(function (res) {
+                            changed_instances_chart_range_limit = true;
+                            drawInstancesChart(res.data);
+                        });
+                    });
+                });
 
                 $scope.deleteEntry = function(id) {
                     Group.delete({id: id}, function() {
