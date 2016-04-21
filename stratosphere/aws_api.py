@@ -83,7 +83,7 @@ def describe_instances_response(group_id, image_id, instance_type, instance_id, 
         state_code = 0
     elif state == ComputeGroup.RUNNING:
         state_code = 16
-    elif state == ComputeGroup.TERMINATED:
+    elif state == ComputeGroup.DESTROYED:
         state_code = 48
 
     return """

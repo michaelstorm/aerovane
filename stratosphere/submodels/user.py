@@ -31,14 +31,14 @@ class UserConfiguration(models.Model, SaveTheChange, TrackChanges):
             'time': now,
             'pending': 0,
             'running': 0,
-            'terminated': 0,
+            'failed': 0,
         }
 
         group_snapshots = [g.create_phantom_instance_states_snapshot(now) for g in self.compute_groups.all()]
         for group_snapshot in group_snapshots:
             args['pending'] += group_snapshot.pending
             args['running'] += group_snapshot.running
-            args['terminated'] += group_snapshot.terminated
+            args['failed'] += group_snapshot.failed
 
         return InstanceStatesSnapshot(**args), group_snapshots
 
@@ -54,7 +54,7 @@ class UserConfiguration(models.Model, SaveTheChange, TrackChanges):
 
     def take_instance_states_snapshot_if_changed(self):
         def snapshots_values(snapshot):
-            return {state: getattr(snapshot, state) for state in ('pending', 'running', 'terminated')}
+            return {state: getattr(snapshot, state) for state in ('pending', 'running', 'failed')}
 
         def snapshot_values_equal(first, second):
             if first is None or second is None:

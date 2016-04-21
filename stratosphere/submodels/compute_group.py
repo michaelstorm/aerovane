@@ -28,9 +28,9 @@ class InstanceStatesSnapshot(models.Model):
     user_configuration = models.ForeignKey('UserConfiguration', related_name='instance_states_snapshots')
     time = models.DateTimeField()
 
-    pending    = models.IntegerField()
-    running    = models.IntegerField()
-    terminated = models.IntegerField()
+    pending = models.IntegerField()
+    running = models.IntegerField()
+    failed  = models.IntegerField()
 
 
 class GroupInstanceStatesSnapshot(models.Model):
@@ -41,9 +41,9 @@ class GroupInstanceStatesSnapshot(models.Model):
     user_snapshot = models.ForeignKey('InstanceStatesSnapshot', related_name='group_snapshots')
     group = models.ForeignKey('ComputeGroup', related_name='instance_states_snapshots')
 
-    pending    = models.IntegerField()
-    running    = models.IntegerField()
-    terminated = models.IntegerField()
+    pending = models.IntegerField()
+    running = models.IntegerField()
+    failed  = models.IntegerField()
 
 
 class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
@@ -52,12 +52,12 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
     PENDING = 'PENDING'
     RUNNING = 'RUNNING'
-    TERMINATED = 'TERMINATED'
+    DESTROYED = 'DESTROYED'
 
     STATE_CHOICES = (
         (PENDING, 'Pending'),
         (RUNNING, 'Running'),
-        (TERMINATED, 'Terminated'),
+        (DESTROYED, 'Destroyed'),
     )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -90,12 +90,12 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
         for provider_name in self.provider_policy:
             provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name, user_configuration=self.user_configuration)
-            provider_instances = self.instances.filter(provider_image__provider__name=provider_name, terminated=False)
+            provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
 
             # TODO split GroupInstanceStatesSnapshot into provider snapshots and use those
-            running_count = len(list(filter(lambda i: i.is_running(now), provider_instances)))
-            pending_count = len(list(filter(lambda i: i.is_pending(now), provider_instances)))
-            terminated_count = len(list(filter(lambda i: i.is_terminated(now) and i.last_state_update_time >= two_minutes_ago, provider_instances)))
+            running_count = len(list(filter(lambda i: i.is_running(), provider_instances)))
+            pending_count = len(list(filter(lambda i: i.is_pending(), provider_instances)))
+            failed_count = len(list(filter(lambda i: i.is_failed() and i.state != ComputeInstance.TERMINATED, provider_instances)))
 
             icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
 
@@ -103,7 +103,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                 'id': provider_configuration.pk,
                 'running': running_count,
                 'pending': pending_count,
-                'terminated': terminated_count,
+                'failed': failed_count,
                 'pretty_name': provider_configuration.provider.pretty_name,
                 'icon_path': icon_path,
             }
@@ -113,33 +113,29 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     @thread_local(DB_OVERRIDE='serializable')
     def check_instance_distribution(self):
         with transaction.atomic():
-            now = timezone.now()
-            running_count = self.instances.filter(ComputeInstance.running_instances_query(now)).count()
+            running_count = self.instances.filter(ComputeInstance.running_instances_query()).count()
 
             provider_configurations = self.user_configuration.provider_configurations
             good_provider_ids = [provider.pk for provider in provider_configurations.filter(enabled=True)]
 
             self.logger.warn('good providers: %s' % good_provider_ids)
 
-            if self.state == self.TERMINATED:
-                non_terminated_count = self.instances.filter(~ComputeInstance.terminated_instances_query(now, include_intentionally_terminated=True)).count()
-                self.logger.info('Compute group state is TERMINATED. Remaining non-terminated instances: %d' % non_terminated_count)
-                if non_terminated_count == 0:
+            if self.state == self.DESTROYED:
+                available_count = self.instances.filter(~ComputeInstance.unavailable_instances_query()).count()
+                self.logger.info('Compute group state is DESTROYED. Remaining available instances: %d' % available_count)
+                if available_count == 0:
                     self.logger.warn('Deleting self')
                     self.delete()
 
             else:
-                self.logger.info('Group state is %s; ensuring running instance count no less than expected' % self.state)
-
-                self.logger.info('running_count < self.instance_count = %d < %d' % (running_count, self.instance_count))
-
+                self.logger.info('Group state is %s' % self.state)
                 if running_count >= self.instance_count and self.state == self.PENDING:
                     self.state = self.RUNNING
                     self.save()
 
-            if running_count != self.instance_count:
-                self.logger.warn('Rebalancing instances')
-                self.rebalance_instances(good_provider_ids)
+            # rebalance even if running count matches, in order to correct imbalance if provider is added or re-enabled
+            self.logger.warn('Rebalancing instances')
+            self.rebalance_instances(good_provider_ids)
 
     @thread_local(DB_OVERRIDE='serializable')
     def rebalance_instances(self, provider_ids=None):
@@ -163,18 +159,18 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
         self.user_configuration.take_instance_states_snapshot_if_changed()
 
     @thread_local(DB_OVERRIDE='serializable')
-    def terminate_instance(self, instance):
+    def destroy_instance(self, instance):
         with transaction.atomic():
             self.instance_count -= 1
             self.save()
 
-            instance.terminate()
+            instance.destroy()
 
     @retry(OperationalError)
     @thread_local(DB_OVERRIDE='serializable')
-    def terminate(self):
+    def destroy(self):
         with transaction.atomic():
-            self.state = self.TERMINATED
+            self.state = self.DESTROYED
             self.instance_count = 0
             self.save()
 
@@ -185,9 +181,9 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
         args = {
             'group': self,
-            'pending': len(list(filter(lambda i: i.is_pending(now), instances))),
-            'running': len(list(filter(lambda i: i.is_running(now), instances))),
-            'terminated': len(list(filter(lambda i: i.is_terminated(now) and i.last_state_update_time >= two_minutes_ago, instances))),
+            'pending': len(list(filter(lambda i: i.is_pending(), instances))),
+            'running': len(list(filter(lambda i: i.is_running(), instances))),
+            'failed': len(list(filter(lambda i: i.is_failed() and i.state != ComputeInstance.TERMINATED, instances))),
         }
 
         return GroupInstanceStatesSnapshot(**args)
@@ -268,22 +264,20 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
             if failed_instances.count() < self.instance_count * 3:
                 instance_counts[key] = self.instance_count
             else:
-                self.logger.warn('Not creating more instances in Hail Mary mode for provider %d' %
+                self.logger.warn('Not creating more instances in Hail Mary mode for provider %s' %
                                  provider_size.provider_configuration.pk)
 
         return instance_counts
 
-    def _pending_or_running_count(self, provider_size):
-        now = timezone.now()
-        query = Q(state__in=(ComputeInstance.PENDING, ComputeInstance.RUNNING)) | Q(state=None)
-        query &= Q(provider_size=provider_size)
-        instances = self.instances.filter(query)
-        return len([i.is_pending(now) or i.is_running(now) for i in instances])
+    def _pending_or_running_instances(self, provider_size):
+        query = Q(provider_size=provider_size)
+        query &= ComputeInstance.pending_instances_query() | ComputeInstance.running_instances_query()
+        return self.instances.filter(query)
 
     def _create_compute_instances(self):
         with transaction.atomic():
             self.logger.info('Size distribution: %s' % self.size_distribution)
-            terminate_instances = []
+            destroy_instances = []
 
             for provider_size_id, size_instance_count in self.size_distribution.items():
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
@@ -292,14 +286,9 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                 self.logger.info('Balancing compute instances for size %s; expected count %d' %
                                  (provider_size, size_instance_count))
 
-                pending_or_running_count = self._pending_or_running_count(provider_size)
-
-                running_provider_instances = self.instances.filter(provider_size=provider_size,
-                                                                   state=ComputeInstance.RUNNING)
-                running_count = running_provider_instances.count()
-
-                self.logger.info('pending_or_running_count: %d, running_count: %d' %
-                                 (pending_or_running_count, running_count))
+                pending_or_running_instances = self._pending_or_running_instances(provider_size)
+                pending_or_running_count = pending_or_running_instances.count()
+                self.logger.info('pending_or_running_count: %d' % pending_or_running_count)
 
                 # filter on provider as well, since available_provider_images could contain shared images
                 # TODO wait, does that make sense?
@@ -330,26 +319,58 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                         compute_instance = ComputeInstance.objects.create(**compute_instance_args)
                         self.logger.info('Created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
 
-                elif running_count > size_instance_count:
-                    extra_instances = list(running_provider_instances)[:running_count - size_instance_count]
+                elif pending_or_running_count > size_instance_count:
+                    # we can include pending instances here because later logic doesn't allow us to destroy more instances
+                    # than we can safely
+                    extra_instance_count = pending_or_running_count - size_instance_count
+                    extra_instances = list(pending_or_running_instances)[:extra_instance_count]
                     self.logger.info('Found %d extra instances for size %s' % (len(extra_instances), provider_size))
-                    terminate_instances.extend(extra_instances)
+                    destroy_instances.extend(extra_instances)
 
             # TODO make sure this squares with multi-row transaction isolation
-            missing_size_instances = self.instances.filter(~Q(provider_size__pk__in=self.size_distribution.keys()))
-            terminate_instances.extend(missing_size_instances)
+            missing_size_query = ~Q(provider_size__pk__in=self.size_distribution.keys())
+            missing_size_query &= ComputeInstance.pending_instances_query()
+            missing_size_query &= ComputeInstance.running_instances_query()
+            missing_size_instances = self.instances.filter(missing_size_query)
+            destroy_instances.extend(missing_size_instances)
 
             self.logger.info('Found %d instances for sizes not in size distribution' % len(missing_size_instances))
 
-            if len(terminate_instances) > 0:
-                total_running_count = self.instances.filter(state=ComputeInstance.RUNNING).count()
+            if len(destroy_instances) > 0:
+                total_running_count = self.instances.filter(ComputeInstance.running_instances_query()).count()
                 if total_running_count < self.instance_count:
-                    # Two motivations here: we stop ourselves from getting unlucky by accidentally terminating an
-                    # instance that's just having a bad minute, and we also stop ourselves from terminating instances
+                    # Two motivations here: we stop ourselves from getting unlucky by accidentally destroying an
+                    # instance that's just having a bad minute, and we also stop ourselves from destroying instances
                     # that are taking so long to start up that they're considered as failed. The latter can get into
                     # a loop of continually starting, timing out, and restarting instances, otherwise.
-                    self.logger.warn('Not terminating extraneous instances while running count is less than or equal to expected count')
+                    # TODO is this still true?
+                    self.logger.warn('Not destroying extraneous instances while running count is less than or equal to expected count')
                 else:
-                    for instance in terminate_instances:
-                        self.logger.warn('Terminating instance %s for size %s' % (instance, instance.provider_size))
-                        instance.terminate()
+                    # stop ourselves from destroying instances too early when rebalancing to a new provider
+                    remaining_destroy_instances = []
+                    destroyed_instance_count = 0
+
+                    allowed_running_destroy_count = total_running_count - self.instance_count
+                    self.logger.warn('Destroying a maximum of %d running instances' % allowed_running_destroy_count)
+                    for instance in destroy_instances:
+                        if destroyed_instance_count < allowed_running_destroy_count and instance.is_running():
+                            self.logger.warn('Destroying running instance %s for size %s' % (instance, instance.provider_size))
+                            destroyed_instance_count += 1
+                            instance.destroy()
+                        else:
+                            remaining_destroy_instances.append(instance)
+
+                    destroy_instances = remaining_destroy_instances
+                    remaining_destroy_instances = []
+                    destroyed_instance_count = 0
+
+                    pending_or_running_query = ComputeInstance.pending_instances_query() | ComputeInstance.running_instances_query()
+                    total_pending_or_running_count = self.instances.filter(pending_or_running_query).count()
+                    allowed_pending_destroy_count = total_pending_or_running_count - self.instance_count
+                    self.logger.warn('Destroying a maximum of %d pending instances' % allowed_pending_destroy_count)
+                    for instance in destroy_instances:
+                        self.logger.warn('is_pending: %s, state: %s, failed: %s, terminated: %s' % (instance.is_pending(), instance.state, instance.failed, instance.destroyed))
+                        if destroyed_instance_count < allowed_pending_destroy_count and instance.is_pending():
+                            self.logger.warn('Destroying pending instance %s for size %s' % (instance, instance.provider_size))
+                            destroyed_instance_count += 1
+                            instance.destroy()

@@ -189,6 +189,7 @@ def add_compute_group(request):
 
 def _compute_group_to_json(group):
     return {'id': group.id, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
+            'running_instance_count': group.instances.filter(ComputeInstance.running_instances_query()).count(),
             'instance_count': group.instance_count, 'providers': group.provider_states(),
             'state': group.state}
 
@@ -394,7 +395,7 @@ def state_history(request):
         return {'time': unix_time_millis(h.time),
                 'running': h.running,
                 'pending': h.pending,
-                'terminated': h.terminated}
+                'failed': h.failed}
 
     limit = request.GET.get('limit')
     if limit is None:
@@ -410,7 +411,9 @@ def state_history(request):
     history = list(snapshots.filter(limit_query))
 
     if len(history) == 0:
-        history = [snapshots.last()]
+        last_snapshot = snapshots.last()
+        if last_snapshot is not None:
+            history = [last_snapshot]
     elif limit_datetime is not None:
         previous_snapshot = snapshots.filter(time__lt=limit_datetime).last()
         if previous_snapshot is not None:

@@ -15,4 +15,4 @@ class Provider(models.Model, SaveTheChange, TrackChanges):
     icon_path = models.TextField()
 
     def __repr__(self):
-        return '<Provider %s: %d>' % (self.name, self.pk)
+        return '<Provider %s: %s>' % (self.name, self.pk)

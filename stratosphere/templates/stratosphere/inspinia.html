@@ -70,7 +70,7 @@
                 },
                 {
                     data: [],
-                    label: "Terminated",
+                    label: "Failed",
                     color: "#d9534f",
                 }];
 
@@ -86,7 +86,7 @@
 
                 for (var i = 0; i < data.length; i += 1) {
                     var snapshot = data[i];
-                    series[2].data.push([snapshot.time, snapshot.terminated]);
+                    series[2].data.push([snapshot.time, snapshot.failed]);
                 }
 
                 // extend last value to edge of graph, or it'll end in a vertical line
@@ -95,7 +95,7 @@
                     var last_snapshot = data[data.length-1];
                     series[0].data.push([now, last_snapshot.running]);
                     series[1].data.push([now, last_snapshot.pending]);
-                    series[2].data.push([now, snapshot.terminated]);
+                    series[2].data.push([now, snapshot.failed]);
                 }
 
                 if ($('#instances-chart').length) {
@@ -317,7 +317,7 @@
                     Group.delete({id: id}, function() {
                         for(var i = $scope.groups.length - 1; i >= 0; i--) {
                             if ($scope.groups[i].id == id) {
-                                $scope.groups[i].state = 'TERMINATED';
+                                $scope.groups[i].state = 'DESTROYED';
                             }
                         }
                     });
@@ -326,7 +326,7 @@
                 $scope.$watch('groups', function(newValue, oldValue) {
                     $timeout(function() {
                         $('.group button').removeAttr('disabled');
-                        $('.group-TERMINATED button').attr('disabled', true);
+                        $('.group-DESTROYED button').attr('disabled', true);
 
                         if (typeof newValue !== 'undefined') {
                             for (var i = 0; i < newValue.length; i++) {
@@ -365,7 +365,7 @@
 
                                     series[0].data.push([provider.running, j]);
                                     series[1].data.push([provider.pending, j]);
-                                    series[2].data.push([provider.terminated, j]);
+                                    series[2].data.push([provider.failed, j]);
                                     j++;
                                 });
 

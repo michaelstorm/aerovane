@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -12,9 +13,9 @@ import traceback
 
 
 class ProviderConfigurationStatusChecker(object):
-    def set_enabled(self, enabled):
+    def set_enabled(self, enabled_value):
         with transaction.atomic():
-            if enabled:
+            if enabled_value:
                 failed_instances = self.instances.filter(ComputeInstance.unignored_failed_instances_query())
                 for instance in failed_instances:
                     instance.failure_ignored = True
@@ -44,17 +45,37 @@ class ProviderConfigurationStatusChecker(object):
         else:
             self.logger.info('Provider %d (%s) already disabled' % (self.pk, self.provider.name))
 
+    @thread_local(DB_OVERRIDE='serializable')
     def check_failed_instances(self):
+        bad_instances = []
+
         now = timezone.now()
-        query = ComputeInstance.terminated_instances_query(now) & Q(failed=False)
-        terminated_not_failed_instances = self.instances.filter(query)
+        five_minutes_ago = now - timedelta(minutes=5)
+        bad_pending_instances_query = ComputeInstance.pending_instances_query() & Q(created_at__lt=five_minutes_ago)
+        bad_pending_instances = self.instances.filter(bad_pending_instances_query)
+        bad_instances.extend(list(bad_pending_instances))
 
-        self.logger.info('Found %d terminated instances that are not yet failed for provider %d' %
-                         (terminated_not_failed_instances.count(), self.provider.pk))
+        if len(bad_pending_instances) > 0:
+            self.logger.warn('Found %d expired pending instances for provider %s: %s' %
+                             (len(bad_pending_instances), self.pk, bad_pending_instances))
 
-        for instance in terminated_not_failed_instances:
-            self.logger.warn('Marking instance %d failed' % instance.pk)
+        bad_state_instances_query =  ~ComputeInstance.running_instances_query()
+        bad_state_instances_query &= ~ComputeInstance.pending_instances_query()
+        bad_state_instances_query &= ~ComputeInstance.unavailable_instances_query()
+        bad_state_instances = self.instances.filter(bad_state_instances_query)
+        bad_instances.extend(list(bad_state_instances))
+
+        if len(bad_state_instances) > 0:
+            self.logger.warn('Found %d instances in an unexpected state for provider %s: %s' %
+                             (len(bad_state_instances), self.pk, bad_state_instances))
+
+        # TODO this is where all the other health checks would go
+
+        for instance in bad_instances:
+            self.logger.warn('Marking instance %s failed for provider %s' % (instance.pk, self.pk))
+            self.logger.warn('state: %s, failed: %s, destroyed: %s' % (instance.state, instance.failed, instance.destroyed))
             instance.failed = True
+            instance.failed_at = now
             instance.save()
 
     def update_instance_statuses(self):
@@ -93,6 +114,8 @@ class ProviderConfigurationStatusChecker(object):
                         self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
 
                     instance.save()
+
+            self.check_failed_instances()
 
             with thread_local(DB_OVERRIDE='serializable'):
                 self.user_configuration.take_instance_states_snapshot_if_changed()

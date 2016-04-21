@@ -14,7 +14,7 @@ import uuid
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
-from ..tasks import create_libcloud_node, terminate_libcloud_node
+from ..tasks import create_libcloud_node, destroy_libcloud_node
 from ..util import decode_node_extra, schedule_random_default_delay, thread_local
 
 
@@ -50,39 +50,50 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
     group = models.ForeignKey('ComputeGroup', related_name='instances')
     provider_size = models.ForeignKey('ProviderSize', related_name='instances')
 
+    created_at = models.DateTimeField(auto_now_add=True)
     external_id = models.CharField(max_length=256, blank=True, null=True)
     name = models.CharField(max_length=256)
     state = models.CharField(max_length=16, choices=STATE_CHOICES, null=True, blank=True)
     public_ips = JSONField()
     private_ips = JSONField()
     extra = JSONField()
-    last_state_update_time = models.DateTimeField()
-    terminated = models.BooleanField(default=False)
-    failed = models.BooleanField(default=False)
+
+    destroyed = models.BooleanField(default=False) # mutually exclusive w/ failed
+    destroyed_at = models.DateTimeField(null=True, blank=True)
+
+    failed = models.BooleanField(default=False) # mutually exclusive w/ destroyed
+    failed_at = models.DateTimeField(null=True, blank=True)
     failure_ignored = models.BooleanField(default=False)
 
     @classmethod
-    def running_instances_query(cls, now):
-        return Q(state=ComputeInstanceBase.RUNNING)
+    def destroyed_instances_query(cls):
+        return Q(destroyed=True)
 
     @classmethod
-    def pending_instances_query(cls, now):
-        expiration_time = now - timedelta(minutes=5)
-        # state__in=[None] returns an empty list no matter what
-        # TODO include REBOOTING?
-        return (Q(state=None) | Q(state='PENDING')) & Q(last_state_update_time__gt=expiration_time)
+    def failed_instances_query(cls):
+        return Q(failed=True)
 
     @classmethod
-    def terminated_instances_query(cls, now, include_intentionally_terminated=False):
-        not_pending_or_running = ~(cls.running_instances_query(now) | cls.pending_instances_query(now))
-        query = not_pending_or_running
-        if not include_intentionally_terminated:
-            query &= Q(terminated=False)
-        return query
+    def unavailable_instances_query(cls):
+        return cls.destroyed_instances_query() | cls.failed_instances_query()
 
     @classmethod
     def unignored_failed_instances_query(cls):
-        return Q(failed=True, failure_ignored=False)
+        return cls.failed_instances_query() & Q(failure_ignored=False)
+
+    @classmethod
+    def running_instances_query(cls):
+        state_running = Q(state=ComputeInstanceBase.RUNNING)
+        not_unavailable = ~cls.unavailable_instances_query()
+        return state_running & not_unavailable
+
+    @classmethod
+    def pending_instances_query(cls):
+        # state__in=[None] returns an empty list no matter what
+        # TODO include REBOOTING?
+        state_pending = Q(state=None) | Q(state='PENDING')
+        not_unavailable = ~cls.unavailable_instances_query()
+        return state_pending & not_unavailable
 
     @classmethod
     def handle_pre_save(cls, sender, instance, raw, using, update_fields, **kwargs):
@@ -100,31 +111,36 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
         instances = self.__class__.objects.filter(state_query & Q(pk=self.pk))
         return instances.exists()
 
-    def is_running(self, now):
-        state_query = self.__class__.running_instances_query(now)
+    def is_running(self):
+        state_query = self.__class__.running_instances_query()
         return self._is_in_state(state_query)
 
-    def is_pending(self, now):
-        state_query = self.__class__.pending_instances_query(now)
+    def is_pending(self):
+        state_query = self.__class__.pending_instances_query()
         return self._is_in_state(state_query)
 
-    def is_terminated(self, now):
-        state_query = self.__class__.terminated_instances_query(now)
+    def is_destroyed(self):
+        state_query = self.__class__.destroyed_instances_query()
+        return self._is_in_state(state_query)
+
+    def is_failed(self):
+        state_query = self.__class__.failed_instances_query()
         return self._is_in_state(state_query)
 
     @thread_local(DB_OVERRIDE='serializable')
-    def terminate(self):
+    def destroy(self):
         with transaction.atomic():
-            self.terminated = True
+            self.destroyed = True
+            self.destroyed_at = timezone.now() # TODO make this consistent if a group of instances are destroyed?
             self.save()
 
-            connection.on_commit(lambda: schedule_random_default_delay(terminate_libcloud_node, self.pk))
+            connection.on_commit(lambda: schedule_random_default_delay(destroy_libcloud_node, self.pk))
 
     def to_libcloud_node(self):
         libcloud_node_args = {
             'id': self.external_id,
             'name': self.name,
-            'state': NodeState.fromstring(self.state),
+            'state': None if self.state is None else NodeState.fromstring(self.state),
             'public_ips': self.public_ips,
             'private_ips': self.private_ips,
             'driver': self.provider_configuration.driver,
