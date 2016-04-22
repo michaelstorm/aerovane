@@ -277,7 +277,10 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     def _create_compute_instances(self):
         with transaction.atomic():
             self.logger.info('Size distribution: %s' % self.size_distribution)
-            destroy_instances = []
+
+            pending_destroy_instances = []
+            running_destroy_instances = []
+            other_destroy_instances = []
 
             for provider_size_id, size_instance_count in self.size_distribution.items():
                 provider_size = ProviderSize.objects.get(pk=provider_size_id)
@@ -286,20 +289,21 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                 self.logger.info('Balancing compute instances for size %s; expected count %d' %
                                  (provider_size, size_instance_count))
 
-                pending_or_running_instances = self._pending_or_running_instances(provider_size)
-                pending_or_running_count = pending_or_running_instances.count()
+                pending_instances = self.instances.filter(Q(provider_size=provider_size) & ComputeInstance.pending_instances_query())
+                running_instances = self.instances.filter(Q(provider_size=provider_size) & ComputeInstance.running_instances_query())
+                pending_or_running_count = pending_instances.count() + running_instances.count()
                 self.logger.info('pending_or_running_count: %d' % pending_or_running_count)
-
-                # filter on provider as well, since available_provider_images could contain shared images
-                # TODO wait, does that make sense?
-                # TODO could this also produce multiple images if we don't specify the provider size?
-                provider_image = provider_configuration.available_provider_images.get(
-                                        disk_image__disk_image_mappings__compute_image=self.image,
-                                        disk_image__disk_image_mappings__provider=provider_configuration.provider)
 
                 if pending_or_running_count < size_instance_count:
                     instances_to_create = size_instance_count - pending_or_running_count
                     self.logger.warn('Creating %d instances' % instances_to_create)
+
+                    # filter on provider as well, since available_provider_images could contain shared images
+                    # TODO wait, does that make sense?
+                    # TODO could this also produce multiple images if we don't specify the provider size?
+                    provider_image = provider_configuration.available_provider_images.get(
+                                            disk_image__disk_image_mappings__compute_image=self.image,
+                                            disk_image__disk_image_mappings__provider=provider_configuration.provider)
 
                     for i in range(instances_to_create):
                         instance_name = '%s-%d' % (self.name, i)
@@ -319,24 +323,30 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                         compute_instance = ComputeInstance.objects.create(**compute_instance_args)
                         self.logger.info('Created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
 
-                elif pending_or_running_count > size_instance_count:
-                    # we can include pending instances here because later logic doesn't allow us to destroy more instances
-                    # than we can safely
-                    extra_instance_count = pending_or_running_count - size_instance_count
-                    extra_instances = list(pending_or_running_instances)[:extra_instance_count]
-                    self.logger.info('Found %d extra instances for size %s' % (len(extra_instances), provider_size))
-                    destroy_instances.extend(extra_instances)
+                else:
+                    extra_pending_instance_count = min(pending_instances.count(), pending_or_running_count - size_instance_count)
+                    if extra_pending_instance_count > 0:
+                        extra_pending_instances = list(pending_instances)[:extra_pending_instance_count]
+                        self.logger.info('Found %d extra pending instances for size %s' % (len(extra_pending_instances), provider_size))
+                        pending_destroy_instances.extend(extra_pending_instances)
+
+                    extra_running_instance_count = running_instances.count() - size_instance_count
+                    if extra_running_instance_count > 0:
+                        extra_running_instances = list(running_instances)[:extra_running_instance_count]
+                        self.logger.info('Found %d extra running instances for size %s' % (len(extra_running_instances), provider_size))
+                        running_destroy_instances.extend(extra_running_instances)
 
             # TODO make sure this squares with multi-row transaction isolation
             missing_size_query = ~Q(provider_size__pk__in=self.size_distribution.keys())
-            missing_size_query &= ComputeInstance.pending_instances_query()
-            missing_size_query &= ComputeInstance.running_instances_query()
-            missing_size_instances = self.instances.filter(missing_size_query)
-            destroy_instances.extend(missing_size_instances)
+            missing_size_pending_instances = self.instances.filter(missing_size_query & ComputeInstance.pending_instances_query())
+            missing_size_running_instances = self.instances.filter(missing_size_query & ComputeInstance.running_instances_query())
+            pending_destroy_instances.extend(missing_size_pending_instances)
+            running_destroy_instances.extend(missing_size_running_instances)
 
-            self.logger.info('Found %d instances for sizes not in size distribution' % len(missing_size_instances))
+            self.logger.info('Found %d pending instances for sizes not in size distribution' % len(missing_size_pending_instances))
+            self.logger.info('Found %d running instances for sizes not in size distribution' % len(missing_size_running_instances))
 
-            if len(destroy_instances) > 0:
+            if len(pending_destroy_instances) > 0 or len(running_destroy_instances) > 0:
                 total_running_count = self.instances.filter(ComputeInstance.running_instances_query()).count()
                 if total_running_count < self.instance_count:
                     # Two motivations here: we stop ourselves from getting unlucky by accidentally destroying an
@@ -346,31 +356,14 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                     # TODO is this still true?
                     self.logger.warn('Not destroying extraneous instances while running count is less than or equal to expected count')
                 else:
-                    # stop ourselves from destroying instances too early when rebalancing to a new provider
-                    remaining_destroy_instances = []
-                    destroyed_instance_count = 0
+                    for instance in pending_destroy_instances:
+                        self.logger.warn('Destroying pending instance %s for size %s' % (instance.pk, instance.provider_size))
+                        instance.destroy()
 
+                    # stop ourselves from destroying running instances too early when rebalancing to a new provider
                     allowed_running_destroy_count = total_running_count - self.instance_count
                     self.logger.warn('Destroying a maximum of %d running instances' % allowed_running_destroy_count)
-                    for instance in destroy_instances:
-                        if destroyed_instance_count < allowed_running_destroy_count and instance.is_running():
-                            self.logger.warn('Destroying running instance %s for size %s' % (instance, instance.provider_size))
-                            destroyed_instance_count += 1
-                            instance.destroy()
-                        else:
-                            remaining_destroy_instances.append(instance)
 
-                    destroy_instances = remaining_destroy_instances
-                    remaining_destroy_instances = []
-                    destroyed_instance_count = 0
-
-                    pending_or_running_query = ComputeInstance.pending_instances_query() | ComputeInstance.running_instances_query()
-                    total_pending_or_running_count = self.instances.filter(pending_or_running_query).count()
-                    allowed_pending_destroy_count = total_pending_or_running_count - self.instance_count
-                    self.logger.warn('Destroying a maximum of %d pending instances' % allowed_pending_destroy_count)
-                    for instance in destroy_instances:
-                        self.logger.warn('is_pending: %s, state: %s, failed: %s, terminated: %s' % (instance.is_pending(), instance.state, instance.failed, instance.destroyed))
-                        if destroyed_instance_count < allowed_pending_destroy_count and instance.is_pending():
-                            self.logger.warn('Destroying pending instance %s for size %s' % (instance, instance.provider_size))
-                            destroyed_instance_count += 1
-                            instance.destroy()
+                    for instance in running_destroy_instances[:allowed_running_destroy_count]:
+                        self.logger.warn('Destroying running instance %s for size %s' % (instance.pk, instance.provider_size))
+                        instance.destroy()

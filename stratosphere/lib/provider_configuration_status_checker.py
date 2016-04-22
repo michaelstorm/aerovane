@@ -91,14 +91,19 @@ class ProviderConfigurationStatusChecker(object):
                 instance.save()
 
         else:
+            now = timezone.now()
+            thirty_seconds_ago = now - timedelta(seconds=30)
+
             # exclude ComputeInstances whose libcloud node creation jobs have not yet run
             for instance in self.instances.filter(~Q(external_id=None)):
                 nodes = list(filter(lambda node: node.id == instance.external_id, libcloud_nodes))
 
-                previous_state = instance.state
-
                 if len(nodes) == 0:
-                    instance.state = ComputeInstance.TERMINATED
+                    # There's a race condition between assigning an instance an external_id when it's created and the
+                    # list_nodes() query returning, so wait 30 seconds before a missing instance is considered
+                    # terminated (and thus failed).
+                    if instance.created_at >= thirty_seconds_ago:
+                        instance.state = ComputeInstance.TERMINATED
                 else:
                     node = nodes[0]
 
