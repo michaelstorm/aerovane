@@ -28,17 +28,25 @@ class ProviderConfigurationStatusChecker(object):
                 self.enabled = False
                 self.save()
 
+    def max_failure_count(self):
+        instance_count = self.instances.count()
+        return instance_count if instance_count < 3 else 3
+
+    def failure_count(self, now):
+        one_hour_ago = now - timedelta(hours=1)
+        return self.instances.filter(ComputeInstance.unignored_failed_instances_query() & Q(failed_at__gte=one_hour_ago)).count()
+
     @thread_local(DB_OVERRIDE='serializable')
     def check_enabled(self):
-        instance_count = self.instances.count()
-        max_failure_count = instance_count if instance_count < 3 else 3
-        failure_count = self.instances.filter(ComputeInstance.unignored_failed_instances_query()).count()
+        now = timezone.now()
+        max_failure_count_value = self.max_failure_count()
+        failure_count_value = self.failure_count(now)
 
         self.logger.info('Instance count: %d, max failure count: %d, failure count: %d' %
-                         (instance_count, max_failure_count, failure_count))
+                         (instance_count, max_failure_count_value, failure_count_value))
 
         if self.enabled:
-            if max_failure_count > 0 and failure_count >= max_failure_count:
+            if max_failure_count_value > 0 and failure_count_value >= max_failure_count_value:
                 self.logger.warn('Disabling provider %d (%s)' % (self.pk, self.provider.name))
                 self.enabled = False
                 self.save()

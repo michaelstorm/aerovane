@@ -338,7 +338,10 @@ def providers_refresh(request):
 def _provider_json(provider_configuration):
     return {'id': provider_configuration.pk,
             'pretty_name': provider_configuration.provider.pretty_name,
-            'enabled': provider_configuration.enabled}
+            'enabled': provider_configuration.enabled,
+            'failure_count': provider_configuration.failure_count(timezone.now()),
+            'max_failure_count': provider_configuration.max_failure_count(),
+            'total_instances': provider_configuration.instances.filter(~ComputeInstance.unavailable_instances_query()).count()}
 
 
 @login_required
