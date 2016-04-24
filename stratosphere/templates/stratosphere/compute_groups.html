@@ -98,56 +98,7 @@
     </div>
 {% endblock %}
 
-{% block body_script %}
-    $(document).ready(function() {
-        $("#instances-chart-range-slider").noUiSlider({
-            start: [0, 10],
-            behaviour: 'drag',
-            connect: true,
-            //step: 1, // force integer values
-            range: {
-                'min':  0,
-                'max':  10,
-            },
-        });
-    });
-{% endblock %}
-
 {% block style %}
-    #instances-chart-container {
-        margin-bottom: 20px;
-    }
-
-    #instances-chart {
-        width: 100%;
-        height: 150px;
-        margin-bottom: 15px;
-    }
-
-    .footer button {
-        margin-right: 10px;
-        margin-bottom: 10px;
-    }
-
-    .flot-tick-label.tickLabel > * {
-        display: inline-block;
-        vertical-align: middle;
-    }
-
-    .flot-tick-label.tickLabel img {
-        height: 12px;
-        margin-left: 3px;
-        margin-right: 12px;
-    }
-
-    .flotTip {
-        border: 1px solid #999 !important;
-
-        -webkit-box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
-        -moz-box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
-        box-shadow: 1px 1px 5px 0px rgba(153,153,153,1);
-    }
-
     .compute-groups-table th,
     .compute-groups-table td {
         white-space: nowrap;

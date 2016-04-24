@@ -16,6 +16,8 @@
 
         <title>Aerovane | Dashboard</title>
 
+        <link href="/static/stratosphere/instances-chart/instances-chart.css" rel="stylesheet">
+
         <!-- Bootstrap -->
         <link href="{% static "stratosphere/bootstrap/css/bootstrap.min.css" %}" rel="stylesheet">
 
@@ -49,109 +51,12 @@
 
         <script src="/static/stratosphere/angular-ui-select/select.min.js"></script>
 
-        <script type="text/javascript">
-            instances_chart_range_limit = 1800;
-            changed_instances_chart_range_limit = false;
+        <script src="/static/stratosphere/instances-chart/instances-chart.js"></script>
 
+        <script type="text/javascript">
             String.prototype.toProperCase = function () {
                 return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
             };
-
-            var drawInstancesChart = function(data) {
-                var series = [{
-                    data: [],
-                    label: "Running",
-                    color: "#5cb85c",
-                },
-                {
-                    data: [],
-                    label: "Pending",
-                    color: "#f0ad4e",
-                },
-                {
-                    data: [],
-                    label: "Failed",
-                    color: "#d9534f",
-                }];
-
-                for (var i = 0; i < data.length; i += 1) {
-                    var snapshot = data[i];
-                    series[0].data.push([snapshot.time, snapshot.running]);
-                }
-
-                for (var i = 0; i < data.length; i += 1) {
-                    var snapshot = data[i];
-                    series[1].data.push([snapshot.time, snapshot.pending]);
-                }
-
-                for (var i = 0; i < data.length; i += 1) {
-                    var snapshot = data[i];
-                    series[2].data.push([snapshot.time, snapshot.failed]);
-                }
-
-                // extend last value to edge of graph, or it'll end in a vertical line
-                var now = new Date().getTime();
-                if (data.length > 0) {
-                    var last_snapshot = data[data.length-1];
-                    series[0].data.push([now, last_snapshot.running]);
-                    series[1].data.push([now, last_snapshot.pending]);
-                    series[2].data.push([now, snapshot.failed]);
-                }
-
-                if ($('#instances-chart').length) {
-                    var slider = $('#instances-chart-range-slider');
-                    var current_range = slider.val();
-
-                    var current_min = parseInt(current_range[0]);
-                    var current_max = parseInt(current_range[1]);
-
-                    var xmin = (current_min == 0 || changed_instances_chart_range_limit) && data.length ? data[0].time : current_min;
-                    var xmax = null;
-                    if (current_min == 0 || changed_instances_chart_range_limit || current_max == window.last_now)
-                        xmax = now;
-                    else
-                        xmax = current_max;
-
-                    changed_instances_chart_range_limit = false;
-                    window.last_now = now;
-
-                    window.instances_chart_plot = $("#instances-chart").plot(series, {
-                        xaxis: {
-                            mode: "time",
-                            tickLength: 0,
-                            timezone: "browser",
-                            twelveHourClock: true,
-                            min: xmin,
-                            max: xmax,
-                            autoscaleMargin: 0.0,
-                        },
-                        yaxis: {
-                            tickLength: 0,
-                            tickDecimals: 0,
-                            autoscaleMargin: 0.0,
-                        },
-                        series: {
-                            stack: true,
-                            lines: {
-                                show: true,
-                                fill: true,
-                                steps: true,
-                            },
-                        },
-                        legend: {
-                            position: 'nw',
-                        },
-                        grid: {
-                            borderWidth: 0,
-                            minBorderMargin: 0,
-                            margin: 0,
-                        },
-                    }).data('plot');
-
-                    if (data.length)
-                        slider.noUiSlider({range: {min: data[0].time, max: now}, start: [xmin, xmax]}, true);
-                }
-            }
 
             var dashboardApp = angular.module('dashboardApp', ['ngResource', 'isteven-multi-select', 'ui.bootstrap'])
                 .config(function ($interpolateProvider) {
@@ -271,47 +176,11 @@
                     $scope.groups = data;
                 });
 
-                var instances_chart_range_slider_moving = false;
-
-                $timeout(function() {
-                    $http.get('/compute/state_history/', {'params': {'limit': instances_chart_range_limit}}).then(function (res) {
-                        drawInstancesChart(res.data);
-
-                        $("#instances-chart-range-slider").on('slide', function(event, value) {
-                            instances_chart_range_slider_moving = true;
-                            instances_chart_plot.getOptions().xaxes[0].min = parseInt(value[0]);
-                            instances_chart_plot.getOptions().xaxes[0].max = parseInt(value[1]);
-                            instances_chart_plot.setupGrid();
-                            instances_chart_plot.draw();
-                        }).on('set', function() {
-                            instances_chart_range_slider_moving = false;
-                        });
-                    });
-                });
-
                 $interval(function() {
                     Group.query(function(data) {
                         $scope.groups = data;
                     });
-
-                    $http.get('/compute/state_history/', {'params': {'limit': instances_chart_range_limit}}).then(function (res) {
-                        if (!instances_chart_range_slider_moving)
-                            drawInstancesChart(res.data);
-                    });
                 }, 3000);
-
-                $(document).ready(function() {
-                    $('#instances-chart-max-range-buttons button').click(function() {
-                        $('#instances-chart-max-range-buttons button.btn-info').removeClass('btn-info').addClass('btn-default');
-                        $(this).removeClass('btn-default').addClass('btn-info');
-                        instances_chart_range_limit = $(this).attr('seconds') || null;
-
-                        $http.get('/compute/state_history/', {'params': {'limit': instances_chart_range_limit}}).then(function (res) {
-                            changed_instances_chart_range_limit = true;
-                            drawInstancesChart(res.data);
-                        });
-                    });
-                });
 
                 $scope.deleteEntry = function(id) {
                     Group.delete({id: id}, function() {
