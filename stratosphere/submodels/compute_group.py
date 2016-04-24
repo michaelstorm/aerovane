@@ -120,11 +120,14 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
             self.logger.warn('good providers: %s' % good_provider_ids)
 
+            deleted = False
+
             if self.state == self.DESTROYED:
                 available_count = self.instances.filter(~ComputeInstance.unavailable_instances_query()).count()
                 self.logger.info('Compute group state is DESTROYED. Remaining available instances: %d' % available_count)
                 if available_count == 0:
                     self.logger.warn('Deleting self')
+                    deleted = True
                     self.delete()
 
             else:
@@ -133,9 +136,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                     self.state = self.RUNNING
                     self.save()
 
-            # rebalance even if running count matches, in order to correct imbalance if provider is added or re-enabled
-            self.logger.warn('Rebalancing instances')
-            self.rebalance_instances(good_provider_ids)
+            if deleted:
+                # don't rebalance, since any save()s after deletion cause the object to be recreated
+                self.logger.warn('Not rebalancing because group was deleted')
+            else:
+                # rebalance even if running count matches, in order to correct imbalance if provider is added or re-enabled
+                self.logger.warn('Rebalancing instances')
+                self.rebalance_instances(good_provider_ids)
 
     @thread_local(DB_OVERRIDE='serializable')
     def rebalance_instances(self, provider_ids=None):

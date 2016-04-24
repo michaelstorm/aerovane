@@ -39,6 +39,7 @@ class ProviderConfigurationStatusChecker(object):
     @thread_local(DB_OVERRIDE='serializable')
     def check_enabled(self):
         now = timezone.now()
+        instance_count = self.instances.count()
         max_failure_count_value = self.max_failure_count()
         failure_count_value = self.failure_count(now)
 
@@ -47,11 +48,11 @@ class ProviderConfigurationStatusChecker(object):
 
         if self.enabled:
             if max_failure_count_value > 0 and failure_count_value >= max_failure_count_value:
-                self.logger.warn('Disabling provider %d (%s)' % (self.pk, self.provider.name))
+                self.logger.warn('Disabling provider %s (%s)' % (self.pk, self.provider.name))
                 self.enabled = False
                 self.save()
         else:
-            self.logger.info('Provider %d (%s) already disabled' % (self.pk, self.provider.name))
+            self.logger.info('Provider %s (%s) already disabled' % (self.pk, self.provider.name))
 
     @thread_local(DB_OVERRIDE='serializable')
     def check_failed_instances(self):
@@ -88,7 +89,9 @@ class ProviderConfigurationStatusChecker(object):
 
     def update_instance_statuses(self):
         try:
+            print('Querying statuses for instances of provider %s' % self.pk)
             libcloud_nodes = self.driver.list_nodes()
+            print('Got %d nodes' % len(libcloud_nodes))
 
         except Exception as e:
             print('Error listing nodes of %s' % self)
@@ -110,7 +113,7 @@ class ProviderConfigurationStatusChecker(object):
                     # There's a race condition between assigning an instance an external_id when it's created and the
                     # list_nodes() query returning, so wait 30 seconds before a missing instance is considered
                     # terminated (and thus failed).
-                    if instance.created_at >= thirty_seconds_ago:
+                    if instance.created_at < thirty_seconds_ago:
                         instance.state = ComputeInstance.TERMINATED
                 else:
                     node = nodes[0]

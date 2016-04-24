@@ -232,7 +232,7 @@ def compute(request, group_id=None):
 
     elif request.method == 'DELETE':
         group = ComputeGroup.objects.get(pk=group_id)
-        group.terminate()
+        group.destroy()
         return HttpResponse('')
 
     elif request.method == 'POST':
