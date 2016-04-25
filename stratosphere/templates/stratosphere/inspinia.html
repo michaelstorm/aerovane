@@ -54,9 +54,14 @@
         <script src="/static/stratosphere/instances-chart/instances-chart.js"></script>
 
         <script type="text/javascript">
-            String.prototype.toProperCase = function () {
-                return this.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
-            };
+            var compute_group_id = "{{ compute_group_id|default:"" }}";
+            if (compute_group_id.length == 0)
+                compute_group_id = null;
+
+            $(document).ready(function() {
+                if ($('#instances-chart').length)
+                    setUpInstancesChart(compute_group_id);
+            });
 
             var dashboardApp = angular.module('dashboardApp', ['ngResource', 'isteven-multi-select', 'ui.bootstrap'])
                 .config(function ($interpolateProvider) {
@@ -134,15 +139,17 @@
                 });
             }]);
 
-            dashboardApp.controller('ComputeGroupCtrl', ['$scope', 'ComputeGroup',
-                                    function ($scope, ComputeGroup) {
-                ComputeGroup.query(function(data) {
-                    $scope.group = data;
+            dashboardApp.controller('ComputeGroupCtrl', ['$scope', 'Group', '$interval',
+                                    function ($scope, Group, $interval) {
+                Group.query({id: compute_group_id}, function(data) {
+                    $scope.group = data[0];
                 });
 
-                $scope.update = function(group) {
-                    ComputeGroup.save(group);
-                };
+                $interval(function() {
+                    Group.query({id: compute_group_id}, function(data) {
+                        $scope.group = data[0];
+                    });
+                }, 3000);
             }]);
 
             dashboardApp.controller('ProviderListCtrl', ['$scope', 'Provider', '$timeout', '$interval', '$http',
@@ -294,17 +301,6 @@
                     Group.save($scope.group, function() {
                         window.location.href = '/compute_groups/';
                     });
-                }
-            }]);
-
-            dashboardApp.directive('avGroup', ['$timeout', '$compile', function($timeout, $compile) {
-                return {
-                    link: function($scope, element) {
-                        var name_cell = $(element).find('.group-name');
-                        var state_name = name_cell.find('.state-name');
-                        state_name.text('({$ group.state.toProperCase() $})');
-                        name_cell.html($compile(name_cell.html())($scope));
-                    }
                 }
             }]);
         </script>

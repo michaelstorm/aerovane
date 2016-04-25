@@ -131,6 +131,17 @@ def compute_groups(request):
 
 
 @login_required
+def compute_group(request, group_id):
+    context = {
+        # 'compute_group_id': group_id,
+        'left_nav_section': 'dashboard',
+        'left_sub_nav_section': 'view',
+    }
+
+    return render(request, 'stratosphere/compute_group.html', context=context)
+
+
+@login_required
 def add_compute_group(request):
     compute_images = ComputeImage.objects.filter(user=request.user)
 
@@ -187,11 +198,44 @@ def add_compute_group(request):
     return render(request, 'stratosphere/add_compute_group.html', context=context)
 
 
+def _provider_size_to_json(size):
+    return {'id': size.pk, 'external_id': size.external_id,
+            'name': size.name, 'price': size.price, 'memory': size.ram,
+            'disk': size.disk, 'bandwidth': size.bandwidth, 'cpu': size.cpu}
+
+
+def _compute_instance_to_json(instance):
+    # TODO do we explicitly handle the states that are not enumerated here?
+    if instance.is_running():
+        display_state = 'running'
+    elif instance.is_pending():
+        display_state = 'pending'
+    elif instance.is_destroyed():
+        display_state = 'destroyed'
+    elif instance.is_failed():
+        display_state = 'failed'
+
+    destroyed_at = instance.destroyed_at.timestamp() if instance.destroyed_at is not None else None
+    failed_at = instance.failed_at.timestamp() if instance.failed_at is not None else None
+
+    provider_size_json = _provider_size_to_json(instance.provider_size)
+
+    return {'id': instance.pk, 'provider_size': provider_size_json,
+            'provider_pretty_name': instance.provider_configuration.provider.pretty_name,
+            'name': instance.name, 'created_at': instance.created_at.timestamp(),
+            'external_id': instance.external_id, 'public_ips': instance.public_ips,
+            'private_ips': instance.private_ips, 'destroyed_at': destroyed_at,
+            'failed_at': failed_at, 'state': instance.state,
+            'display_state': display_state}
+
+
 def _compute_group_to_json(group):
-    return {'id': group.id, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
+    state = group.instances.filter(~Q(state=ComputeInstance.TERMINATED))
+    instances_json = [_compute_instance_to_json(instance) for instance in state]
+    return {'id': group.pk, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
             'running_instance_count': group.instances.filter(ComputeInstance.running_instances_query()).count(),
             'instance_count': group.instance_count, 'providers': group.provider_states(),
-            'state': group.state}
+            'state': group.state, 'instances': instances_json}
 
 
 @login_required
@@ -226,9 +270,13 @@ def authentication_methods(request, method_id=None):
 @login_required
 def compute(request, group_id=None):
     if request.method == 'GET':
-        compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
-
-        return JsonResponse(compute_groups, safe=False)
+        if group_id is None:
+            compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
+            return JsonResponse(compute_groups, safe=False)
+        else:
+            compute_group = _compute_group_to_json(request.user.configuration.compute_groups.filter(pk=group_id).first())
+            # return an array because I can't figure out how to get Angular to not expect one
+            return JsonResponse([compute_group], safe=False)
 
     elif request.method == 'DELETE':
         group = ComputeGroup.objects.get(pk=group_id)
@@ -243,7 +291,7 @@ def compute(request, group_id=None):
         name = params['name']
 
         authentication_method_id = params['authentication_method']
-        authentication_method = AuthenticationMethod.objects.get(pk=authentication_method_id)
+        authentication_method = request.user.configration.authentication_methods.filter(pk=authentication_method_id).first()
 
         provider_policy = {}
         for key in params:
@@ -393,35 +441,47 @@ def provider_disk_images(request, provider_id):
 
 
 @login_required
-def state_history(request):
+def state_history(request, group_id=None):
     def get_history_dict(h):
-        return {'time': unix_time_millis(h.time),
-                'running': h.running,
-                'pending': h.pending,
-                'failed': h.failed}
+        return {'time': unix_time_millis(h[0]),
+                'running': h[1].running,
+                'pending': h[1].pending,
+                'failed': h[1].failed}
+
+    time_field = 'time' if group_id is None else 'user_snapshot__time'
 
     limit = request.GET.get('limit')
-    if limit is None:
+    if limit is None or len(limit.strip()) == 0:
         limit_datetime = None
         limit_query = Q()
     else:
         limit_datetime = timezone.now() - timedelta(seconds=int(limit))
-        limit_query = Q(time__gte=limit_datetime)
+        limit_query = Q(**{'%s__gte' % time_field: limit_datetime})
 
-    user = User.objects.get(pk=request.user.pk)
-    snapshots = user.configuration.instance_states_snapshots
-    snapshots = snapshots.order_by('time')
-    history = list(snapshots.filter(limit_query))
+    if group_id is None:
+        snapshots = request.user.configuration.instance_states_snapshots
+    else:
+        group = request.user.configuration.compute_groups.filter(pk=group_id).first()
+        snapshots = GroupInstanceStatesSnapshot.objects.filter(group=group)
+
+    snapshots = snapshots.order_by(time_field)
+
+    if group_id is None:
+        history = [(s.time, s) for s in snapshots.filter(limit_query)]
+    else:
+        # TODO optimize this with a JOIN
+        history = [(s.user_snapshot.time, s) for s in snapshots.filter(limit_query)]
 
     if len(history) == 0:
         last_snapshot = snapshots.last()
         if last_snapshot is not None:
-            history = [last_snapshot]
+            time = last_snapshot.time if group_id is None else last_snapshot.user_snapshot.time
+            history = [(time, last_snapshot)]
     elif limit_datetime is not None:
-        previous_snapshot = snapshots.filter(time__lt=limit_datetime).last()
+        previous_snapshot = snapshots.filter(**{'%s__lt' % time_field: limit_datetime}).last()
+
         if previous_snapshot is not None:
-            previous_snapshot.time = limit_datetime
-            history = [previous_snapshot] + history
+            history = [(limit_datetime, previous_snapshot)] + history
 
     history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)

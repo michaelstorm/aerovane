@@ -29,37 +29,40 @@
                     <div class="col-lg-12">
                         {% include "stratosphere/_provider_list.html" %}
 
-                        <div class="ibox float-e-margins" ng-controller="ComputeGroupListCtrl">
+                        <div class="ibox float-e-margins" ng-controller="ComputeGroupCtrl">
                             <div class="ibox-title">
-                                <h5>Compute groups</h5>
+                                <h5 ng-cloak>{$ group.name $}</h5>
                             </div>
                             <div class="ibox-content">
-                                <table class="table table-striped compute-groups-table">
+                                <table class="table instances-table">
                                     <thead>
                                         <tr>
                                             <th>Name</th>
-                                            <th>CPU</th>
-                                            <th>Memory</th>
-                                            <th>Running instances</th>
-                                            <th>Expected instances</th>
-                                            <th>Instance states</th>
-                                            <th></th>
+                                            <th>Provider</th>
+                                            <th>State</th>
+                                            <th>Failed</th>
+                                            <th>ID</th>
+                                            <th>Public IPs</th>
+                                            <th>Private IPs</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr ng-repeat="group in groups track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
-                                            <td class="group-name">
-                                                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
-                                                <span><a href="{$ group.id $}/">{$ group.name $}</a></span>
+                                        <tr ng-repeat="instance in group.instances | orderBy: ['provider_pretty_name', 'created_at'] track by instance.id" class="instance-row {$ instance.display_state $}" ng-cloak>
+                                            <td>{$ instance.name $}</td>
+                                            <td>{$ instance.provider_pretty_name $}</td>
+                                            <td>{$ instance.state $}</td>
+                                            <td>{$ instance.failed_at != null $}</td>
+                                            <td><code>{$ instance.external_id $}</code></td>
+                                            <td>
+                                            	<code ng-repeat="ip in instance.public_ips">
+	                                            	{$ ip $}
+	                                            </code>
                                             </td>
-                                            <td>{$ group.cpu $}</td>
-                                            <td>{$ group.memory $} MB</td>
-                                            <td>{$ group.running_instance_count $}</td>
-                                            <td>{$ group.instance_count $}</td>
-                                            <td class="group-providers-graph-cell">
-                                                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
+                                            <td>
+                                            	<code ng-repeat="ip in instance.private_ips">
+	                                            	{$ ip $}
+	                                            </code>
                                             </td>
-                                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -73,20 +76,20 @@
 {% endblock %}
 
 {% block style %}
-    .compute-groups-table th,
-    .compute-groups-table td {
-        white-space: nowrap;
-    }
+	.instances-table code {
+		color: black;
+	}
 
-    .compute-groups-table .group td {
-        vertical-align: middle;
-    }
-
-    .group-providers-graph-cell {
-        width: 99%;
-    }
-
-    .state-name {
-        font-style: italic;
-    }
+	.instance-row.pending {
+		background-color: #F2D7B1;
+	}
+	.instance-row.running {
+		background-color: #B7DCB7;
+	}
+	.instance-row.destroyed {
+		background-color: #F9F9F9;
+	}
+	.instance-row.failed {
+		background-color: #E9B3B1;
+	}
 {% endblock %}

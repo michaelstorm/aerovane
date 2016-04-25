@@ -1,0 +1,38 @@
+<div class="ibox float-e-margins" ng-controller="ProviderListCtrl">
+    <div class="ibox-title">
+        <h5>Providers</h5>
+    </div>
+    <div class="ibox-content providers-table">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Enabled</th>
+                    <th>Name</th>
+                    <th>Failures in last hour</th>
+                    <th>Running instances</th>
+                    <th>Total instances</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr ng-repeat="provider in providers track by provider.id" ng-cloak>
+                    <td>
+                        <div class="checkbox checkbox-success">
+                            <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
+                            <label for="provider-enabled-{$ provider.id $}"></label>
+                        </div>
+                    </td>
+                    <td>{$ provider.pretty_name $}</td>
+                    <td>{$ provider.failure_count $}</td>
+                    <td>{$ provider.max_failure_count $}</td>
+                    <td>{$ provider.total_instances $}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .providers-table .checkbox {
+        margin: 0;
+    }
+</style>

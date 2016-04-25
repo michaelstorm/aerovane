@@ -94,8 +94,10 @@ var drawInstancesChart = function(data) {
     }
 }
 
-function getStateHistory(cb) {
-    $.get('/compute/state_history/', {limit: instances_chart_range_limit}).done(cb);
+function getStateHistory(compute_group_id, cb) {
+    var base_url = '/compute/state_history/';
+    var url = compute_group_id != null ? base_url + compute_group_id + '/' : base_url;
+    $.get(url, {limit: instances_chart_range_limit}).done(cb);
 }
 
 function setUpSlider() {
@@ -127,7 +129,7 @@ function selectedInstancesChartRangeButton() {
     return $('#instances-chart-max-range-buttons button.btn-info');
 }
 
-$(document).ready(function() {
+function setUpInstancesChart(compute_group_id) {
     instances_chart_range_limit = selectedInstancesChartRangeButton().attr('seconds') || null;
     changed_instances_chart_range_limit = false;
     instances_chart_range_slider_moving = false;
@@ -142,20 +144,20 @@ $(document).ready(function() {
         newSelectedButton.removeClass('btn-default').addClass('btn-info');
         instances_chart_range_limit = $(this).attr('seconds') || null;
 
-        getStateHistory(function (data) {
+        getStateHistory(compute_group_id, function (data) {
             changed_instances_chart_range_limit = true;
             drawInstancesChart(data);
         });
     });
 
-    getStateHistory(function (data) {
+    getStateHistory(compute_group_id, function (data) {
         drawInstancesChart(data);
     });
 
     setInterval(function() {
-        getStateHistory(function (data) {
+        getStateHistory(compute_group_id, function (data) {
             if (!instances_chart_range_slider_moving)
                 drawInstancesChart(data);
         });
     }, 3000);
-});
+}

@@ -10,6 +10,7 @@ urlpatterns = [
     url(r'^compute/$', views.compute),
     url(r'^compute/(?P<group_id>[0-9a-f\-]+)/$', views.compute),
     url(r'^compute/state_history/$', views.state_history),
+    url(r'^compute/state_history/(?P<group_id>[0-9a-f\-]+)/$', views.state_history),
     url(r'^authentication_methods/$', views.authentication_methods),
     url(r'^authentication_methods/(?P<method_id>[0-9a-f\-]+)/$', views.authentication_methods),
     url(r'^providers/loaded/$', views.providers_loaded),
@@ -22,6 +23,7 @@ urlpatterns = [
 
     url(r'^compute_groups/$', views.compute_groups),
     url(r'^compute_groups/add/$', views.add_compute_group),
+    url(r'^compute_groups/(?P<group_id>[0-9a-f\-]+)/$', views.compute_group),
     url(r'^check_configure/$', views.check_configure),
     url(r'^authentication/$', views.authentication),
     url(r'^images/$', views.images),
