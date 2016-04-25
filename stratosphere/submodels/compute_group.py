@@ -61,8 +61,12 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     user_configuration = models.ForeignKey('UserConfiguration', related_name='compute_groups')
     image = models.ForeignKey('ComputeImage', related_name='compute_groups')
+    authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
+
     instance_count = models.IntegerField()
     cpu = models.IntegerField()
     memory = models.IntegerField()
@@ -70,7 +74,6 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     provider_policy = JSONField()
     size_distribution = JSONField()
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
-    authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
 
     @classmethod
     def quick_create(cls, instance_count=5):

@@ -47,7 +47,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr ng-repeat="group in groups track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+                                        <tr ng-repeat="group in groups | orderBy: 'created_at' track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
                                             <td class="group-name">
                                                 <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
                                                 <span><a href="{$ group.id $}/">{$ group.name $}</a></span>

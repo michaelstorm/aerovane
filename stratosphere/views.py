@@ -235,7 +235,7 @@ def _compute_group_to_json(group):
     return {'id': group.pk, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
             'running_instance_count': group.instances.filter(ComputeInstance.running_instances_query()).count(),
             'instance_count': group.instance_count, 'providers': group.provider_states(),
-            'state': group.state, 'instances': instances_json}
+            'state': group.state, 'instances': instances_json, 'created_at': group.created_at.timestamp()}
 
 
 @login_required
