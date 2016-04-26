@@ -18,6 +18,8 @@
 
         <link href="/static/stratosphere/instances-chart/instances-chart.css" rel="stylesheet">
 
+        <link href="/static/stratosphere/intro.js-2.1.0/introjs.min.css" rel="stylesheet">
+
         <!-- Bootstrap -->
         <link href="{% static "stratosphere/bootstrap/css/bootstrap.min.css" %}" rel="stylesheet">
 
@@ -34,7 +36,7 @@
         <link href="{% static "stratosphere/inspinia/js/plugins/gritter/jquery.gritter.css" %}" rel="stylesheet">
 
         <link href="{% static "stratosphere/inspinia/css/animate.css" %}" rel="stylesheet">
-        <link href="{% static "stratosphere/inspinia/css/style.css" %}" rel="stylesheet">
+        <link href="{% static "stratosphere/inspinia/css/style.min.css" %}" rel="stylesheet">
 
         <link href="{% static "stratosphere/angular-ui-select/select.min.css" %}" rel="stylesheet">
 
@@ -43,8 +45,8 @@
         <!-- load before Angular so that all selectors can be used -->
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
 
-        <script src="{% static "stratosphere/angular.js" %}"></script>
-        <script src="{% static "stratosphere/angular-resource.js" %}"></script>
+        <script src="{% static "stratosphere/angular.min.js" %}"></script>
+        <script src="{% static "stratosphere/angular-resource.min.js" %}"></script>
         <script src="{% static "stratosphere/isteven-multi-select/isteven-multi-select.js" %}"></script>
         <script src="{% static "stratosphere/angular-ui-select/select.min.js" %}"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.14.3/ui-bootstrap-tpls.min.js"></script>
@@ -52,6 +54,8 @@
         <script src="/static/stratosphere/angular-ui-select/select.min.js"></script>
 
         <script src="/static/stratosphere/instances-chart/instances-chart.js"></script>
+
+        <script src="/static/stratosphere/intro.js-2.1.0/intro.min.js"></script>
 
         <script type="text/javascript">
             var compute_group_id = "{{ compute_group_id|default:"" }}";
@@ -505,7 +509,7 @@
         <script src="{% static "stratosphere/inspinia/js/plugins/nouslider/jquery.nouislider.min.js" %}"></script>
 
         <!-- jQuery UI -->
-        <script src="{% static "stratosphere/inspinia/js/plugins/jquery-ui/jquery-ui.min.js" %}"></script>
+        <!-- <script src="{% static "stratosphere/inspinia/js/plugins/jquery-ui/jquery-ui.min.js" %}"></script> -->
 
         <!-- GITTER -->
         <script src="{% static "stratosphere/inspinia/js/plugins/gritter/jquery.gritter.min.js" %}"></script>
