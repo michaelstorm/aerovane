@@ -12,11 +12,11 @@
     <div class="wrapper wrapper-content">
         <div class="row">
             <div class="col-lg-4">
-                <div class="panel panel-primary">
-                    <div class="panel-heading">
-                        <div class="panel-title"><img src="{% static "/stratosphere/aws_icon.png" %}"><span>AWS</span></div>
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <img src="{% static "/stratosphere/aws_icon.png" %}"><span>AWS</span>
                     </div>
-                    <div class="panel-body">
+                    <div class="ibox-content">
                         <form action="/providers/aws/" method="post">
                             {% csrf_token %}
                             <div class="form-group">
@@ -29,7 +29,6 @@
                                     {% if aws_access_key_id %}
                                         placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;"
                                     {% endif %}
-                                    }
                                 >
                             </div>
                             <input type="submit" value="Save" class="btn btn-primary">
@@ -46,12 +45,12 @@
 {% endblock %}
 
 {% block style %}
-    .panel-title img {
+    .ibox-title img {
         height: 16px;
         margin-right: 5px;
     }
 
-    .panel-title > * {
+    .ibox-title > * {
         display: inline-block;
         vertical-align: middle;
     }

@@ -94,6 +94,7 @@ class ProviderConfigurationStatusChecker(object):
             print('Got %d nodes' % len(libcloud_nodes))
 
         except Exception as e:
+            # TODO increment failure count even if there aren't any nodes
             print('Error listing nodes of %s' % self)
 
             traceback.print_exc()

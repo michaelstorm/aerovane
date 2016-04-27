@@ -26,11 +26,11 @@
         </div>
         <div class="row" id="operating-systems">
             <div class="col-lg-6" ng-repeat="os in operating_systems track by os.id" ng-cloak>
-                <div class="panel panel-primary">
-                    <div class="panel-heading">
-                        <div class="panel-title">{$ os.name $}: {$ os.id $}</div>
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>{$ os.name $}: {$ os.id $}</h5>
                     </div>
-                    <div class="panel-body">
+                    <div class="ibox-content">
                         <div class="operating-system form">
                             <div class="form-group">
                                 <label>Name</label>

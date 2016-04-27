@@ -52,7 +52,7 @@
                                             <td>{$ instance.provider_pretty_name $}</td>
                                             <td>{$ instance.state $}</td>
                                             <td>{$ instance.failed_at != null $}</td>
-                                            <td><code>{$ instance.external_id $}</code></td>
+                                            <td><code ng-show="instance.external_id">{$ instance.external_id $}</code></td>
                                             <td>
                                             	<code ng-repeat="ip in instance.public_ips">
 	                                            	{$ ip $}

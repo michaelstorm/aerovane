@@ -291,7 +291,7 @@ def compute(request, group_id=None):
         name = params['name']
 
         authentication_method_id = params['authentication_method']
-        authentication_method = request.user.configration.authentication_methods.filter(pk=authentication_method_id).first()
+        authentication_method = request.user.configuration.authentication_methods.filter(pk=authentication_method_id).first()
 
         provider_policy = {}
         for key in params:
