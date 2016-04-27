@@ -355,7 +355,7 @@ def configure_provider(request, provider_name):
             else:
                 context[key] = form_class()
 
-    return render(request, 'stratosphere/providers.html', context=context)
+    return redirect('/providers/')
 
 
 @login_required
@@ -401,10 +401,16 @@ def get_providers(request, provider_id=None):
 
         context['left_nav_section'] = 'providers'
 
+        aws_credentials = Ec2ProviderCredentials.objects.first()
+        if aws_credentials is not None:
+            context['aws_access_key_id'] = aws_credentials.access_key_id
+
         return render(request, 'stratosphere/providers.html', context=context)
+
     elif provider_id is None:
         provider_configurations = request.user.configuration.provider_configurations.all()
         return JsonResponse([_provider_json(pc) for pc in provider_configurations], safe=False)
+
     else:
         provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
         return JsonResponse(_provider_json(provider_configuration))

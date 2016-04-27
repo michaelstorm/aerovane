@@ -21,11 +21,16 @@
                             {% csrf_token %}
                             <div class="form-group">
                                 <label>Access key ID</label>
-                                <input type="text" class="form-control" name="aws_access_key_id">
+                                <input type="text" class="form-control" name="aws_access_key_id" value="{{ aws_access_key_id }}">
                             </div>
                             <div class="form-group">
                                 <label>Secret access key</label>
-                                <input type="password" class="form-control" name="aws_secret_access_key" autocomplete="new-password">
+                                <input type="password" class="form-control" name="aws_secret_access_key" autocomplete="new-password"
+                                    {% if aws_access_key_id %}
+                                        placeholder="&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;"
+                                    {% endif %}
+                                    }
+                                >
                             </div>
                             <input type="submit" value="Save" class="btn btn-primary">
                         </form>
