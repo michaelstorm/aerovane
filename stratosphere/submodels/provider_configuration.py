@@ -106,9 +106,3 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
                 self.logger.warning('Instance %s already destroyed (%s)' % (libcloud_node.id, e.message))
             else:
                 raise e
-
-
-@receiver(post_save, sender=ProviderConfiguration)
-def schedule_load_provider_info(sender, created, instance, **kwargs):
-    if created:
-        schedule_random_default_delay(load_provider_data, instance.pk)

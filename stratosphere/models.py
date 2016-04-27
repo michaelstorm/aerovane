@@ -38,3 +38,12 @@ def compute_instance_pre_save(sender, instance, raw, using, update_fields, **kwa
 @receiver(post_save, sender=ComputeInstance)
 def compute_instance_post_save(sender, created, instance, **kwargs):
     ComputeInstance.handle_post_save(sender, created, instance, **kwargs)
+
+
+def schedule_load_provider_info(sender, created, instance, **kwargs):
+    if created:
+        schedule_random_default_delay(load_provider_data, instance.pk)
+
+
+for subclass in ProviderConfiguration.__subclasses__():
+    post_save.connect(schedule_load_provider_info, subclass)
