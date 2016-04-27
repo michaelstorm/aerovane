@@ -15,7 +15,6 @@ from stratosphere.lib.provider_configuration_data_loader import ProviderConfigur
 from stratosphere.lib.provider_configuration_status_checker import ProviderConfigurationStatusChecker
 
 from ..models import DiskImage, ProviderImage
-from ..tasks import load_provider_data
 from ..util import *
 
 import threading

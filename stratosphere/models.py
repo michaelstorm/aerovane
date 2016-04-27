@@ -2,7 +2,7 @@ from django.db import models
 
 from simple_history.models import HistoricalRecords
 
-from .tasks import create_libcloud_node
+from .tasks import create_libcloud_node, load_provider_data
 
 from .submodels.authentication_method import *
 from .submodels.compute_instance import *

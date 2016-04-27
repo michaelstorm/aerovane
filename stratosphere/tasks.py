@@ -25,7 +25,7 @@ def load_provider_data(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.load_data(False)
+    provider_configuration.load_data(True)
 
 
 # @periodic_task(run_every=timedelta(minutes=10))
@@ -34,7 +34,7 @@ def update_provider_info_all():
 
     provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
-        schedule_random_default_delay(load_provider_info, provider_configuration_id)
+        schedule_random_default_delay(load_provider_data, provider_configuration_id)
 
 
 @app.task()
