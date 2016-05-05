@@ -30,4 +30,6 @@ urlpatterns = [
 
     url(r'^aws/.*$', aws.initial),
     url(r'^accounts/', include('allauth.urls')),
+
+    url(r'^\.well-known/acme-challenge/Pyb4_9N05Q1hpcTwJuH5gfkyH44kRyvEEnHBujr_Qpc$', views.letsencrypt_challenge),
 ]

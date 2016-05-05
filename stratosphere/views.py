@@ -491,3 +491,7 @@ def state_history(request, group_id=None):
 
     history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)
+
+
+def letsencrypt_challenge(request):
+    return HttpResponse("Pyb4_9N05Q1hpcTwJuH5gfkyH44kRyvEEnHBujr_Qpc.UeLsaqRFIjyWb102ItAgYxbvXQnQMsFVw7TlA5_nwKs")
