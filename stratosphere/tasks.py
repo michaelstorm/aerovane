@@ -25,10 +25,13 @@ def load_provider_data(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.load_data(True)
+    if provider_configuration.user_configuration is None:
+        provider_configuration.load_data(True)
+    else:
+        provider_configuration.load_data(False)
 
 
-# @periodic_task(run_every=timedelta(minutes=10))
+@periodic_task(run_every=timedelta(minutes=10))
 def update_provider_info_all():
     from .models import ProviderConfiguration
 

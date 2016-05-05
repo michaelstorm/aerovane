@@ -134,5 +134,6 @@ class ProviderConfigurationStatusChecker(object):
 
             self.check_failed_instances()
 
-            with thread_local(DB_OVERRIDE='serializable'):
-                self.user_configuration.take_instance_states_snapshot_if_changed()
+            if self.user_configuration is not None:
+                with thread_local(DB_OVERRIDE='serializable'):
+                    self.user_configuration.take_instance_states_snapshot_if_changed()

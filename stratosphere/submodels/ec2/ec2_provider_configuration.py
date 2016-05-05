@@ -91,30 +91,40 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         },
     }
 
+    regions = {
+       'us-east-1': 'US East (N. Virginia)',
+       'us-west-1': 'US West (N. California)',
+       'us-west-2': 'US West (Oregon)',
+    }
+
     @staticmethod
-    def create_regions(user, access_key_id, secret_access_key):
-        credentials = Ec2ProviderCredentials.objects.create(
-                            access_key_id=access_key_id, secret_access_key=secret_access_key)
+    def _provider_name_from_region(region):
+        return 'aws_%s' % region.replace('-', '_')
 
-        regions = {
-           'us-east-1': 'US East (N. Virginia)',
-           'us-west-1': 'US West (N. California)',
-           'us-west-2': 'US West (Oregon)',
-        }
-
-        for region, pretty_name in regions.items():
-            name = 'aws_%s' % region.replace('-', '_')
+    @staticmethod
+    def create_providers():
+        for region, pretty_name in Ec2ProviderConfiguration.regions.items():
+            provider_name = Ec2ProviderConfiguration._provider_name_from_region(region)
             provider = Provider.objects.create(
-                name=name,
+                name=provider_name,
                 pretty_name='AWS %s' % pretty_name,
                 icon_path='stratosphere/aws_icon.png')
 
+    @staticmethod
+    def create_regions(user_configuration, access_key_id, secret_access_key):
+        credentials = Ec2ProviderCredentials.objects.create(
+                            access_key_id=access_key_id, secret_access_key=secret_access_key)
+
+        for region, pretty_name in Ec2ProviderConfiguration.regions.items():
+            provider_name = Ec2ProviderConfiguration._provider_name_from_region(region)
+            provider = Provider.objects.get(name=provider_name)
+
             Ec2ProviderConfiguration.objects.create(
                 provider=provider,
-                provider_name=name,
+                provider_name=provider_name,
                 region=region,
                 credentials=credentials,
-                user_configuration=user.configuration)
+                user_configuration=user_configuration)
 
     def create_driver(self):
         cls = get_driver(LibcloudProvider.EC2)
