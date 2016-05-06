@@ -1,0 +1,19 @@
+{
+   "pct": 95,
+   "expire": 0,
+   "hostname": "localhost",
+   "flush_interval": 5000,
+   "restart": false,
+   "no_aggregate_counters": false,
+   "stop": false,
+   "daemonize": false,
+   "create": false,
+   "debug": false,
+   "api_token": "619e3bec041ca3ce580fd3e1a4bd8ca5206398bdab37d4b3b7a4be3bdd9ebc7c",
+   "pidfile": "/var/run/solarwinds-python-statsd.pid",
+   "port": 8142,
+   "user": "mike@aerovane.io",
+   "integration": "django",
+   "app_id": "aerovane",
+   "metrics_hostname": "metrics-api.librato.com"
+}
