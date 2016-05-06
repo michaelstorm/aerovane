@@ -188,6 +188,7 @@ DATABASE_ROUTERS = ['stratosphere.settings_router.SettingsRouter']
 BROKER_URL = 'amqp://aerovane:aerovane_password@localhost:5672/aerovane_vhost'
 CELERYD_HIJACK_ROOT_LOGGER = True
 CELERY_IGNORE_RESULT = True
+CELERY_DEFAULT_QUEUE = 'default'
 # CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
 # CELERYBEAT_SCHEDULE = {
 #     'schedule-name': {

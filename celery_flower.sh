@@ -1,2 +1,2 @@
 #!/bin/bash
-celery -A multicloud flower
+celery -A multicloud.celery flower
