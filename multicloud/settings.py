@@ -54,7 +54,7 @@ INSTALLED_APPS = (
     'allauth.socialaccount',
     'allauth.socialaccount.providers.github',
     'kombu.transport.django',
-    'simple_history',
+    'simple_history'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -192,13 +192,6 @@ BROKER_URL = os.environ['CLOUDAMQP_URL']
 CELERYD_HIJACK_ROOT_LOGGER = True
 CELERY_IGNORE_RESULT = True
 CELERY_DEFAULT_QUEUE = 'default'
-# CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
-# CELERYBEAT_SCHEDULE = {
-#     'schedule-name': {
-#         'task': 'stratosphere.tasks.update_instances_statuses',
-#         'schedule': timedelta(seconds=30),
-#     },
-# }
 
 
 # Internationalization
