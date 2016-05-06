@@ -140,6 +140,7 @@ ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+ACCOUNT_SIGNUP_FORM_CLASS = "stratosphere.forms.SignupForm"
 ACCOUNT_SIGNUP_PASSWORD_VERIFICATION = False
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USERNAME_REQUIRED = False
@@ -187,7 +188,7 @@ DATABASES = {
 DATABASE_ROUTERS = ['stratosphere.settings_router.SettingsRouter']
 
 # Celery
-BROKER_URL = 'amqp://aerovane:aerovane_password@localhost:5672/aerovane_vhost'
+BROKER_URL = os.environ['CLOUDAMQP_URL']
 CELERYD_HIJACK_ROOT_LOGGER = True
 CELERY_IGNORE_RESULT = True
 CELERY_DEFAULT_QUEUE = 'default'
@@ -241,4 +242,4 @@ AWS_HEADERS = {
 from stratosphere.models import ComputeInstance
 
 
-SITE_ID = int(os.environ.get('DJANGO_SITE_ID', '1'))
+SITE_ID = int(os.environ.get('DJANGO_SITE_ID', '2'))
