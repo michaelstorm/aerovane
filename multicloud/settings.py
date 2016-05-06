@@ -241,4 +241,4 @@ AWS_HEADERS = {
 from stratosphere.models import ComputeInstance
 
 
-SITE_ID = 2
+SITE_ID = int(os.environ.get('DJANGO_SITE_ID', '1'))
