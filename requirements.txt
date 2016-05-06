@@ -1,7 +1,7 @@
 --extra-index-url https://pypi.fury.io/Jmtu27PFLB2CHCyHa4LF/aerovane/
 amqp==1.4.7
-apache-libcloud==0.20.3-aerovane
 anyjson==0.3.3
+apache-libcloud===0.20.3-aerovane
 Babel==2.2.0
 backports-abc==0.4
 backports.ssl-match-hostname==3.4.0.2
