@@ -55,6 +55,12 @@
             {% block style %}
             {% endblock %}
         </style>
+
+        <!-- load before Angular so that all selectors can be used -->
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+        <!-- load before body so that ng-cloak elements are hidden -->
+        <script src="{% static "stratosphere/angular.min.js" %}"></script>
     </head>
 
     <body>
@@ -213,10 +219,6 @@
             {% endblock %}
         </div>
 
-        <!-- load before Angular so that all selectors can be used -->
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-
-        <script src="{% static "stratosphere/angular.min.js" %}"></script>
         <script src="{% static "stratosphere/angular-resource.min.js" %}"></script>
         <script src="{% static "stratosphere/isteven-multi-select/isteven-multi-select.js" %}"></script>
         <script src="{% static "stratosphere/angular-ui-select/select.min.js" %}"></script>
