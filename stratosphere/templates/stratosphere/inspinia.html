@@ -16,9 +16,9 @@
 
         <title>Aerovane | Dashboard</title>
 
-        <link href="/static/stratosphere/instances-chart/instances-chart.css" rel="stylesheet">
+        <link href="{% static "/stratosphere/instances-chart/instances-chart.css" %}" rel="stylesheet">
 
-        <link href="/static/stratosphere/intro.js-2.1.0/introjs.min.css" rel="stylesheet">
+        <link href="{% static "/stratosphere/intro.js-2.1.0/introjs.min.css" %}" rel="stylesheet">
 
         <!-- Bootstrap -->
         <link href="{% static "stratosphere/bootstrap/css/bootstrap.min.css" %}" rel="stylesheet">
@@ -51,11 +51,11 @@
         <script src="{% static "stratosphere/angular-ui-select/select.min.js" %}"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.14.3/ui-bootstrap-tpls.min.js"></script>
 
-        <script src="/static/stratosphere/angular-ui-select/select.min.js"></script>
+        <script src="{% static "/stratosphere/angular-ui-select/select.min.js" %}"></script>
 
-        <script src="/static/stratosphere/instances-chart/instances-chart.js"></script>
+        <script src="{% static "/stratosphere/instances-chart/instances-chart.js" %}"></script>
 
-        <script src="/static/stratosphere/intro.js-2.1.0/intro.min.js"></script>
+        <script src="{% static "/stratosphere/intro.js-2.1.0/intro.min.js" %}"></script>
 
         <script type="text/javascript">
             var compute_group_id = "{{ compute_group_id|default:"" }}";
