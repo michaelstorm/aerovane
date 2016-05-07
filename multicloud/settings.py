@@ -69,7 +69,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
-    'stratosphere.middleware.ssl_middleware.SSLMiddleware'
+    # 'stratosphere.middleware.ssl_middleware.SSLMiddleware'
 )
 
 ROOT_URLCONF = 'multicloud.urls'
