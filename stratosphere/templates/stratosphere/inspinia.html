@@ -61,6 +61,9 @@
 
         <!-- load before body so that ng-cloak elements are hidden -->
         <script src="{% static "stratosphere/angular.min.js" %}"></script>
+
+        <!-- load before body so that sub-template scripts can use jQuery -->
+        <script src="{% static "stratosphere/inspinia/js/jquery-2.1.1.js" %}"></script>
     </head>
 
     <body>
@@ -483,7 +486,6 @@
         </script>
 
         <!-- Mainly scripts -->
-        <script src="{% static "stratosphere/inspinia/js/jquery-2.1.1.js" %}"></script>
         <script src="{% static "stratosphere/inspinia/js/bootstrap.min.js" %}"></script>
         <script src="{% static "stratosphere/inspinia/js/plugins/metisMenu/jquery.metisMenu.js" %}"></script>
         <script src="{% static "stratosphere/inspinia/js/plugins/slimscroll/jquery.slimscroll.min.js" %}"></script>
