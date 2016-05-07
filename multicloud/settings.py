@@ -66,6 +66,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
     'stratosphere.middleware.ssl_middleware.SSLMiddleware'
 )
@@ -208,23 +209,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(os.getcwd(), 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STATICFILES_DIRS = (
-    os.path.join(BASE_DIR, 'static'),
-)
-
-PROJECT_DIR = os.path.dirname(__file__)
-
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-STATICFILES_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
-AWS_STORAGE_BUCKET_NAME = 'stratospherecdn2'
-AWS_QUERYSTRING_AUTH = False
-
-AWS_HEADERS = {
-    'Cache-Control': 'public,max-age=86400',
-    # 'Expires': 'Wed, 15 Apr 2020 20:00:00 GMT',
-}
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 
 # for whatever reason, saves us from a bunch of deprecation errors related to model loading
