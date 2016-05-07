@@ -1,2 +1,2 @@
-#librato-launch --config-path development-librato-conf.json python manage.py runserver
-python manage.py runserver
+# run with gunicorn in order to use WhiteNoise (in wsgi.py) to serve static assets
+gunicorn multicloud.wsgi --log-file -
