@@ -10,7 +10,7 @@ boto==2.38.0
 celery==3.1.23
 defusedxml==0.4.1
 dj-database-url==0.3.0
-Django==1.8.8
+Django==1.8.13
 django-admin-bootstrapped==2.5.6
 django-allauth==0.24.0
 django-annoying==0.8.4
