@@ -221,11 +221,6 @@
             </div>
         </div>
 
-        <div class="footer fixed">
-            {% block footer %}
-            {% endblock %}
-        </div>
-
         {% compress js %}
         <!-- load before Angular so that all selectors can be used -->
         <script src="{% static "stratosphere/inspinia/js/jquery-2.1.1.js" %}"></script>
