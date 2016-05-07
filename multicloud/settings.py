@@ -209,6 +209,37 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.8/howto/static-files/
 
+# Documenting here because I'll never remember how this works. django-staticfiles seems to provide
+# the harness/pipeline for messing around with static files. `$ python manage.py collectstatic` picks up
+# static files from stratosphere/static/ and plops them in multicloud/staticfiles/, which would make a difference
+# if there were other apps whose assets would also be plopped there. For us, it copies them there because
+# it just wants to help.
+#
+# django-compressor reads every asset referenced inside {% compress %}/{% endcompress %} blocks (probably from
+# multicloud/staticfiles/, since we use `static` tags inside `compress` blocks and it doesn't choke on them),
+# "compresses" them, and sticks the results in multicloud/staticfiles/. "Compressing" can be several operations,
+# configurably, and seemingly dependent on which optional packages are installed. The one I most care about is
+# concatenation, for now, and it's included by default. It then rewrites the HTML inside the `compress` blocks
+# to reference the newly-created assets, so my guess is that it's definitely not safe to stick anything else in
+# there.
+#
+# Finally, we serve the assets via WhiteNoise. WhiteNoise allows apps to serve static assets via WSGI, which is
+# incredibly convenient, since we don't have to copy our assets anywhere or fiddle with nginx or Apache configs.
+# It also allows a transparent CDN like Cloudflare to just pick up our assets, since it theoretically appends a
+# cache-busting suffix to asset URLs. This seems to get swallowed when django-compressor is in use, though.
+#
+# Asset pipeline is:
+# $ python manage.py collectstatic
+# $ python manage.py compress
+#
+# and that's it. Works both locally and on Heroku, with DEBUG on or off. Edge cases may differ, though --
+# django-compressor complains about missing assets in debug mode, but just elides them in production, IIRC.
+# Interestingly, we seem to need only `$ python manage.py compress` if all assets are in `compress` blocks,
+# but I like to include the other command for safety's sake. Also, Heroku does it by default.
+#
+# Speaking of Heroku, we trigger `$ python manage.py compress` by sticking it in `bin/post_compile`, which is
+# a special file that Heroku looks for.
+
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
