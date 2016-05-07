@@ -36,7 +36,6 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
 INSTALLED_APPS = (
     'annoying',
-    'polymorphic',
     'bootstrap3',
     'django_admin_bootstrapped',
     'django_extensions',
@@ -47,6 +46,7 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.sites',
     'django.contrib.staticfiles',
+    'polymorphic',
     'storages',
     'stratosphere',
     'allauth',
@@ -212,10 +212,6 @@ STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
-
-# for whatever reason, saves us from a bunch of deprecation errors related to model loading
-from stratosphere.models import ComputeInstance
 
 
 SITE_ID = int(os.environ.get('DJANGO_SITE_ID', '2'))
