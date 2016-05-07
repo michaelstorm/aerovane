@@ -231,14 +231,19 @@ USE_TZ = True
 # Asset pipeline is:
 # $ python manage.py collectstatic
 # $ python manage.py compress
+# $ python -m whitenoise.compress multicloud/staticfiles/
 #
-# and that's it. Works both locally and on Heroku, with DEBUG on or off. Edge cases may differ, though --
-# django-compressor complains about missing assets in debug mode, but just elides them in production, IIRC.
-# Interestingly, we seem to need only `$ python manage.py compress` if all assets are in `compress` blocks,
-# but I like to include the other command for safety's sake. Also, Heroku does it by default.
+# Works both locally and on Heroku, with DEBUG on or off. Edge cases may differ, though -- django-compressor
+# complains about missing assets in debug mode, but just elides them in production, IIRC. Interestingly, we
+# seem to be able to omit `$ python manage.py collectstatic` if all assets are in `compress` blocks, but I like
+# to include it for safety's sake. Also, Heroku does it by default.
 #
-# Speaking of Heroku, we trigger `$ python manage.py compress` by sticking it in `bin/post_compile`, which is
-# a special file that Heroku looks for.
+# Speaking of Heroku, we trigger the latter two commands by sticking it them `bin/post_compile`, which is a
+# special file that Heroku looks for.
+#
+# Running `whitenoise.compress` shouldn't be necessary, according to the docs, but (a) gzipped assets aren't
+# served otherwise, and (b) it's not clear how gzipped assets were going to be compressed "live" anyhow. Took a
+# bit of experimentation to figure that one out.
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
