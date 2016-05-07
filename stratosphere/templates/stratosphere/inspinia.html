@@ -55,6 +55,11 @@
                 padding-bottom: 10px;
             }
 
+            .avatar-img {
+                height: 48px;
+                width: 48px;
+            }
+
             {% block style %}
             {% endblock %}
         </style>
@@ -76,7 +81,7 @@
                         <li class="nav-header">
                             <div class="dropdown profile-element">
                                 <span>
-                                    <img class="img-circle" title="sdfsdf" src="{{ request.user.configuration.avatar_url }}">
+                                    <img class="img-circle avatar-img" title="sdfsdf" src="{{ request.user.configuration.avatar_url }}">
                                 </span>
                                 <a data-toggle="dropdown" class="dropdown-toggle" href="#">
                                     <span class="clear">
