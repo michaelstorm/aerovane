@@ -132,8 +132,11 @@ def compute_groups(request):
 
 @login_required
 def compute_group(request, group_id):
+    compute_group = request.user.configuration.compute_groups.get(pk=group_id)
+
     context = {
-        # 'compute_group_id': group_id,
+        'compute_group_id': group_id,
+        'compute_group_name': compute_group.name,
         'left_nav_section': 'dashboard',
         'left_sub_nav_section': 'view',
     }

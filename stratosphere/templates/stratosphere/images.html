@@ -2,6 +2,8 @@
 {% load staticfiles %}
 {% load bootstrap3 %}
 
+{% block title %}Images{% endblock %}
+
 {% block angular-app-name %}dashboardApp{% endblock %}
 
 {% block content %}
@@ -28,7 +30,7 @@
             <div class="col-lg-6" ng-repeat="os in operating_systems track by os.id" ng-cloak>
                 <div class="ibox float-e-margins">
                     <div class="ibox-title">
-                        <h5>{$ os.name $}: {$ os.id $}</h5>
+                        <h5>{$ os.name $}</h5>
                     </div>
                     <div class="ibox-content">
                         <div class="operating-system form">

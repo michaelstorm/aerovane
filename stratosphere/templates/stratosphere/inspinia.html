@@ -15,7 +15,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <title>Aerovane | Dashboard</title>
+        <title>Aerovane | {% block title %}{% endblock %}</title>
 
         {% compress css %}
         <link href="{% static "stratosphere/instances-chart/instances-chart.css" %}" rel="stylesheet">
