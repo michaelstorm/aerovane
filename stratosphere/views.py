@@ -334,7 +334,7 @@ def configure_provider(request, provider_name):
     if provider_name == 'aws':
         provider_configuration = request.user.configuration.provider_configurations.instance_of(Ec2ProviderConfiguration).first()
         if provider_configuration is None:
-            Ec2ProviderConfiguration.create_regions(request.user,
+            Ec2ProviderConfiguration.create_regions(request.user.configuration,
                             request.POST['aws_access_key_id'], request.POST['aws_secret_access_key'])
 
         else:
@@ -401,7 +401,7 @@ def get_providers(request, provider_id=None):
 
         context['left_nav_section'] = 'providers'
 
-        aws_credentials = Ec2ProviderCredentials.objects.first()
+        aws_credentials = Ec2ProviderCredentials.objects.filter(configurations__user_configuration=request.user.configuration).first()
         if aws_credentials is not None:
             context['aws_access_key_id'] = aws_credentials.access_key_id
 

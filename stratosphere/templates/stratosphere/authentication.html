@@ -81,20 +81,6 @@
         </div>
     </div>
 
-    <script>
-        $(document).ready(function() {
-            $('.delete-method-button').click(function() {
-                $.ajax({
-                    url: '/authentication_methods/' + $(this).attr('method-id') + '/',
-                    method: 'DELETE',
-                    success: function() {
-                        location.reload();
-                    },
-                });
-            });
-        });
-    </script>
-
     <style>
         .panel-title img {
             height: 16px;
@@ -106,4 +92,18 @@
             vertical-align: middle;
         }
     </style>
+{% endblock %}
+
+{% block body_script %}
+    $(document).ready(function() {
+        $('.delete-method-button').click(function() {
+            $.ajax({
+                url: '/authentication_methods/' + $(this).attr('method-id') + '/',
+                method: 'DELETE',
+                success: function() {
+                    location.reload();
+                },
+            });
+        });
+    });
 {% endblock %}

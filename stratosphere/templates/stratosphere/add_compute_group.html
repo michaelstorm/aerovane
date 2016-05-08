@@ -50,7 +50,7 @@
                                     </div>
                                     <div class="row">
                                         <div class="col-lg-6">
-                                            <div class="form-group">
+                                            <div class="form-group" id="select-auth-container">
                                                 <label>Authentication method</label>
                                                 <select class="fancy-select" ng-model="group.authentication_method" name="authentication_method">
                                                     <option></option>
@@ -161,10 +161,11 @@
             var name = $('input[name="name"]').val();
 
             var selected_provider_count = $('#providers-list').find('input[type="checkbox"]:checked').length;
+            var selected_authentication_method = $('#select-auth-container select').val().length > 0;
             var selected_image = $('#select-os-container select').val().length > 0;
 
             var add_button = $('#add-group-button');
-            if (name.length > 0 && selected_provider_count > 0 && selected_image) {
+            if (name.length > 0 && selected_provider_count > 0 && selected_authentication_method && selected_image) {
                 add_button.removeAttr('disabled');
             }
             else {
@@ -192,10 +193,6 @@
         createslider($('#cpu-slider'), 0, 88, 1, " ECUs");
         createslider($('#memory-slider'), 512, 8192, 512, "MB");
         createslider($('#instance-count-slider'), 1, 16, 1, " instances");
-
-        $('select[name="authentication_method"], select[name="operating_system"]').on('change', function() {
-            angular.element($(this)).triggerHandler('change');
-        });
 
         $('#select-os-container select').on('change', function() {
             hide_unsupported_providers();

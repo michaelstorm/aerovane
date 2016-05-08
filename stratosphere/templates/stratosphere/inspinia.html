@@ -49,9 +49,23 @@
                 padding-bottom: 10px;
             }
 
+            /* set explicitly to improve rendering performance while image is loading */
             .avatar-img {
                 height: 48px;
                 width: 48px;
+            }
+
+            @media (max-width: 768px) {
+                /* default is to have a 10px bottom margin on the last child, which is ugly on mobile */
+                .nav-second-level li:last-child {
+                    margin-bottom: 0;
+                }
+            }
+
+            /* select boxes are displayed inline with their labels by default */
+            .mobile-select {
+                display: block;
+                width: 100%;
             }
 
             /* hides ng-cloak elements before Angular is loaded */
@@ -281,6 +295,12 @@
 
           $('.fancy-select').chosen({
               width: '100%'
+          });
+
+          // chosen doesn't support mobile devices
+          $('.fancy-select').each(function() {
+            if ($(this).css('display') != 'none')
+              $(this).addClass('mobile-select');
           });
 
           {% block body_script %}
