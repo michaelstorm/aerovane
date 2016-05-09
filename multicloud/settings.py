@@ -89,6 +89,9 @@ TEMPLATES = [
     },
 ]
 
+APPEND_SLASH = True
+
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False, # True
@@ -125,8 +128,6 @@ LOGGING = {
 }
 
 WSGI_APPLICATION = 'multicloud.wsgi.application'
-
-APPEND_SLASH = False
 
 
 AUTHENTICATION_BACKENDS = (
