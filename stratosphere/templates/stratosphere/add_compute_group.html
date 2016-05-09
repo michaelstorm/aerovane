@@ -6,15 +6,18 @@
 {% block angular-app-name %}dashboardApp{% endblock %}
 
 {% block content %}
+    <div class="row wrapper border-bottom white-bg page-heading">
+        <div class="col-lg-12">
+            <h1>Create Compute Group</h1>
+        </div>
+    </div>
+
     <div class="row" ng-controller="ComputeGroupListCtrl">
         <div class="col-lg-12">
             <div class="wrapper wrapper-content">
                 <div class="row">
                     <div class="col-lg-12">
                         <div class="ibox float-e-margins">
-                            <div class="ibox-title">
-                                <h5>Add compute group</h5>
-                            </div>
                             <div class="ibox-content">
                                 <form class="form">
                                     {% csrf_token %}
@@ -107,7 +110,7 @@
                                     </div>
                                     <div class="row">
                                         <div class="col-lg-2 col-lg-offset-5">
-                                            <button type="button" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 20px;" ng-click="update(group)" id="add-group-button" disabled>Add</button>
+                                            <button type="button" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 20px;" ng-click="update(group)" id="add-group-button" disabled>Create</button>
                                         </div>
                                     </div>
                                 </form>

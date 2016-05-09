@@ -73,6 +73,16 @@
                 display: none !important;
             }
 
+            .provider-icon {
+                height: 16px;
+                margin-right: 5px;
+            }
+
+            .provider-link > *, .public-ip > * {
+                display: inline-block;
+                vertical-align: middle;
+            }
+
             {% block style %}
             {% endblock %}
         </style>
@@ -105,18 +115,25 @@
                                 class="active"
                             {% endif %}
                         >
+                            <a href="/"><i class="fa fa-tachometer"></i> <span class="nav-label">Dashboard</span></a>
+                        </li>
+                        <li
+                            {% if left_nav_section == "groups" %}
+                                class="active"
+                            {% endif %}
+                        >
                             <a href="index.html"><i class="fa fa-cubes"></i> <span class="nav-label">Compute groups</span> <span class="fa arrow"></span></a>
                             <ul class="nav nav-second-level collapse">
+                                <li
+                                    {% if left_sub_nav_section == "add" %}
+                                        class="active"
+                                    {% endif %}
+                                ><a href="/compute_groups/add/"><i class="fa fa-plus"></i> Create</a></li>
                                 <li
                                     {% if left_sub_nav_section == "view" %}
                                         class="active"
                                     {% endif %}
                                 ><a href="/compute_groups/"><i class="fa fa-table"></i> View</a></li>
-                                <li
-                                    {% if left_sub_nav_section == "add" %}
-                                        class="active"
-                                    {% endif %}
-                                ><a href="/compute_groups/add/"><i class="fa fa-plus"></i> Add</a></li>
                             </ul>
                         </li>
                         <li

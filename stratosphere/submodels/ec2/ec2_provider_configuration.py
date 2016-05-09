@@ -159,11 +159,11 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         return self.driver.list_images(ex_filters=filters)
 
     def admin_url(self, compute_instance=None):
-        base_url = "https://console.aws.amazon.com/ec2/home?region=%s#Instances" % self.region
+        base_url = "https://console.aws.amazon.com/ec2/home?region=%s" % self.region
         if compute_instance is None:
             return base_url
         else:
-            return "%s:search=%s" % (base_url, compute_instance.external_id)
+            return "#Instances%s:search=%s" % (base_url, compute_instance.external_id)
 
 
 @receiver(post_save, sender=Ec2ProviderCredentials)

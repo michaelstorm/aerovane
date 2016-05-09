@@ -6,67 +6,18 @@
 {% block angular-app-name %}dashboardApp{% endblock %}
 
 {% block content %}
+    <div class="row wrapper border-bottom white-bg page-heading">
+        <div class="col-lg-12">
+            <h1>Compute Groups</h1>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-lg-12">
             <div class="wrapper wrapper-content">
                 <div class="row">
                     <div class="col-lg-12">
-                        <div class="btn-group btn-group-xs" id="instances-chart-max-range-buttons" style="float: right;">
-                            <button type="button" class="btn btn-info" seconds="1800">30 minutes</button>
-                            <button type="button" class="btn btn-default" seconds="43200">12 hours</button>
-                            <button type="button" class="btn btn-default" seconds="604800">7 days</button>
-                            <button type="button" class="btn btn-default">All time</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div id="instances-chart-container">
-                            <div id="instances-chart"></div>
-                            <div id="instances-chart-range-slider"></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-lg-12">
-                        {% include "stratosphere/_provider_list.html" %}
-
-                        <div class="ibox float-e-margins" ng-controller="ComputeGroupListCtrl">
-                            <div class="ibox-title">
-                                <h5>Compute groups</h5>
-                            </div>
-                            <div class="ibox-content table-responsive">
-                                <table class="table table-striped compute-groups-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>CPU</th>
-                                            <th>Memory</th>
-                                            <th>Running instances</th>
-                                            <th>Expected instances</th>
-                                            <th>Instance states</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr ng-repeat="group in groups | orderBy: 'created_at' track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
-                                            <td class="group-name">
-                                                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
-                                                <span><a href="{$ group.id $}/">{$ group.name $}</a></span>
-                                            </td>
-                                            <td>{$ group.cpu $}</td>
-                                            <td>{$ group.memory $} MB</td>
-                                            <td>{$ group.running_instance_count $}</td>
-                                            <td>{$ group.instance_count $}</td>
-                                            <td class="group-providers-graph-cell">
-                                                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
-                                            </td>
-                                            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        {% include "stratosphere/_compute_group_list.html" %}
                     </div>
                 </div>
             </div>

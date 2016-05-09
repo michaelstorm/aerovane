@@ -5,7 +5,7 @@ from . import views, aws
 # from .modelviews.password_authentication_method.new import NewPasswordAuthenticationMethodView
 
 urlpatterns = [
-    url(r'^$', RedirectView.as_view(url='/compute_groups/', permanent=False)),
+    url(r'^$', views.dashboard),
     url(r'^operating_system/$', views.operating_systems),
     url(r'^compute/$', views.compute),
     url(r'^compute/(?P<group_id>[0-9a-f\-]+)/$', views.compute),

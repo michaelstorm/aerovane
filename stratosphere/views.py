@@ -120,10 +120,20 @@ def images(request):
 
 
 @login_required
-def compute_groups(request):
+def dashboard(request):
     context = {
         'providers': ProviderConfiguration.objects.all(),
         'left_nav_section': 'dashboard',
+    }
+
+    return render(request, 'stratosphere/dashboard.html', context=context)
+
+
+@login_required
+def compute_groups(request):
+    context = {
+        'providers': ProviderConfiguration.objects.all(),
+        'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
     }
 
@@ -137,7 +147,7 @@ def compute_group(request, group_id):
     context = {
         'compute_group_id': group_id,
         'compute_group_name': compute_group.name,
-        'left_nav_section': 'dashboard',
+        'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
     }
 
@@ -195,7 +205,7 @@ def add_compute_group(request):
         'os_images_map': os_images_map,
         'possible_providers': possible_providers,
         'authentication_methods': AuthenticationMethod.objects.all(),
-        'left_nav_section': 'dashboard',
+        'left_nav_section': 'groups',
         'left_sub_nav_section': 'add',
     }
     return render(request, 'stratosphere/add_compute_group.html', context=context)
@@ -231,6 +241,7 @@ def _compute_instance_to_json(instance):
             'failed_at': failed_at, 'state': instance.state,
             'display_state': display_state, 'admin_url': instance.admin_url(),
             'provider_icon_url': instance.provider_configuration.provider.icon_url(),
+            'size': instance.provider_size.external_id,
             'provider_admin_url': instance.provider_configuration.admin_url()}
 
 
@@ -397,7 +408,9 @@ def _provider_json(provider_configuration):
             'enabled': provider_configuration.enabled,
             'failure_count': provider_configuration.failure_count(timezone.now()),
             'max_failure_count': provider_configuration.max_failure_count(),
-            'total_instances': provider_configuration.instances.filter(~ComputeInstance.unavailable_instances_query()).count()}
+            'total_instances': provider_configuration.instances.filter(~ComputeInstance.unavailable_instances_query()).count(),
+            'admin_url': provider_configuration.admin_url(),
+            'icon_url': provider_configuration.provider.icon_url()}
 
 
 @login_required
