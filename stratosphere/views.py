@@ -240,8 +240,9 @@ def _compute_instance_to_json(instance):
             'private_ips': instance.private_ips, 'destroyed_at': destroyed_at,
             'failed_at': failed_at, 'state': instance.state,
             'display_state': display_state, 'admin_url': instance.admin_url(),
-            'provider_icon_url': instance.provider_configuration.provider.icon_url(),
             'size': instance.provider_size.external_id,
+            'size_info_url': instance.provider_size.info_url(),
+            'provider_icon_url': instance.provider_configuration.provider.icon_url(),
             'provider_admin_url': instance.provider_configuration.admin_url()}
 
 
