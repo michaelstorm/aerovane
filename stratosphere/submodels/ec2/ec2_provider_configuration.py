@@ -163,7 +163,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         if compute_instance is None:
             return base_url
         else:
-            return "#Instances%s:search=%s" % (base_url, compute_instance.external_id)
+            return "%s#Instances:search=%s" % (base_url, compute_instance.external_id)
 
 
 @receiver(post_save, sender=Ec2ProviderCredentials)
