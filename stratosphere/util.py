@@ -9,6 +9,7 @@ import traceback
 from django.contrib.staticfiles.storage import CachedFilesMixin
 from django.utils import timezone
 from functools import wraps
+from haikunator import haikunate
 from libcloud.compute.drivers.ec2 import EC2NetworkInterface
 from storages.backends.s3boto import S3BotoStorage
 
@@ -154,6 +155,16 @@ def schedule_random_delay(task, base_delay, half_interval, *args):
 
 def schedule_random_default_delay(task, *args):
     schedule_random_delay(task, 5, 2, *args)
+
+
+def generate_name(existing_query):
+    try_count = 0
+    while True:
+        name = haikunate(tokenlength=try_count)
+        if not existing_query.filter(name=name).exists():
+            return name
+        else:
+            try_count += 1
 
 
 # from https://dzone.com/articles/django-switching-databases

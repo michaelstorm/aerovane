@@ -21,14 +21,6 @@
                                     <div class="row">
                                         <div class="col-lg-12">
                                             <div class="form-group">
-                                                <label>Name</label>
-                                                <input type="text" class="form-control" name="name" ng-model="group.name">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-lg-12">
-                                            <div class="form-group">
                                                 <label>CPU</label>
                                                 <input id="cpu-slider" name="cpu" ng-model="group.cpu">
                                             </div>
@@ -71,6 +63,14 @@
                                                         <option value="{{ image.pk }}">{{ image.name }}</option>
                                                     {% endfor %}
                                                 </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <div class="form-group">
+                                                <label>Name <small><i>(optional)</i></small></label>
+                                                <input type="text" class="form-control" name="name" ng-model="group.name">
                                             </div>
                                         </div>
                                     </div>
@@ -160,14 +160,12 @@
 
     $(document).ready(function() {
         var handleInputChange = function() {
-            var name = $('input[name="name"]').val();
-
             var selected_provider_count = $('#providers-list').find('input[type="checkbox"]:checked').length;
             var selected_authentication_method = $('#select-auth-container select').val().length > 0;
             var selected_image = $('#select-os-container select').val().length > 0;
 
             var add_button = $('#add-group-button');
-            if (name.length > 0 && selected_provider_count > 0 && selected_authentication_method && selected_image) {
+            if (selected_provider_count > 0 && selected_authentication_method && selected_image) {
                 add_button.removeAttr('disabled');
             }
             else {

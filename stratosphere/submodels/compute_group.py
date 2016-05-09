@@ -3,7 +3,6 @@ from annoying.fields import JSONField
 from datetime import datetime, timedelta
 
 from django.apps import apps
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import connection, models, transaction, OperationalError
 from django.db.models import Q
 from django.db.models.signals import pre_save
@@ -13,7 +12,7 @@ from django.utils import timezone
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
-from ..util import HasLogger, retry, call_with_retry, thread_local
+from ..util import generate_name, HasLogger, retry, call_with_retry, thread_local
 
 import json
 import traceback
@@ -94,13 +93,12 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
         for provider_name in self.provider_policy:
             provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name, user_configuration=self.user_configuration)
             provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
+            icon_url = provider_configuration.provider.icon_url()
 
             # TODO split GroupInstanceStatesSnapshot into provider snapshots and use those
             running_count = len(list(filter(lambda i: i.is_running(), provider_instances)))
             pending_count = len(list(filter(lambda i: i.is_pending(), provider_instances)))
             failed_count = len(list(filter(lambda i: i.is_failed() and i.state != ComputeInstance.TERMINATED, provider_instances)))
-
-            icon_path = staticfiles_storage.url(provider_configuration.provider.icon_path)
 
             provider_states_map[provider_name] = {
                 'id': provider_configuration.pk,
@@ -108,7 +106,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                 'pending': pending_count,
                 'failed': failed_count,
                 'pretty_name': provider_configuration.provider.pretty_name,
-                'icon_path': icon_path,
+                'icon_url': icon_url,
             }
 
         return provider_states_map
@@ -316,7 +314,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                                             disk_image__disk_image_mappings__provider=provider_configuration.provider)
 
                     for i in range(instances_to_create):
-                        instance_name = '%s-%d' % (self.name, i)
+                        instance_name = generate_name(self.instances)
 
                         compute_instance_args = {
                             'name': instance_name,
@@ -331,7 +329,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
                         }
 
                         compute_instance = ComputeInstance.objects.create(**compute_instance_args)
-                        self.logger.info('Created instance %d for provider_size %s' % (compute_instance.pk, provider_size))
+                        self.logger.info('Created instance %s for provider_size %s' % (compute_instance.pk, provider_size))
 
                 else:
                     extra_pending_instance_count = min(pending_instances.count(), pending_or_running_count - size_instance_count)

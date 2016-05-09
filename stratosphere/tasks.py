@@ -153,34 +153,6 @@ def destroy_libcloud_node(compute_instance_id):
         instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
 
 
-# TODO not sure whether this should be kept
-# @periodic_task(run_every=timedelta(minutes=4))
-def recreate_stale_pending_instances():
-    from .models import ComputeInstance
-
-    two_minutes_ago = timezone.now() - timedelta(minutes=2)
-    query = ComputeInstance.pending_instances_query() & Q(created_at__lt=two_minutes_ago)
-    stale_pending_instances = ComputeInstance.objects.filter(query)
-
-    print('Found %d stale pending instances' % stale_pending_instances.count())
-    for instance in stale_pending_instances:
-        print('Pending instance %s is stale' % instance.pk)
-        compute_instance_args = {
-            'name': instance.name,
-            'provider_image': instance.provider_image,
-            'group': instance.group,
-            'provider_size': instance.provider_size,
-            'extra': {},
-            'provider_configuration': instance.provider_configuration,
-            'state': None,
-            'public_ips': [],
-            'private_ips': [],
-        }
-
-        compute_instance = ComputeInstance.objects.create(**compute_instance_args)
-        print('Recreated instance %s for provider_size %s' % (compute_instance.pk, instance.provider_size))
-
-
 @app.task()
 def create_libcloud_node(compute_instance_id):
     from .models import ComputeInstance, PasswordAuthenticationMethod
@@ -195,12 +167,13 @@ def create_libcloud_node(compute_instance_id):
     else:
         libcloud_auth = NodeAuthSSHKey(authentication_method.key)
 
+    libcloud_name = '%s_%s' % (compute_instance.group.name, compute_instance.name)
     libcloud_size = provider_size.to_libcloud_size()
     libcloud_image = compute_instance.provider_image.to_libcloud_image(provider_configuration)
 
     print('Creating libcloud node for instance %s, size %s' % (compute_instance.pk, provider_size))
     libcloud_node_args = {
-        'name': compute_instance.name,
+        'name': libcloud_name,
         'libcloud_image': libcloud_image,
         'libcloud_size': libcloud_size,
         'libcloud_auth': libcloud_auth,

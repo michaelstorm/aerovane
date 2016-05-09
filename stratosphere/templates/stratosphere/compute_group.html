@@ -29,41 +29,57 @@
                 </div>
                 <div class="row">
                     <div class="col-lg-12">
-                        {% include "stratosphere/_provider_list.html" %}
-
                         <div class="ibox float-e-margins" ng-controller="ComputeGroupCtrl">
                             <div class="ibox-title">
                                 <h5 ng-cloak>{$ group.name $}</h5>
                             </div>
                             <div class="ibox-content table-responsive">
-                                <table class="table instances-table">
+                                <table class="table instances-table table-striped">
                                     <thead>
                                         <tr>
-                                            <th>Name</th>
                                             <th>Provider</th>
                                             <th>State</th>
-                                            <th>Failed</th>
+                                            <th>Name</th>
                                             <th>ID</th>
                                             <th>Public IPs</th>
                                             <th>Private IPs</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr ng-repeat="instance in group.instances | orderBy: ['provider_pretty_name', 'created_at'] track by instance.id" class="instance-row {$ instance.display_state $}" ng-cloak>
-                                            <td>{$ instance.name $}</td>
-                                            <td>{$ instance.provider_pretty_name $}</td>
-                                            <td>{$ instance.state $}</td>
-                                            <td>{$ instance.failed_at != null $}</td>
-                                            <td><code ng-show="instance.external_id">{$ instance.external_id $}</code></td>
+                                        <tr ng-repeat="instance in group.instances | orderBy: ['provider_pretty_name', 'created_at'] track by instance.id" ng-cloak>
+                                            <!-- Provider -->
                                             <td>
-                                            	<code ng-repeat="ip in instance.public_ips">
-	                                            	{$ ip $}
-	                                            </code>
+                                                <a class="provider-link" href="{$ instance.provider_admin_url $}" target="_blank">
+                                                    <img class="provider-icon" ng-src="{$ instance.provider_icon_url $}"><!--
+                                                    --><span>{$ instance.provider_pretty_name $}</span>
+                                                </a>
                                             </td>
+                                            <!-- State -->
                                             <td>
-                                            	<code ng-repeat="ip in instance.private_ips">
-	                                            	{$ ip $}
-	                                            </code>
+                                                <code class="instance-state">
+                                                    <div class="instance-state-circle {$ instance.display_state $}"></div><!--
+                                                    --><span>{$ instance.state == null ? 'CREATING' : instance.state $}</span>
+                                                </code>
+                                            </td>
+                                            <!-- Name -->
+                                            <td>{$ instance.name $}</td>
+                                            <!-- ID -->
+                                            <td>
+                                                <code ng-show="instance.external_id"><a href="{$ instance.admin_url $}" target="_blank">{$ instance.external_id $}</a></code>
+                                            </td>
+                                            <!-- Public IPs -->
+                                            <td>
+                                                <code class="public-ip" ng-repeat="ip in instance.public_ips"><!--
+                                                    --><span>{$ ip $}</span><!--
+                                                    --><a href="ssh://{$ ip $}"><img src="/static/stratosphere/ssh.svg"></a><!--
+                                                    --><a href="http://{$ ip $}" target="_blank"><img src="/static/stratosphere/web.svg"></a><!-- eliminate extra space when there are multiple elements
+                                                --></code>
+                                            </td>
+                                            <!-- Private IPs -->
+                                            <td>
+                                                <code ng-repeat="ip in instance.private_ips">
+                                                    {$ ip $}<!-- eliminate extra space when there are multiple elements
+                                                --></code>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -78,20 +94,45 @@
 {% endblock %}
 
 {% block style %}
-	.instances-table code {
-		color: black;
-	}
+    .instances-table code {
+        color: black;
+    }
 
-	.instance-row.pending {
-		background-color: #F2D7B1;
-	}
-	.instance-row.running {
-		background-color: #B7DCB7;
-	}
-	.instance-row.destroyed {
-		background-color: #F9F9F9;
-	}
-	.instance-row.failed {
-		background-color: #E9B3B1;
-	}
+    .instance-state > * {
+        display: inline-block;
+        vertical-align: middle;
+    }
+
+    .instance-state-circle {
+        background-color: #D4BE21;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+
+    .instance-state-circle.running {
+        background-color: #47BF35;
+    }
+    .instance-state-circle.destroyed {
+        background-color: #989898;
+    }
+    .instance-state-circle.failed {
+        background-color: #D4212E;
+    }
+
+    .provider-icon {
+        height: 16px;
+        margin-right: 5px;
+    }
+
+    .public-ip img {
+        height: 16px;
+        margin-left: 5px;
+    }
+
+    .provider-link > *, .public-ip > * {
+        display: inline-block;
+        vertical-align: middle;
+    }
 {% endblock %}

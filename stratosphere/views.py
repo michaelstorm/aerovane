@@ -13,7 +13,7 @@ import re
 
 from .forms import *
 from .tasks import load_provider_data
-from .util import schedule_random_default_delay, unix_time_millis
+from .util import generate_name, schedule_random_default_delay, unix_time_millis
 
 
 def view_or_basicauth(view, request, *args, **kwargs):
@@ -229,7 +229,9 @@ def _compute_instance_to_json(instance):
             'external_id': instance.external_id, 'public_ips': instance.public_ips,
             'private_ips': instance.private_ips, 'destroyed_at': destroyed_at,
             'failed_at': failed_at, 'state': instance.state,
-            'display_state': display_state}
+            'display_state': display_state, 'admin_url': instance.admin_url(),
+            'provider_icon_url': instance.provider_configuration.provider.icon_url(),
+            'provider_admin_url': instance.provider_configuration.admin_url()}
 
 
 def _compute_group_to_json(group):
@@ -291,7 +293,10 @@ def compute(request, group_id=None):
         cpu = int(params['cpu'])
         memory = int(params['memory'])
         instance_count = int(params['instance_count'])
-        name = params['name']
+
+        name = params.get('name')
+        if name is None:
+            name = generate_name(request.user.configuration.compute_groups)
 
         authentication_method_id = params['authentication_method']
         authentication_method = request.user.configuration.authentication_methods.filter(pk=authentication_method_id).first()

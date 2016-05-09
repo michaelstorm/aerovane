@@ -136,6 +136,9 @@ class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
 
             connection.on_commit(lambda: schedule_random_default_delay(destroy_libcloud_node, self.pk))
 
+    def admin_url(self):
+        return self.provider_configuration.admin_url(self)
+
     def to_libcloud_node(self):
         libcloud_node_args = {
             'id': self.external_id,

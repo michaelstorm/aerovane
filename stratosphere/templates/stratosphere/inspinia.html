@@ -491,7 +491,7 @@
                                 provider_names.forEach(function (provider_name) {
                                     var provider = providers[provider_name];
 
-                                    yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="' + provider.icon_path + '">']);
+                                    yaxis_ticks.push([j, '<span>' + provider.pretty_name + '</span><img src="' + provider.icon_url + '">']);
 
                                     series[0].data.push([provider.running, j]);
                                     series[1].data.push([provider.pending, j]);
@@ -552,8 +552,8 @@
                     {% endfor %}
 
                     $scope.group = new Group(angular.copy(group));
-                    Group.save($scope.group, function() {
-                        window.location.href = '/compute_groups/';
+                    Group.save($scope.group, function(created_group) {
+                        window.location.href = '/compute_groups/' + created_group.id + '/';
                     });
                 }
             }]);
