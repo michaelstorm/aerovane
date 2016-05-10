@@ -70,6 +70,7 @@ def operating_systems(request):
         return {
             'id': os.pk,
             'name': os.name,
+            'deletable': os.compute_groups.count() == 0,
             'providers': [provider_to_json(p) for p in provider_configurations],
         }
 

@@ -402,6 +402,7 @@
                 $scope.update = function(os, index) {
                     OperatingSystem.save(os, function(data) {
                         $scope.operating_systems[index].id = data.id;
+                        $scope.operating_systems[index].deletable = true;
                     });
                 };
 

@@ -63,7 +63,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     created_at = models.DateTimeField(auto_now_add=True)
 
     user_configuration = models.ForeignKey('UserConfiguration', related_name='compute_groups')
-    image = models.ForeignKey('ComputeImage', related_name='compute_groups')
+    image = models.ForeignKey('ComputeImage', related_name='compute_groups', on_delete=models.PROTECT)
     authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
 
     instance_count = models.IntegerField()
