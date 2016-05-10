@@ -315,7 +315,7 @@ def compute(request, group_id=None):
         instance_count = int(params['instance_count'])
 
         name = params.get('name')
-        if name is None:
+        if name is None or len(name.strip()) == 0:
             name = generate_name(request.user.configuration.compute_groups)
 
         authentication_method_id = params['authentication_method']
