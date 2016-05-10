@@ -355,10 +355,22 @@ provider_configuration_form_classes = {
 
 
 @login_required
-def configure_provider(request, provider_name):
-    context = {}
+def aws_provider(request):
+    if request.method == 'GET':
+        provider_configurations = request.user.configuration.provider_configurations
+        context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
+                   for key, form_class in provider_configuration_form_classes.items()}
 
-    if provider_name == 'aws':
+        context['left_nav_section'] = 'providers'
+        context['left_sub_nav_section'] = 'aws'
+
+        aws_credentials = Ec2ProviderCredentials.objects.filter(configurations__user_configuration=request.user.configuration).first()
+        if aws_credentials is not None:
+            context['aws_access_key_id'] = aws_credentials.access_key_id
+
+        return render(request, 'stratosphere/aws_provider.html', context=context)
+
+    elif request.method == 'POST':
         provider_configuration = request.user.configuration.provider_configurations.instance_of(Ec2ProviderConfiguration).first()
         if provider_configuration is None:
             Ec2ProviderConfiguration.create_regions(request.user.configuration,
@@ -370,17 +382,21 @@ def configure_provider(request, provider_name):
             credentials.secret_access_key = request.POST['aws_secret_access_key']
             credentials.save()
 
-    else:
-        for key, form_class in provider_configuration_form_classes.items():
-            if key == provider_name:
-                provider_form = form_class(request.POST)
-                provider_configuration = provider_form.save()
-                provider_configuration.provider_name = key
-                provider_configuration.user_configuration = request.user.configuration
-                provider_configuration.save()
-                context[key] = provider_form
-            else:
-                context[key] = form_class()
+
+@login_required
+def configure_provider(request, provider_name):
+    context = {}
+
+    for key, form_class in provider_configuration_form_classes.items():
+        if key == provider_name:
+            provider_form = form_class(request.POST)
+            provider_configuration = provider_form.save()
+            provider_configuration.provider_name = key
+            provider_configuration.user_configuration = request.user.configuration
+            provider_configuration.save()
+            context[key] = provider_form
+        else:
+            context[key] = form_class()
 
     return redirect('/providers/')
 
@@ -423,20 +439,7 @@ def _provider_json(provider_configuration):
 
 @login_required
 def get_providers(request, provider_id=None):
-    if 'text/html' in request.META.get('HTTP_ACCEPT'):
-        provider_configurations = request.user.configuration.provider_configurations
-        context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
-                   for key, form_class in provider_configuration_form_classes.items()}
-
-        context['left_nav_section'] = 'providers'
-
-        aws_credentials = Ec2ProviderCredentials.objects.filter(configurations__user_configuration=request.user.configuration).first()
-        if aws_credentials is not None:
-            context['aws_access_key_id'] = aws_credentials.access_key_id
-
-        return render(request, 'stratosphere/providers.html', context=context)
-
-    elif provider_id is None:
+    if provider_id is None:
         provider_configurations = request.user.configuration.provider_configurations.all()
         return JsonResponse([_provider_json(pc) for pc in provider_configurations], safe=False)
 

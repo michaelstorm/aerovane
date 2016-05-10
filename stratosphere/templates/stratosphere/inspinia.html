@@ -78,6 +78,10 @@
                 margin-right: 5px;
             }
 
+            .nav .provider-icon {
+                margin-right: 10px;
+            }
+
             .provider-link > *, .public-ip > * {
                 display: inline-block;
                 vertical-align: middle;
@@ -146,7 +150,18 @@
                                 class="active"
                             {% endif %}
                         >
-                            <a href="/providers/"><i class="fa fa-cogs"></i> <span class="nav-label">Providers</span></a>
+                            <a href="index.html"><i class="fa fa-cubes"></i> <span class="nav-label">Providers</span> <span class="fa arrow"></span></a>
+                            <ul class="nav nav-second-level collapse">
+                                <li
+                                    {% if left_sub_nav_section == "aws" %}
+                                        class="active"
+                                    {% endif %}
+                                >
+                                <a href="/providers/aws/" class="provider-link">
+                                    <img class="provider-icon" src="{% static "stratosphere/aws_icon.png" %}"><!--
+                                    --><span>AWS</span>
+                                </a></li>
+                            </ul>
                         </li>
                         <li
                             {% if left_nav_section == "authentication" %}

@@ -17,6 +17,7 @@ urlpatterns = [
     url(r'^providers/loaded/$', views.providers_loaded),
     url(r'^providers/refresh/$', views.providers_refresh),
     url(r'^providers/$', views.get_providers),
+    url(r'^providers/aws/$', views.aws_provider),
     url(r'^providers/(?P<provider_id>[0-9a-f\-]+)/$', views.get_providers),
     url(r'^providers/(?P<provider_id>[0-9a-f\-]+)/enabled/$', views.set_provider_enabled),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),
