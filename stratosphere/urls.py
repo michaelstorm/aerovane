@@ -7,6 +7,7 @@ from . import views, aws
 urlpatterns = [
     url(r'^$', views.dashboard),
     url(r'^operating_system/$', views.operating_systems),
+    url(r'^operating_system/(?P<group_id>[0-9a-f\-]+)/$', views.operating_system),
     url(r'^compute/$', views.compute),
     url(r'^compute/(?P<group_id>[0-9a-f\-]+)/$', views.compute),
     url(r'^compute/state_history/$', views.state_history),

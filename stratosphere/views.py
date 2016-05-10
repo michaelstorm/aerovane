@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
 from django.db.models import Q
 from django.forms import modelform_factory
 from django.http import HttpResponse, JsonResponse
@@ -78,7 +79,6 @@ def operating_systems(request):
 
         return JsonResponse(operating_systems_json, safe=False)
 
-
     elif request.method == 'POST':
         params = json.loads(request.body.decode('utf-8'))
         os_id = params.get('id')
@@ -104,6 +104,14 @@ def operating_systems(request):
         operating_system.save()
 
         return JsonResponse(operating_system_to_json(operating_system))
+
+
+def operating_system(request, group_id):
+    if request.method == 'DELETE':
+        compute_group = request.user.compute_images.get(pk=group_id)
+        compute_group.delete()
+
+        return HttpResponse('')
 
 
 @login_required

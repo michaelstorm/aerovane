@@ -19,30 +19,21 @@
                 <div class="alert alert-info" role="alert">Loading provider images and sizes...</div>
             </div>
         </div>
-        <div class="row" id="refresh-provider-container" style="display: none;">
-            <div class="col-lg-12">
-                <div class="alert">
-                    <button type="button" id="refresh-provider" class="btn btn-info">Refresh images and sizes</button>
-                </div>
-            </div>
-        </div>
         <div class="row" id="operating-systems">
             <div class="col-lg-6" ng-repeat="os in operating_systems track by os.id" ng-cloak>
                 <div class="ibox float-e-margins">
-                    <div class="ibox-title">
-                        <h5>{$ os.name $}</h5>
-                    </div>
                     <div class="ibox-content">
                         <div class="operating-system form">
                             <div class="form-group">
                                 <label>Name</label>
-                                <input type="text" class="form-control" ng-model="os.name" value="{$ os.name $}">
+                                <input type="text" class="form-control" ng-model="os.name" value="{$ os.name $}" ng-disabled="os.id != null">
                             </div>
                             <div class="form-group" ng-repeat="provider in os.providers track by provider.id">
                                 <label>{$ provider.pretty_name $}</label>
                                 <input class="form-control"
                                     type="text"
                                     ng-model="provider.disk_image"
+                                    ng-disabled="os.id != null"
                                     placeholder="Search..."
                                     typeahead="item for item in getDiskImages($viewValue, provider.id)"
                                     typeahead-input-formatter="$model.name"
@@ -52,8 +43,9 @@
                                     typeahead-template-url="diskImageResult.html">
                                 </input>
                             </div>
-                            <div class="form-group">
-                                <button class="btn btn-success" ng-click="update(os, $index)">Save</button>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <button class="btn btn-success" ng-click="update(os, $index)" ng-if="os.id == null">Create</button>
+                                <button class="btn btn-danger" ng-click="delete(os, $index)" ng-if="os.id != null">Delete</button>
                                 <img src="{% static "stratosphere/loading.gif" %}" style="display: none;" id="operating-system-loading">
                             </div>
                         </div>
@@ -64,6 +56,7 @@
         <div class="row">
             <div class="col-lg-12">
                 <button class="btn btn-primary" id="add-os-button" ng-click="create()"><i class="fa fa-plus"></i> Add</button>
+                <button type="button" id="refresh-provider" class="btn btn-info">Refresh images and sizes</button>
             </div>
         </div>
     </div>
@@ -80,7 +73,7 @@
                 success: function(data) {
                     var loaded = data['loaded'];
                     $('#loading-alert').toggle(!loaded);
-                    $('#refresh-provider-container').toggle(loaded);
+                    $('#refresh-provider').toggle(loaded);
                     if (loaded)
                         clearInterval(window.checkLoadedInterval);
                 },
@@ -97,7 +90,7 @@
                 method: 'POST',
                 success: function() {
                     $('#loading-alert').show();
-                    $('#refresh-provider-container').hide();
+                    $('#refresh-provider').hide();
                     startCheckLoadedInterval();
                 }
             });

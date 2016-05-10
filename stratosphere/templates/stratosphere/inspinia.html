@@ -390,6 +390,12 @@
                     });
                 };
 
+                $scope.delete = function(os, index) {
+                    OperatingSystem.delete(os, function(data) {
+                        $scope.operating_systems.splice(index, 1);
+                    });
+                };
+
                 angular.extend($scope, {
                     onDiskImageSelected: function (item, model, label) {
                         setTimeout(function() {
