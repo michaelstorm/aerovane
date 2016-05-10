@@ -18,11 +18,21 @@ class ProviderSizeAdmin(admin.ModelAdmin):
     search_fields = ['external_id', 'name']
 
 
-admin.site.register(DiskImage)
+class PasswordAuthenticationMethodAdmin(admin.ModelAdmin):
+    def get_fields(self, request, obj=None):
+        fields = super(PasswordAuthenticationMethodAdmin, self).get_fields(request, obj)
+        if obj is not None:
+            fields.remove('password')
+        return fields
+
+
+admin.site.register(ComputeGroup)
 admin.site.register(ComputeImage)
+admin.site.register(ComputeInstance)
+admin.site.register(DiskImage)
+admin.site.register(Ec2ProviderConfiguration)
+admin.site.register(KeyAuthenticationMethod)
+admin.site.register(PasswordAuthenticationMethod, PasswordAuthenticationMethodAdmin)
 admin.site.register(ProviderImage)
 admin.site.register(ProviderSize, ProviderSizeAdmin)
-admin.site.register(ComputeGroup)
-admin.site.register(ComputeInstance)
-admin.site.register(Ec2ProviderConfiguration)
 admin.site.register(UserConfiguration, UserConfigurationAdmin)
