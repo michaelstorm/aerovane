@@ -73,7 +73,7 @@ def operating_systems(request):
         }
 
     if request.method == 'GET':
-        operating_systems = ComputeImage.objects.all()
+        operating_systems = request.user.compute_images.all()
         operating_systems_json = [operating_system_to_json(os) for os in operating_systems]
 
         return JsonResponse(operating_systems_json, safe=False)
@@ -86,14 +86,14 @@ def operating_systems(request):
         if os_id is None:
             operating_system = ComputeImage.objects.create(name=params['name'], user=request.user)
         else:
-            operating_system = ComputeImage.objects.get(pk=os_id)
+            operating_system = request.user.compute_images.get(pk=os_id)
 
         operating_system.name = params['name']
 
         operating_system.disk_image_mappings.all().delete()
 
         for provider_json in params['providers']:
-            provider_configuration = ProviderConfiguration.objects.get(pk=provider_json['id'])
+            provider_configuration = request.user.configuration.provider_configurations.get(pk=provider_json['id'])
 
             disk_image_json = provider_json.get('disk_image')
             if isinstance(disk_image_json, dict): # Angular sometimes sends null value as empty string
@@ -108,7 +108,7 @@ def operating_systems(request):
 
 @login_required
 def images(request):
-    operating_systems = ComputeImage.objects.all()
+    operating_systems = request.user.compute_images.all()
 
     context = {
         'left_nav_section': 'images',
@@ -122,7 +122,7 @@ def images(request):
 @login_required
 def dashboard(request):
     context = {
-        'providers': ProviderConfiguration.objects.all(),
+        'providers': request.user.configuration.provider_configurations.all(),
         'left_nav_section': 'dashboard',
     }
 
@@ -132,7 +132,6 @@ def dashboard(request):
 @login_required
 def compute_groups(request):
     context = {
-        'providers': ProviderConfiguration.objects.all(),
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
     }
@@ -156,7 +155,7 @@ def compute_group(request, group_id):
 
 @login_required
 def add_compute_group(request):
-    compute_images = ComputeImage.objects.filter(user=request.user)
+    compute_images = request.user.compute_images.all()
 
     os_images_map = {os_image: Provider.objects.filter(
                             provider_images__disk_image__disk_image_mappings__compute_image=os_image).distinct()
@@ -204,7 +203,7 @@ def add_compute_group(request):
     context = {
         'os_images_map': os_images_map,
         'possible_providers': possible_providers,
-        'authentication_methods': AuthenticationMethod.objects.all(),
+        'authentication_methods': request.user.configuration.authentication_methods.all(),
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'add',
     }
@@ -258,8 +257,8 @@ def _compute_group_to_json(group):
 @login_required
 def authentication(request):
     context = {
-        'key_methods': KeyAuthenticationMethod.objects.all(),
-        'password_methods': PasswordAuthenticationMethod.objects.all(),
+        'key_methods': KeyAuthenticationMethod.objects.filter(user_configuration=request.user.configuration),
+        'password_methods': PasswordAuthenticationMethod.objects.filter(user_configuration=request.user.configuration),
         'add_key_method': KeyAuthenticationMethodForm(),
         'add_password_method': PasswordAuthenticationMethodForm(),
         'left_nav_section': 'authentication',
@@ -288,7 +287,7 @@ def authentication_methods(request, method_id=None):
 def compute(request, group_id=None):
     if request.method == 'GET':
         if group_id is None:
-            compute_groups = [_compute_group_to_json(group) for group in ComputeGroup.objects.all()]
+            compute_groups = [_compute_group_to_json(group) for group in request.user.configuration.compute_groups.all()]
             return JsonResponse(compute_groups, safe=False)
         else:
             compute_group = _compute_group_to_json(request.user.configuration.compute_groups.filter(pk=group_id).first())
