@@ -60,6 +60,8 @@ INSTALLED_APPS = (
 
 MIDDLEWARE_CLASSES = (
     'django.contrib.sessions.middleware.SessionMiddleware',
+    # run before CommonMiddleware so that redirects due to APPEND_SLASH are also ignored
+    'stratosphere.middleware.NewRelicIgnoreAdminSiteMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -68,7 +70,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'simple_history.middleware.HistoryRequestMiddleware',
-    'stratosphere.middleware.ssl_middleware.SSLMiddleware',
+    'stratosphere.middleware.SSLMiddleware',
 )
 
 ROOT_URLCONF = 'multicloud.urls'

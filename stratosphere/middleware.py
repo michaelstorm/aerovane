@@ -1,6 +1,14 @@
 from django.conf import settings
 from django.http import HttpResponseRedirect
 
+import newrelic.agent
+
+
+class NewRelicIgnoreAdminSiteMiddleware(object):
+    def process_request(self, request):
+        if request.path == '/admin' or request.path.startswith('/admin/'):
+            newrelic.agent.ignore_transaction()
+
 
 # from http://stackoverflow.com/a/9207726
 class SSLMiddleware(object):
