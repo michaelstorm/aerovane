@@ -387,7 +387,14 @@
             ];
 
             function updateDoughnutChart(chart, newValue, nameKey) {
+                // zero values break Chart.js
+                var nonZeroElements = [];
                 for (var i = 0; i < newValue.length; i++) {
+                    if (Number(newValue[i].cost) != 0)
+                        nonZeroElements.push(newValue[i]);
+                }
+
+                for (var i = 0; i < nonZeroElements.length; i++) {
                     var segment;
                     if (i < chart.segments.length)
                         segment = chart.segments[i];
@@ -395,8 +402,8 @@
                         segment = new Object();
                     }
 
-                    segment.label = newValue[i][nameKey];
-                    segment.value = Number(newValue[i].cost) * 1000;
+                    segment.label = nonZeroElements[i][nameKey];
+                    segment.value = Number(nonZeroElements[i].cost) * 1000;
                     segment.color = doughnutChartFillColors[i % doughnutChartFillColors.length];
                     segment.highlight = doughnutChartHighlightColors[i % doughnutChartHighlightColors.length];
 
@@ -404,9 +411,9 @@
                         chart.addData(segment);
                 }
 
-                var lengthDiff = chart.segments.length - newValue.length;
+                var lengthDiff = chart.segments.length - nonZeroElements.length;
                 if (lengthDiff > 0)
-                    chart.segments.splice(newValue.length, lengthDiff);
+                    chart.segments.splice(nonZeroElements.length, lengthDiff);
 
                 chart.update();
             }
@@ -423,14 +430,6 @@
 
                 return chart;
             }
-
-
-
-
-
-
-
-
 
             var compute_group_id = "{{ compute_group_id|default:"" }}";
             if (compute_group_id.length == 0)
@@ -572,9 +571,8 @@
                         if (typeof newValue !== 'undefined') {
                             newValue.sort(function(a, b) { return a.id > b.id; });
 
-                            if ($scope.costDoughnutChart != null) {
+                            if ($scope.costDoughnutChart != null)
                                 updateDoughnutChart($scope.costDoughnutChart, newValue, "pretty_name");
-                            }
                         }
                     });
                 }, true);
@@ -612,9 +610,8 @@
                         if (typeof newValue !== 'undefined') {
                             newValue.sort(function(a, b) { return a.created_at > b.created_at; });
 
-                            if ($scope.costDoughnutChart != null) {
+                            if ($scope.costDoughnutChart != null)
                                 updateDoughnutChart($scope.costDoughnutChart, newValue, "name");
-                            }
 
                             for (var i = 0; i < newValue.length; i++) {
                                 var series = [{
