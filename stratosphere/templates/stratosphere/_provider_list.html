@@ -1,3 +1,5 @@
+{% load static from staticfiles %}
+
 <table class="table table-striped" ng-controller="ProviderListCtrl">
     <thead>
         <tr>
@@ -12,11 +14,12 @@
     </thead>
     <tbody>
         <tr ng-repeat="provider in providers | orderBy: 'pretty_name' track by provider.id" ng-cloak>
-            <td>
-                <a class="provider-link" href="{$ provider.admin_url $}" target="_blank">
+            <td class="provider-link">
+                <a href="/providers/aws/">
                     <img class="provider-icon" ng-src="{$ provider.icon_url $}"><!--
                     --><span>{$ provider.pretty_name $}</span>
-                </a>
+                </a><!--
+                --><a href="{$ provider.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
             </td>
             <td>{$ provider.failure_count $}</td>
             <td>{$ provider.max_failure_count $}</td>
@@ -35,6 +38,6 @@
 
 <style>
 .providers-table .checkbox {
-margin: 0;
+    margin: 0;
 }
 </style>

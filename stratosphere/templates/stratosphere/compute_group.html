@@ -1,6 +1,8 @@
 {% extends "stratosphere/inspinia.html" %}
 {% load staticfiles %}
 
+{% load static from staticfiles %}
+
 {% block title %}{{ compute_group_name }}{% endblock %}
 
 {% block angular-app-name %}dashboardApp{% endblock %}
@@ -57,12 +59,13 @@
                                     <tbody>
                                         <tr ng-repeat="instance in group.instances | orderBy: ['provider_pretty_name', 'created_at'] track by instance.id" ng-cloak>
                                             <!-- Provider -->
-                                            <td>
-                                                <a class="provider-link" href="{$ instance.provider_admin_url $}" target="_blank">
+                                            <td class="provider-link">
+                                                <a href="/providers/aws/">
                                                     <img class="provider-icon" ng-src="{$ instance.provider_icon_url $}"><!--
-                                                    --><span>{$ instance.provider_pretty_name $}</span>
-                                                </a>
-                                            </td>
+                                                    --><span>{$ instance.provider_pretty_name $}</span><!--
+                                                --></a><!--
+                                                --><a href="{$ instance.provider_admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a><!--
+                                            --></td>
                                             <!-- State -->
                                             <td class="instance-state">
                                                 <div class="instance-state-circle {$ instance.display_state $}"></div><!--
@@ -71,21 +74,25 @@
                                             <!-- Name -->
                                             <td>{$ instance.name $}</td>
                                             <!-- Size -->
-                                            <td><a href="{$ instance.size_info_url $}" target="_blank">{$ instance.size $}</a></td>
+                                            <td class="provider-link">
+                                                <span>{$ instance.size $}</span><!--
+                                                --><a href="{$ instance.size_info_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
+                                            </td>
                                             <!-- Hourly cost -->
                                             <td>${$ instance.size_price $}</td>
                                             <!-- Monthly cost -->
                                             <td>${$ instance.size_price * 24 * 30 $}</td>
                                             <!-- ID -->
-                                            <td>
-                                                <a href="{$ instance.admin_url $}" target="_blank" ng-show="instance.external_id">{$ instance.external_id $}</a>
+                                            <td class="provider-link">
+                                                <span>{$ instance.external_id $}</span><!--
+                                                --><a href="{$ instance.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
                                             </td>
                                             <!-- Public IPs -->
                                             <td>
                                                 <code class="public-ip" ng-repeat="ip in instance.public_ips"><!--
                                                     --><span>{$ ip $}</span><!--
-                                                    --><a href="ssh://{$ ip $}"><img src="/static/stratosphere/ssh.svg"></a><!--
-                                                    --><a href="http://{$ ip $}" target="_blank"><img src="/static/stratosphere/web.svg"></a><!-- eliminate extra space when there are multiple elements
+                                                    --><a href="ssh://{$ ip $}"><img src="{% static "stratosphere/ssh.svg" %}"></a><!--
+                                                    --><a href="http://{$ ip $}" target="_blank"><img src="{% static "stratosphere/web.svg" %}"></a><!-- eliminate extra space when there are multiple elements
                                                 --></code>
                                             </td>
                                             <!-- Private IPs -->

@@ -82,9 +82,14 @@
                 margin-right: 10px;
             }
 
-            .provider-link > *, .public-ip > * {
+            .provider-link a *, .provider-link span, .public-ip * {
                 display: inline-block;
                 vertical-align: middle;
+            }
+
+            .provider-link img {
+                height: 16px;
+                margin-left: 5px;
             }
 
             {% block style %}
