@@ -93,7 +93,7 @@ class ProviderConfigurationDataLoader(object):
             provider_size.price = driver_size.price
             provider_size.ram = driver_size.ram
             provider_size.disk = driver_size.disk
-            provider_size.cpu = self._ecus_by_id['aws'][driver_size.id]
+            provider_size.cpu = self._ecus_by_id['aws'][driver_size.id] # TODO this is Amazon-specific
             provider_size.bandwidth = driver_size.bandwidth
             provider_size.extra = json.loads(json.dumps(driver_size.extra))
 

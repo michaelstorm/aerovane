@@ -35,19 +35,49 @@
                 </div>
                 <div class="row">
                     <div class="col-lg-12">
-                        {% include "stratosphere/_provider_list.html" %}
-
+                        <div class="ibox float-e-margins">
+                            <div class="ibox-title">
+                                <h5>Providers</h5>
+                            </div>
+                            <div class="ibox-content table-responsive providers-table">
+                                <div class="row">
+                                    <div class="col-lg-9">
+                                        {% include "stratosphere/_provider_list.html" %}
+                                    </div>
+                                    <div class="col-lg-3" style="text-align: center;">
+                                        <canvas id="providerCostDoughnutChart" class="cost-doughnut-chart" width="300" height="150"></canvas>
+                                        <h4>Cost by provider</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-lg-12">
                         <div class="ibox float-e-margins">
                             <div class="ibox-title">
                                 <h5>Compute groups</h5>
                             </div>
-                            {% include "stratosphere/_compute_group_list.html" %}
+                            <div class="ibox-content table-responsive">
+                                <div class="row">
+                                    <div class="col-lg-9">
+                                        {% include "stratosphere/_compute_group_list.html" %}
+                                    </div>
+                                    <div class="col-lg-3" style="text-align: center;">
+                                        <canvas id="computeGroupCostDoughnutChart" class="cost-doughnut-chart" width="300" height="150"></canvas>
+                                        <h4>Cost by compute group</h4>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <script src="{% static "stratosphere/inspinia/js/plugins/chartJs/Chart.min.js" %}"></script>
 {% endblock %}
 
 {% block style %}

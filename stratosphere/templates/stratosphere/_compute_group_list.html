@@ -1,31 +1,33 @@
-<div class="ibox-content table-responsive" ng-controller="ComputeGroupListCtrl">
-    <table class="table table-striped compute-groups-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>CPU</th>
-                <th>Memory</th>
-                <th>Running instances</th>
-                <th>Expected instances</th>
-                <th style="width: 100%;">Instance states</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr ng-repeat="group in groups | orderBy: 'created_at' track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
-                <td class="group-name">
-                    <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
-                    <span><a href="/compute_groups/{$ group.id $}/">{$ group.name $}</a></span>
-                </td>
-                <td>{$ group.cpu $}</td>
-                <td>{$ group.memory $} MB</td>
-                <td>{$ group.running_instance_count $}</td>
-                <td>{$ group.instance_count $}</td>
-                <td class="group-providers-graph-cell">
-                    <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
-                </td>
-                <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+<table class="table table-striped compute-groups-table" ng-controller="ComputeGroupListCtrl">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>CPU</th>
+            <th>Memory</th>
+            <th>Running instances</th>
+            <th>Expected instances</th>
+            <th>Hourly cost</th>
+            <th>Monthly cost</th>
+            <th style="width: 100%;">Instance states</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr ng-repeat="group in groups | orderBy: 'created_at' track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+            <td class="group-name">
+                <!-- wrap in <span> to provide $compile a valid HTML structure in avGroup directive -->
+                <span><a href="/compute_groups/{$ group.id $}/">{$ group.name $}</a></span>
+            </td>
+            <td>{$ group.cpu $}</td>
+            <td>{$ group.memory $} MB</td>
+            <td>{$ group.running_instance_count $}</td>
+            <td>{$ group.instance_count $}</td>
+            <td>${$ group.cost | number:3 $}</td>
+            <td>${$ group.cost * 24 * 30 | number:2 $}</td>
+            <td class="group-providers-graph-cell">
+                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
+            </td>
+            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
+        </tr>
+    </tbody>
+</table>

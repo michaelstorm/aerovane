@@ -196,6 +196,14 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
         return GroupInstanceStatesSnapshot(**args)
 
+    def estimated_cost(self):
+        cost = 0
+        for provider_size_id, count in self.size_distribution.items():
+            provider_size = ProviderSize.objects.get(pk=provider_size_id)
+            cost += provider_size.price * count
+
+        return cost
+
     def _get_best_sizes(self, allowed_provider_ids=None):
         best_sizes = {}
         for provider_name in self.provider_policy:

@@ -47,6 +47,8 @@
                                             <th>State</th>
                                             <th>Name</th>
                                             <th>Size</th>
+                                            <th>Hourly cost</th>
+                                            <th>Monthly cost</th>
                                             <th>ID</th>
                                             <th>Public IPs</th>
                                             <th>Private IPs</th>
@@ -62,19 +64,21 @@
                                                 </a>
                                             </td>
                                             <!-- State -->
-                                            <td>
-                                                <code class="instance-state">
-                                                    <div class="instance-state-circle {$ instance.display_state $}"></div><!--
-                                                    --><span>{$ instance.state == null ? 'CREATING' : instance.state $}</span>
-                                                </code>
+                                            <td class="instance-state">
+                                                <div class="instance-state-circle {$ instance.display_state $}"></div><!--
+                                                --><span>{$ instance.state == null ? 'CREATING' : instance.state $}</span>
                                             </td>
                                             <!-- Name -->
-                                            <td><code>{$ instance.name $}</code></td>
+                                            <td>{$ instance.name $}</td>
                                             <!-- Size -->
-                                            <td><code><a href="{$ instance.size_info_url $}" target="_blank">{$ instance.size $}</a></code></td>
+                                            <td><a href="{$ instance.size_info_url $}" target="_blank">{$ instance.size $}</a></td>
+                                            <!-- Hourly cost -->
+                                            <td>${$ instance.size_price $}</td>
+                                            <!-- Monthly cost -->
+                                            <td>${$ instance.size_price * 24 * 30 $}</td>
                                             <!-- ID -->
                                             <td>
-                                                <code ng-show="instance.external_id"><a href="{$ instance.admin_url $}" target="_blank">{$ instance.external_id $}</a></code>
+                                                <a href="{$ instance.admin_url $}" target="_blank" ng-show="instance.external_id">{$ instance.external_id $}</a>
                                             </td>
                                             <!-- Public IPs -->
                                             <td>

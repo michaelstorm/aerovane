@@ -343,6 +343,90 @@
         </script>
 
         <script type="text/javascript">
+            var doughnutOptions = {
+                segmentShowStroke: true,
+                segmentStrokeColor: "#fff",
+                segmentStrokeWidth: 2,
+                percentageInnerCutout: 45, // This is 0 for Pie charts
+                animationSteps: 100,
+                animationEasing: "easeOutBounce",
+                animateRotate: true,
+                animateScale: false,
+                tooltipTemplate: "<%= label %>: $<%= Number((value / 1000) * 24 * 30).toFixed(2) %>/mo"
+            };
+
+            var doughnutChartFillColors = [
+                "#aec7e8",
+                "#ffbb78",
+                "#98df8a",
+                "#ff9896",
+                "#c5b0d5",
+                "#c49c94",
+                "#f7b6d2",
+                "#c7c7c7",
+                "#dbdb8d",
+                "#9edae5",
+            ];
+
+            var doughnutChartHighlightColors = [
+                "#1f77b4",
+                "#ff7f0e",
+                "#2ca02c",
+                "#d62728",
+                "#9467bd",
+                "#8c564b",
+                "#e377c2",
+                "#7f7f7f",
+                "#bcbd22",
+                "#17becf",
+            ];
+
+            function updateDoughnutChart(chart, newValue, nameKey) {
+                for (var i = 0; i < newValue.length; i++) {
+                    var segment;
+                    if (i < chart.segments.length)
+                        segment = chart.segments[i];
+                    else {
+                        segment = new Object();
+                    }
+
+                    segment.label = newValue[i][nameKey];
+                    segment.value = Number(newValue[i].cost) * 1000;
+                    segment.color = doughnutChartFillColors[i % doughnutChartFillColors.length];
+                    segment.highlight = doughnutChartHighlightColors[i % doughnutChartHighlightColors.length];
+
+                    if (i >= chart.segments.length)
+                        chart.addData(segment);
+                }
+
+                var lengthDiff = chart.segments.length - newValue.length;
+                if (lengthDiff > 0)
+                    chart.segments.splice(newValue.length, lengthDiff);
+
+                chart.update();
+            }
+
+            function createDoughnutChart(canvasElementId) {
+                var chartNode = document.getElementById(canvasElementId);
+                var chart;
+                if (chartNode != null) {
+                    var ctx = chartNode.getContext("2d");
+                    chart = new Chart(ctx).Doughnut([], doughnutOptions);
+                }
+                else
+                    chart = null;
+
+                return chart;
+            }
+
+
+
+
+
+
+
+
+
             var compute_group_id = "{{ compute_group_id|default:"" }}";
             if (compute_group_id.length == 0)
                 compute_group_id = null;
@@ -441,6 +525,10 @@
                     $scope.group = data[0];
                 });
 
+                $scope.hourly_cost = function(group) {
+                    return group.price * 24;
+                }
+
                 $interval(function() {
                     Group.query({id: compute_group_id}, function(data) {
                         $scope.group = data[0];
@@ -471,6 +559,20 @@
                         }
                     );
                 }
+
+                $scope.costDoughnutChart = createDoughnutChart("providerCostDoughnutChart");
+
+                $scope.$watch('providers', function(newValue, oldValue) {
+                    $timeout(function() {
+                        if (typeof newValue !== 'undefined') {
+                            newValue.sort(function(a, b) { return a.id > b.id; });
+
+                            if ($scope.costDoughnutChart != null) {
+                                updateDoughnutChart($scope.costDoughnutChart, newValue, "pretty_name");
+                            }
+                        }
+                    });
+                }, true);
             }]);
 
             dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval', '$http',
@@ -495,12 +597,20 @@
                     });
                 }
 
+                $scope.costDoughnutChart = createDoughnutChart("computeGroupCostDoughnutChart");
+
                 $scope.$watch('groups', function(newValue, oldValue) {
                     $timeout(function() {
                         $('.group button').removeAttr('disabled');
                         $('.group-DESTROYED button').attr('disabled', true);
 
                         if (typeof newValue !== 'undefined') {
+                            newValue.sort(function(a, b) { return a.created_at > b.created_at; });
+
+                            if ($scope.costDoughnutChart != null) {
+                                updateDoughnutChart($scope.costDoughnutChart, newValue, "name");
+                            }
+
                             for (var i = 0; i < newValue.length; i++) {
                                 var series = [{
                                     data: [],

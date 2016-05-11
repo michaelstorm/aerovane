@@ -81,6 +81,12 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
                     | (Q(provider_configurations=None)
                        & Q(provider=self.provider)))
 
+    def estimated_cost(self):
+        cost = 0
+        for instance in self.instances.all():
+            cost += instance.provider_size.price
+        return cost
+
     def _destroy_all_nodes(self):
         print('listing nodes in %s' % self.provider_name)
         nodes = self.driver.list_nodes()

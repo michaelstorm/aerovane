@@ -19,7 +19,7 @@ class ProviderSize(models.Model, SaveTheChange, TrackChanges):
     provider_configuration = models.ForeignKey('ProviderConfiguration', related_name='provider_sizes')
     external_id = models.CharField(max_length=256)
     name = models.CharField(max_length=256)
-    price = models.FloatField()
+    price = models.DecimalField(max_digits=10, decimal_places=5)
     ram = models.IntegerField()
     disk = models.IntegerField()
     bandwidth = models.IntegerField(null=True, blank=True)

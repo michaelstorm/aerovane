@@ -82,14 +82,8 @@ def operating_systems(request):
 
     elif request.method == 'POST':
         params = json.loads(request.body.decode('utf-8'))
-        os_id = params.get('id')
 
-        if os_id is None:
-            operating_system = ComputeImage.objects.create(name=params['name'], user=request.user)
-        else:
-            operating_system = request.user.compute_images.get(pk=os_id)
-
-        operating_system.name = params['name']
+        operating_system = ComputeImage.objects.create(name=params['name'], user=request.user)
 
         operating_system.disk_image_mappings.all().delete()
 
@@ -249,6 +243,7 @@ def _compute_instance_to_json(instance):
             'failed_at': failed_at, 'state': instance.state,
             'display_state': display_state, 'admin_url': instance.admin_url(),
             'size': instance.provider_size.external_id,
+            'size_price': instance.provider_size.price,
             'size_info_url': instance.provider_size.info_url(),
             'provider_icon_url': instance.provider_configuration.provider.icon_url(),
             'provider_admin_url': instance.provider_configuration.admin_url()}
@@ -260,7 +255,8 @@ def _compute_group_to_json(group):
     return {'id': group.pk, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
             'running_instance_count': group.instances.filter(ComputeInstance.running_instances_query()).count(),
             'instance_count': group.instance_count, 'providers': group.provider_states(),
-            'state': group.state, 'instances': instances_json, 'created_at': group.created_at.timestamp()}
+            'state': group.state, 'instances': instances_json, 'created_at': group.created_at.timestamp(),
+            'cost': group.estimated_cost()}
 
 
 @login_required
@@ -383,6 +379,8 @@ def aws_provider(request):
             credentials.secret_access_key = request.POST['aws_secret_access_key']
             credentials.save()
 
+        return redirect('/providers/aws/')
+
 
 @login_required
 def configure_provider(request, provider_name):
@@ -434,6 +432,7 @@ def _provider_json(provider_configuration):
             'failure_count': provider_configuration.failure_count(timezone.now()),
             'max_failure_count': provider_configuration.max_failure_count(),
             'total_instances': provider_configuration.instances.filter(~ComputeInstance.unavailable_instances_query()).count(),
+            'cost': provider_configuration.estimated_cost(),
             'admin_url': provider_configuration.admin_url(),
             'icon_url': provider_configuration.provider.icon_url()}
 
