@@ -83,8 +83,9 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
 
     def estimated_cost(self):
         cost = 0
-        for instance in self.instances.all():
-            cost += instance.provider_size.price
+        if self.enabled:
+            for instance in self.instances.all():
+                cost += instance.provider_size.price
         return cost
 
     def _destroy_all_nodes(self):

@@ -85,7 +85,7 @@
                                             <!-- ID -->
                                             <td class="provider-link">
                                                 <span>{$ instance.external_id $}</span><!--
-                                                --><a href="{$ instance.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
+                                                --><a href="{$ instance.admin_url $}" target="_blank" ng-show="instance.external_id"><img src="{% static "stratosphere/external-link.svg" %}"></a>
                                             </td>
                                             <!-- Public IPs -->
                                             <td>
