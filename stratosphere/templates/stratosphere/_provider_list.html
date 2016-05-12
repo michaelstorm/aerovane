@@ -1,35 +1,48 @@
 {% load static from staticfiles %}
 
 <table class="table table-striped" ng-controller="ProviderListCtrl">
-    <thead>
-        <tr>
-            <th>Name</th>
-            <th>Failures in last hour</th>
-            <th>Running instances</th>
-            <th>Total instances</th>
-            <th>Hourly cost</th>
-            <th>Monthly cost</th>
-            <th>Enabled</th>
-        </tr>
-    </thead>
     <tbody>
         <tr ng-repeat="provider in providers | orderBy: 'pretty_name' track by provider.id" ng-cloak>
-            <td class="provider-link">
-                <a href="/providers/aws/">
-                    <img class="provider-icon" ng-src="{$ provider.icon_url $}"><!--
-                    --><span>{$ provider.pretty_name $}</span>
-                </a><!--
-                --><a href="{$ provider.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
+            <td style="vertical-align: middle;">
+                <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
+                <div class="provider-link" style="white-space: nowrap;">
+                    <a href="/providers/aws/">
+                        <img class="provider-icon" ng-src="{$ provider.icon_url $}" style="height: 1.4em; margin-right: 8px;"><!--
+                        --><span style="font-size: 1.1em;">{$ provider.pretty_name $}</span>
+                    </a><!--
+                    --><a href="{$ provider.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
+                </div>
             </td>
-            <td>{$ provider.failure_count $}</td>
-            <td>{$ provider.max_failure_count $}</td>
-            <td>{$ provider.total_instances $}</td>
-            <td>${$ provider.cost | number:3 $}</td>
-            <td>${$ provider.cost * 24 * 30 | number:2 $}</td>
-            <td>
-                <div class="checkbox checkbox-success">
-                    <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
-                    <label for="provider-enabled-{$ provider.id $}"></label>
+            <td style="vertical-align: middle; width: 100%;">
+                <div class="list-info-block">
+                    <div class="horizontal-element">
+                        <table>
+                            <tr>
+                                <td class="text-right"><small>Running instances:</small></td>
+                                <td class="text-right right-cell">{$ provider.running_count $}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-right"><small>Failures in last hour:</small></td>
+                                <td class="text-right right-cell">{$ provider.failure_count $}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="horizontal-element">
+                        <table>
+                            <tr>
+                                <td class="text-right"><small>Hourly:</small></td>
+                                <td class="text-right right-cell">${$ provider.cost | number:3 $}</td>
+                            </tr>
+                            <tr>
+                                <td class="text-right"><small>Monthly:</small></td>
+                                <td class="text-right right-cell">${$ provider.cost * 24 * 30 | number:2 $}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="horizontal-element checkbox checkbox-success">
+                        <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
+                        <label for="provider-enabled-{$ provider.id $}">Enabled</label>
+                    </div>
                 </div>
             </td>
         </tr>

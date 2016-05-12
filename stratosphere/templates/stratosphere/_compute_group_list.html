@@ -4,7 +4,7 @@
             <td style="padding-right: 40px;">
                 <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
                 <div style="margin-bottom: 5px;"><a href="/compute_groups/{$ group.id $}/" style="font-size: 1.5em;">{$ group.name $}</a></div>
-                <div class="compute-group-info">
+                <div class="list-info-block">
                     <div class="horizontal-element">
                         <table>
                             <tr>
@@ -17,7 +17,7 @@
                             </tr>
                         </table>
                     </div>
-                    <div class="horizontal-element" style="margin-left: 20px;">
+                    <div class="horizontal-element">
                         <table>
                             <tr>
                                 <td class="text-right"><small>Running instances:</small></td>
@@ -29,7 +29,7 @@
                             </tr>
                         </table>
                     </div>
-                    <div class="horizontal-element" style="margin-left: 20px;">
+                    <div class="horizontal-element">
                         <table>
                             <tr>
                                 <td class="text-right"><small>Hourly:</small></td>
@@ -50,14 +50,3 @@
         </tr>
     </tbody>
 </table>
-
-<style>
-    .horizontal-element {
-        display: inline-block;
-        vertical-align: middle;
-    }
-
-    .compute-group-info .right-cell {
-        padding-left: 4px;
-    }
-</style>

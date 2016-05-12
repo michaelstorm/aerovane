@@ -430,8 +430,7 @@ def _provider_json(provider_configuration):
             'pretty_name': provider_configuration.provider.pretty_name,
             'enabled': provider_configuration.enabled,
             'failure_count': provider_configuration.failure_count(timezone.now()),
-            'max_failure_count': provider_configuration.max_failure_count(),
-            'total_instances': provider_configuration.instances.filter(~ComputeInstance.unavailable_instances_query()).count(),
+            'running_count': provider_configuration.instances.filter(ComputeInstance.running_instances_query()).count(),
             'cost': provider_configuration.estimated_cost(),
             'admin_url': provider_configuration.admin_url(),
             'icon_url': provider_configuration.provider.icon_url()}

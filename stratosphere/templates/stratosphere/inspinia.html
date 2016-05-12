@@ -92,6 +92,16 @@
                 margin-left: 5px;
             }
 
+            .list-info-block .horizontal-element {
+                display: inline-block;
+                vertical-align: middle;
+                margin-right: 20px;
+            }
+
+            .list-info-block .right-cell {
+                padding-left: 4px;
+            }
+
             {% block style %}
             {% endblock %}
         </style>
@@ -387,14 +397,17 @@
             ];
 
             function updateDoughnutChart(chart, newValue, nameKey) {
-                // zero values break Chart.js
-                var nonZeroElements = [];
+                // all-zero values break Chart.js
+                var hasNonZeroElement = false;
                 for (var i = 0; i < newValue.length; i++) {
-                    if (Number(newValue[i].cost) != 0)
-                        nonZeroElements.push(newValue[i]);
+                    if (newValue[i].cost > 0)
+                        hasNonZeroElement = true;
                 }
 
-                for (var i = 0; i < nonZeroElements.length; i++) {
+                if (!hasNonZeroElement)
+                    newValue = [];
+
+                for (var i = 0; i < newValue.length; i++) {
                     var segment;
                     if (i < chart.segments.length)
                         segment = chart.segments[i];
@@ -402,18 +415,21 @@
                         segment = new Object();
                     }
 
-                    segment.label = nonZeroElements[i][nameKey];
-                    segment.value = Number(nonZeroElements[i].cost) * 1000;
-                    segment.color = doughnutChartFillColors[i % doughnutChartFillColors.length];
-                    segment.highlight = doughnutChartHighlightColors[i % doughnutChartHighlightColors.length];
+                    segment.label = newValue[i][nameKey];
+                    segment.value = Number(newValue[i].cost) * 1000;
+
+                    // prevent elements from changing their color because others have been deleted
+                    var colorIndex = newValue.indexOf(newValue[i]);
+                    segment.color = doughnutChartFillColors[colorIndex % doughnutChartFillColors.length];
+                    segment.highlight = doughnutChartHighlightColors[colorIndex % doughnutChartHighlightColors.length];
 
                     if (i >= chart.segments.length)
                         chart.addData(segment);
                 }
 
-                var lengthDiff = chart.segments.length - nonZeroElements.length;
+                var lengthDiff = chart.segments.length - newValue.length;
                 if (lengthDiff > 0)
-                    chart.segments.splice(nonZeroElements.length, lengthDiff);
+                    chart.segments.splice(newValue.length, lengthDiff);
 
                 chart.update();
             }
