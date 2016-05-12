@@ -102,6 +102,10 @@
                 padding-left: 4px;
             }
 
+            .setup-instructions h1, .setup-instructions .description {
+                margin-bottom: 20px;
+            }
+
             {% block style %}
             {% endblock %}
         </style>
@@ -146,13 +150,13 @@
                                 class="active"
                             {% endif %}
                         >
-                            <a href="index.html"><i class="fa fa-cubes"></i> <span class="nav-label">Compute groups</span> <span class="fa arrow"></span></a>
+                            <a href="#"><i class="fa fa-cubes"></i> <span class="nav-label">Compute groups</span> <span class="fa arrow"></span></a>
                             <ul class="nav nav-second-level collapse">
                                 <li
-                                    {% if left_sub_nav_section == "add" %}
+                                    {% if left_sub_nav_section == "create" %}
                                         class="active"
                                     {% endif %}
-                                ><a href="/compute_groups/add/"><i class="fa fa-plus"></i> Create</a></li>
+                                ><a href="/compute_groups/create/"><i class="fa fa-plus"></i> Create</a></li>
                                 <li
                                     {% if left_sub_nav_section == "view" %}
                                         class="active"
@@ -165,7 +169,7 @@
                                 class="active"
                             {% endif %}
                         >
-                            <a href="index.html"><i class="fa fa-cubes"></i> <span class="nav-label">Providers</span> <span class="fa arrow"></span></a>
+                            <a href="#"><i class="fa fa-cubes"></i> <span class="nav-label">Providers</span> <span class="fa arrow"></span></a>
                             <ul class="nav nav-second-level collapse">
                                 <li
                                     {% if left_sub_nav_section == "aws" %}
@@ -507,6 +511,10 @@
                     OperatingSystem.save(os, function(data) {
                         $scope.operating_systems[index].id = data.id;
                         $scope.operating_systems[index].deletable = true;
+
+                        {% if not setup_complete %}
+                            window.location.href = "/";
+                        {% endif %}
                     });
                 };
 
@@ -723,7 +731,11 @@
 
                     $scope.group = new Group(angular.copy(group));
                     Group.save($scope.group, function(created_group) {
-                        window.location.href = '/compute_groups/' + created_group.id + '/';
+                        {% if setup_complete %}
+                            window.location.href = '/compute_groups/' + created_group.id + '/';
+                        {% else %}
+                            window.location.href = "/";
+                        {% endif %}
                     });
                 }
             }]);

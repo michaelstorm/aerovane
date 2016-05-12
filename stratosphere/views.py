@@ -122,14 +122,39 @@ def images(request):
     return render(request, 'stratosphere/images.html', context=context)
 
 
+def is_setup_complete(user):
+    return user.configuration.provider_configurations.count() > 0 and \
+            user.configuration.authentication_methods.count() > 0 and \
+            user.compute_images.count() > 0 and \
+            user.configuration.compute_groups.count() > 0
+
+
 @login_required
 def dashboard(request):
+    provider_configurations = request.user.configuration.provider_configurations
+
     context = {
-        'providers': request.user.configuration.provider_configurations.all(),
         'left_nav_section': 'dashboard',
+        'setup_complete': True,
     }
 
-    return render(request, 'stratosphere/dashboard.html', context=context)
+    if provider_configurations.count() == 0:
+        context['setup_complete'] = False
+        template = 'stratosphere/setup/provider_configuration.html'
+    elif request.user.configuration.authentication_methods.count() == 0:
+        context['setup_complete'] = False
+        template = 'stratosphere/setup/authentication.html'
+    elif request.user.compute_images.count() == 0:
+        context['setup_complete'] = False
+        template = 'stratosphere/setup/compute_image.html'
+    elif request.user.configuration.compute_groups.count() == 0:
+        context['setup_complete'] = False
+        template = 'stratosphere/setup/compute_group.html'
+    else:
+        context['providers'] = provider_configurations.all()
+        template = 'stratosphere/dashboard.html'
+
+    return render(request, template, context=context)
 
 
 @login_required
@@ -208,7 +233,7 @@ def add_compute_group(request):
         'possible_providers': possible_providers,
         'authentication_methods': request.user.configuration.authentication_methods.all(),
         'left_nav_section': 'groups',
-        'left_sub_nav_section': 'add',
+        'left_sub_nav_section': 'create',
     }
     return render(request, 'stratosphere/add_compute_group.html', context=context)
 
@@ -285,7 +310,10 @@ def authentication_methods(request, method_id=None):
     elif request.method == 'DELETE':
         AuthenticationMethod.objects.filter(id=method_id).delete()
 
-    return redirect('/authentication/')
+    if is_setup_complete(request.user):
+        return redirect('/authentication/')
+    else:
+        return redirect('/')
 
 
 @login_required
@@ -336,15 +364,6 @@ def compute(request, group_id=None):
         return JsonResponse(_compute_group_to_json(group))
 
 
-@login_required
-def check_configure(request):
-    provider_configurations = request.user.configuration.provider_configurations
-    if len(provider_configurations.all()) == 0:
-        return redirect('/providers/')
-    else:
-        return redirect('/')
-
-
 provider_configuration_form_classes = {
     'aws': Ec2ProviderConfigurationForm,
     'linode': LinodeProviderConfigurationForm,
@@ -379,7 +398,10 @@ def aws_provider(request):
             credentials.secret_access_key = request.POST['aws_secret_access_key']
             credentials.save()
 
-        return redirect('/providers/aws/')
+        if is_setup_complete(request.user):
+            return redirect('/providers/aws/')
+        else:
+            return redirect('/')
 
 
 @login_required

@@ -1,0 +1,13 @@
+{% extends "stratosphere/inspinia.html" %}
+
+{% block title %}Create A Compute Image{% endblock %}
+
+{% block content %}
+    <div class="row wrapper border-bottom white-bg page-heading">
+        <div class="col-lg-12 animated fadeInLeft text-center setup-instructions">
+            <h1>Let's create a compute image</h1>
+            <p class="description">Compute images tell Aerovane which provider-specific images are equivalent on different cloud providers.</p>
+            <p><form action="/images/" method="GET"><button type="submit" class="btn btn-primary btn-large">Create compute image</button></form></p>
+        </div>
+    </div>
+{% endblock %}

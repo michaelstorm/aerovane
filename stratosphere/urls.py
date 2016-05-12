@@ -24,9 +24,8 @@ urlpatterns = [
     url(r'^providers/(?P<provider_id>[0-9a-f\-]+)/disk_images/$', views.provider_disk_images),
 
     url(r'^compute_groups/$', views.compute_groups),
-    url(r'^compute_groups/add/$', views.add_compute_group),
+    url(r'^compute_groups/create/$', views.add_compute_group),
     url(r'^compute_groups/(?P<group_id>[0-9a-f\-]+)/$', views.compute_group),
-    url(r'^check_configure/$', views.check_configure),
     url(r'^authentication/$', views.authentication),
     url(r'^images/$', views.images),
 

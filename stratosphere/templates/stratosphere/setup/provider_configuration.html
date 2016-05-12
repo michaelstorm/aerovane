@@ -1,0 +1,13 @@
+{% extends "stratosphere/inspinia.html" %}
+
+{% block title %}Create a Provider Configuration{% endblock %}
+
+{% block content %}
+    <div class="row wrapper border-bottom white-bg page-heading">
+        <div class="col-lg-12 animated fadeInLeft text-center setup-instructions">
+            <h1>Let's create a provider configuration</h1>
+            <p class="description">Provider configurations are the credentials that allow Aerovane to access cloud providers on your behalf.</p>
+            <p><form action="/providers/aws/" method="GET"><button type="submit" class="btn btn-primary btn-large">Create provider configuration</button></form></p>
+        </div>
+    </div>
+{% endblock %}
