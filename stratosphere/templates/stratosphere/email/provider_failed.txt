@@ -1,0 +1,10 @@
+The provider {{ provider_configuration.provider.pretty_name }} has failed. Please visit the provider page at https://{{ current_site.domain }}/providers/aws/ or open the Aerovane dashboard at https://{{ current_site.domain }}/ for more details.
+
+The following compute groups will have a portion of their instances migrated to other providers:
+{% for group in compute_groups %}
+    * {{ group.name }}: https://{{ current_site.domain }}/compute_groups/{{ group.pk }}/{% endfor %}
+
+For more information, please consult our support page at https://{{ current_site.domain }}/support/failed_provider/ or email our support team at support@aerovane.io.
+
+Best,
+The Aerovane Team

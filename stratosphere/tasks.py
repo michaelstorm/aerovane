@@ -3,8 +3,11 @@ from celery.decorators import periodic_task
 
 from datetime import datetime, timedelta
 
+from django.contrib.sites.models import Site
+from django.core.mail import send_mail
 from django.db import connection, OperationalError, transaction
 from django.db.models import Q
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from libcloud.compute.base import Node, NodeAuthPassword, NodeAuthSSHKey
@@ -186,3 +189,34 @@ def create_libcloud_node(compute_instance_id):
     compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))
     compute_instance.extra = json.loads(json.dumps(libcloud_node.extra, cls=NodeJSONEncoder))
     compute_instance.save()
+
+
+@app.task()
+def send_failed_email(provider_configuration_id):
+    from .models import ComputeGroup, ProviderConfiguration
+
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
+    compute_groups = ComputeGroup.objects.filter(instances__provider_configuration=provider_configuration).distinct()
+    current_site = Site.objects.get_current()
+
+    user_email = provider_configuration.user_configuration.user.email
+    from_email = 'Aerovane <noreply@aerovane.io>'
+    subject = 'Important message from Aerovane: Provider %s has FAILED' % provider_configuration.provider.pretty_name
+
+    template_base_path = 'stratosphere/email/provider_failed'
+
+    def migrated_instance_count(compute_group):
+        return compute_group.instances.filter(provider_configuration=provider_configuration).count()
+
+    groups_context = [{'pk': group.pk, 'name': group.name, 'migrated_instance_count': migrated_instance_count(group)} for group in compute_groups]
+
+    template_context = {
+        'provider_configuration': provider_configuration,
+        'compute_groups': groups_context,
+        'current_site': current_site,
+    }
+
+    message_plain = render_to_string('%s.txt' % template_base_path, template_context)
+    message_html  = render_to_string('%s.html' % template_base_path, template_context)
+
+    send_mail(subject, message_plain, from_email, [user_email], html_message=message_html, fail_silently=False)

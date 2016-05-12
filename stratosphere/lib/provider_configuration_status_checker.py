@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -10,6 +10,8 @@ from stratosphere.models import ComputeInstance
 from stratosphere.util import thread_local
 
 import traceback
+
+from ..tasks import send_failed_email
 
 
 class ProviderConfigurationStatusChecker(object):
@@ -36,6 +38,9 @@ class ProviderConfigurationStatusChecker(object):
         one_hour_ago = now - timedelta(hours=1)
         return self.instances.filter(ComputeInstance.unignored_failed_instances_query() & Q(failed_at__gte=one_hour_ago)).count()
 
+    def schedule_send_failed_email(self):
+        send_failed_email.apply_async(args=[self.pk])
+
     @thread_local(DB_OVERRIDE='serializable')
     def check_enabled(self):
         now = timezone.now()
@@ -48,6 +53,8 @@ class ProviderConfigurationStatusChecker(object):
 
         if self.enabled:
             if max_failure_count_value > 0 and failure_count_value >= max_failure_count_value:
+                connection.on_commit(lambda: self.schedule_send_failed_email())
+
                 self.logger.warn('Disabling provider %s (%s)' % (self.pk, self.provider.name))
                 self.enabled = False
                 self.save()
