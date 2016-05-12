@@ -27,7 +27,7 @@ class ComputeGroup(ComputeGroupBase):
     history = HistoricalRecords()
 
 
-from .submodels.user import *
+from .submodels.user_configuration import *
 
 
 @receiver(pre_save, sender=ComputeInstance)
