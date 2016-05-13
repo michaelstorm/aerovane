@@ -140,15 +140,19 @@ def dashboard(request):
 
     if provider_configurations.count() == 0:
         context['setup_complete'] = False
+        context['setup_progress'] = 0
         template = 'stratosphere/setup/provider_configuration.html'
     elif request.user.configuration.authentication_methods.count() == 0:
         context['setup_complete'] = False
+        context['setup_progress'] = 1
         template = 'stratosphere/setup/authentication.html'
     elif request.user.compute_images.count() == 0:
         context['setup_complete'] = False
+        context['setup_progress'] = 2
         template = 'stratosphere/setup/compute_image.html'
     elif request.user.configuration.compute_groups.count() == 0:
         context['setup_complete'] = False
+        context['setup_progress'] = 3
         template = 'stratosphere/setup/compute_group.html'
     else:
         context['providers'] = provider_configurations.all()

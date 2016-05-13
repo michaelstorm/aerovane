@@ -8,6 +8,8 @@
             <h1>Let's create a compute group</h1>
             <p class="description">Compute groups tell Aerovane which images to deploy, onto which providers, and the resource requirements necessary to run them.</p>
             <p><form action="/compute_groups/create/" method="GET"><button type="submit" class="btn btn-primary btn-large">Create compute group</button></form></p>
+
+            {% include "stratosphere/setup/_progress_bar.html" %}
         </div>
     </div>
 {% endblock %}

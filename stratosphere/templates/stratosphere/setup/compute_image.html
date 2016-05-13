@@ -8,6 +8,8 @@
             <h1>Let's create a compute image</h1>
             <p class="description">Compute images tell Aerovane which provider-specific images are equivalent on different cloud providers.</p>
             <p><form action="/images/" method="GET"><button type="submit" class="btn btn-primary btn-large">Create compute image</button></form></p>
+
+            {% include "stratosphere/setup/_progress_bar.html" %}
         </div>
     </div>
 {% endblock %}
