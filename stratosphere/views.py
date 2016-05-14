@@ -135,26 +135,26 @@ def dashboard(request):
 
     context = {
         'left_nav_section': 'dashboard',
-        'setup_complete': True,
+        'setup_complete': False,
     }
 
     if provider_configurations.count() == 0:
-        context['setup_complete'] = False
         context['setup_progress'] = 0
         template = 'stratosphere/setup/provider_configuration.html'
+    elif not are_providers_loaded(request.user):
+        context['setup_progress'] = 0
+        template = 'stratosphere/setup/loading_provider.html'
     elif request.user.configuration.authentication_methods.count() == 0:
-        context['setup_complete'] = False
         context['setup_progress'] = 1
         template = 'stratosphere/setup/authentication.html'
     elif request.user.compute_images.count() == 0:
-        context['setup_complete'] = False
         context['setup_progress'] = 2
         template = 'stratosphere/setup/compute_image.html'
     elif request.user.configuration.compute_groups.count() == 0:
-        context['setup_complete'] = False
         context['setup_progress'] = 3
         template = 'stratosphere/setup/compute_group.html'
     else:
+        context['setup_complete'] = True
         context['providers'] = provider_configurations.all()
         template = 'stratosphere/dashboard.html'
 
@@ -426,15 +426,19 @@ def configure_provider(request, provider_name):
     return redirect('/providers/')
 
 
-@login_required
-def providers_loaded(request):
-    user = User.objects.get(pk=request.user.pk)
+def are_providers_loaded(user):
     loaded = True
     for provider_configuration in user.configuration.provider_configurations.all():
         if not provider_configuration.loaded:
             loaded = False
             break
 
+    return loaded
+
+
+@login_required
+def providers_loaded(request):
+    loaded = are_providers_loaded(request.user)
     return JsonResponse({'loaded': loaded})
 
 

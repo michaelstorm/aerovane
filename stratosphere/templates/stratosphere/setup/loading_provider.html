@@ -1,0 +1,30 @@
+{% extends "stratosphere/inspinia.html" %}
+
+{% block title %}Create A Compute Image{% endblock %}
+
+{% block content %}
+    <div class="row wrapper border-bottom white-bg page-heading">
+        <div class="col-lg-12 animated fadeInLeft text-center setup-instructions">
+            <h1>We're loading that provider...</h1>
+            <p class="description">This should only take a minute.</p>
+
+            <iframe width="1200" height="768" src="https://www.youtube.com/embed/ga2t-a_VGhY?start=33&end=150&autoplay=1&controls=0&showinfo=0&playsinline=1&rel=0&modestbranding=1&loop=1&fs=0" frameborder="0" allowfullscreen></iframe>
+        </div>
+    </div>
+{% endblock %}
+
+{% block body_script %}
+    $(document).ready(function() {
+        window.checkLoadedInterval = setInterval(function() {
+            $.ajax({
+                url: '/providers/loaded/',
+                method: 'GET',
+                success: function(data) {
+                    var loaded = data['loaded'];
+                    if (loaded)
+                        location.reload();
+                },
+            });
+        }, 1000);
+    });
+{% endblock %}

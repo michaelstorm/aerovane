@@ -505,10 +505,10 @@
 
                 $scope.update = function(os, index) {
                     OperatingSystem.save(os, function(data) {
-                        $scope.operating_systems[index].id = data.id;
-                        $scope.operating_systems[index].deletable = true;
-
-                        {% if not setup_complete %}
+                        {% if setup_complete %}
+                            $scope.operating_systems[index].id = data.id;
+                            $scope.operating_systems[index].deletable = true;
+                        {% else %}
                             window.location.href = "/";
                         {% endif %}
                     });
@@ -727,11 +727,7 @@
 
                     $scope.group = new Group(angular.copy(group));
                     Group.save($scope.group, function(created_group) {
-                        {% if setup_complete %}
-                            window.location.href = '/compute_groups/' + created_group.id + '/';
-                        {% else %}
-                            window.location.href = "/";
-                        {% endif %}
+                        window.location.href = '/compute_groups/' + created_group.id + '/';
                     });
                 }
             }]);
