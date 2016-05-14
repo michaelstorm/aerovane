@@ -487,29 +487,42 @@
             dashboardApp.controller('OperatingSystemListCtrl',
                                     ['$scope', 'OperatingSystem', '$http',
                                      function ($scope, OperatingSystem, $http) {
+                var providers = [
+                    {% for provider in providers %}
+                        {
+                            id: "{{ provider.pk }}",
+                            name: "{{ provider.provider.name }}",
+                            pretty_name: "{{ provider.provider.pretty_name }}",
+                        },
+                    {% endfor %}
+                ];
+
+                var preloadedImages = {
+                    {% for image_name, preloaded_image in preloaded_images.items %}
+                        '{{ image_name }}': {
+                            {% for provider_name, image_info in preloaded_image.items %}
+                                '{{ provider_name }}': { id: '{{ image_info.id }}', name: '{{ image_info.name }}' },
+                            {% endfor %}
+                        },
+                    {% endfor %}
+                };
+
                 OperatingSystem.query(function(data) {
                     $scope.operating_systems = data;
                 });
 
                 $scope.create = function() {
-                    var providers = [
-                        {% for provider in providers %}
-                            {
-                                id: "{{ provider.pk }}",
-                                pretty_name: "{{ provider.provider.pretty_name }}",
-                            },
-                        {% endfor %}
-                    ];
                     $scope.operating_systems.push(new OperatingSystem({providers: providers}));
                 };
 
                 $scope.update = function(os, index) {
+                    console.log(os);
                     OperatingSystem.save(os, function(data) {
-                        {% if setup_complete %}
+                        {% if setup_incomplete %}
+                            window.location.href = "/";
+                        {% else %}
                             $scope.operating_systems[index].id = data.id;
                             $scope.operating_systems[index].deletable = true;
-                        {% else %}
-                            window.location.href = "/";
                         {% endif %}
                     });
                 };
@@ -518,6 +531,21 @@
                     OperatingSystem.delete(os, function(data) {
                         $scope.operating_systems.splice(index, 1);
                     });
+                };
+
+                $scope.addPreloaded = function(imageName) {
+                    var preloadedImage = typeof imageName !== 'undefined' ? preloadedImages[imageName] : {};
+                    console.log(preloadedImage);
+
+                    var newProviders = [];
+                    for (var i = 0; i < providers.length; i++) {
+                        var provider = jQuery.extend(true, {}, providers[i]);
+                        provider.disk_image = preloadedImage[provider.name];
+                        newProviders.push(provider);
+                    }
+
+                    var os = new OperatingSystem({providers: newProviders});
+                    $scope.operating_systems.unshift(os);
                 };
 
                 angular.extend($scope, {

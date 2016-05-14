@@ -281,3 +281,12 @@ COMPRESS_OFFLINE = True
 
 
 SITE_ID = int(os.environ.get('DJANGO_SITE_ID', '2'))
+
+
+PRELOADED_IMAGES = {
+    'ubuntu-16.04': {
+        'aws_us_east_1': 'ami-736b7219',
+        'aws_us_west_1': 'ami-e6ed9286',
+        'aws_us_west_2': 'ami-469d6c26',
+    }
+}

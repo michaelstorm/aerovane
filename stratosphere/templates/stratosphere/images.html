@@ -19,8 +19,23 @@
                 <div class="alert alert-info" role="alert">Loading provider images and sizes...</div>
             </div>
         </div>
+        <div class="row">
+            <div class="col-lg-12">
+                <h3>Create from template:</h3>
+            </div>
+        </div>
+        <div class="row" style="margin-bottom: 20px;">
+            <div class="col-lg-12">
+                <button type="button" class="btn btn-white preloaded-image-button" ng-click="addPreloaded()">
+                    <img src="{% static "stratosphere/wrench.svg" %}" class="icon"><span class="name">Custom</span>
+                </button>
+                <button type="button" class="btn btn-white preloaded-image-button" ng-click="addPreloaded('ubuntu-16.04')" preloaded-image-id="ubuntu-16.04">
+                    <img src="{% static "stratosphere/ubuntu.png" %}" class="icon"><span class="name">Ubuntu 16.04 LTS</span>
+                </button>
+            </div>
+        </div>
         <div class="row" id="operating-systems">
-            <div class="col-lg-6" ng-repeat="os in operating_systems track by os.id" ng-cloak>
+            <div class="col-lg-6" ng-repeat="os in operating_systems track by $index" ng-cloak>
                 <div class="ibox float-e-margins">
                     <div class="ibox-content">
                         <div class="operating-system form">
@@ -44,7 +59,7 @@
                                 </input>
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
-                                <button class="btn btn-success" ng-click="update(os, $index)" ng-if="os.id == null">Create</button>
+                                <button class="btn btn-success" ng-click="update(os, $index)" ng-if="os.id == null" ng-disabled="!os.name">Create</button>
                                 <button class="btn btn-danger" ng-click="delete(os, $index)" ng-if="os.id != null && os.deletable">Delete</button>
                                 <img src="{% static "stratosphere/loading.gif" %}" style="display: none;" id="operating-system-loading">
                             </div>
@@ -55,11 +70,24 @@
         </div>
         <div class="row">
             <div class="col-lg-12">
-                <button class="btn btn-primary" id="add-os-button" ng-click="create()"><i class="fa fa-plus"></i> Add</button>
                 <button type="button" id="refresh-provider" class="btn btn-info" style="display: none;">Refresh images and sizes</button>
             </div>
         </div>
     </div>
+
+    <style>
+        .preloaded-image-button {
+            margin-right: 5px;
+        }
+
+        .preloaded-image-button .icon {
+            height: 64px;
+        }
+
+        .preloaded-image-button .name {
+            margin-left: 10px;
+        }
+    </style>
 {% endblock %}
 
 {% block body_script %}
@@ -82,6 +110,18 @@
     }
 
     $(document).ready(function() {
+        /*$('.preloaded-image-button').click(function() {
+            var imageId = $(this).attr('preloaded-image-id');
+            var preloadedImage = preloadedImages[imageId];
+
+            for (var key in preloadedImage) {
+                if (preloadedImage.hasOwnProperty(key)) {
+                    var externalId = preloadedImage[key];
+                    console.log(key, externalId);
+                }
+            }
+        });*/
+
         startCheckLoadedInterval();
 
         $('#refresh-provider').click(function() {

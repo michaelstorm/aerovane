@@ -48,6 +48,7 @@ class ProviderImage(models.Model, SaveTheChange, TrackChanges):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     # has to be nullable so we can add after bulk create
+    # TODO is this still true?
     disk_image = models.ForeignKey('DiskImage', related_name='provider_images', null=True, blank=True)
     external_id = models.CharField(max_length=256, db_index=True)
     name = models.CharField(max_length=256, null=True, blank=True, db_index=True)

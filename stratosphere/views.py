@@ -9,6 +9,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 
 import base64
+import copy
 import json
 import re
 
@@ -112,11 +113,30 @@ def operating_system(request, group_id):
 @login_required
 def images(request):
     operating_systems = request.user.compute_images.all()
+    preloaded_images = {}
+
+    for image_name, preloaded_image in settings.PRELOADED_IMAGES.items():
+        image_info = {}
+
+        for provider_name, external_id in preloaded_image.items():
+            provider_configurations = request.user.configuration.provider_configurations
+            available_provider_images = provider_configurations.get(provider__name=provider_name).available_provider_images
+            provider_image = available_provider_images.get(external_id=external_id)
+
+            provider_info = {}
+            provider_info['id'] = provider_image.disk_image.pk
+            provider_info['name'] = provider_image.disk_image.name
+            image_info[provider_name] = provider_info
+
+        preloaded_images[image_name] = image_info
+
+    print(preloaded_images)
 
     context = {
         'left_nav_section': 'images',
         'operating_systems': operating_systems,
         'providers': request.user.configuration.provider_configurations.all(),
+        'preloaded_images': preloaded_images,
     }
 
     return render(request, 'stratosphere/images.html', context=context)
@@ -135,7 +155,7 @@ def dashboard(request):
 
     context = {
         'left_nav_section': 'dashboard',
-        'setup_complete': False,
+        'setup_incomplete': True,
     }
 
     if provider_configurations.count() == 0:
@@ -154,7 +174,7 @@ def dashboard(request):
         context['setup_progress'] = 3
         template = 'stratosphere/setup/compute_group.html'
     else:
-        context['setup_complete'] = True
+        context['setup_incomplete'] = True
         context['providers'] = provider_configurations.all()
         template = 'stratosphere/dashboard.html'
 
