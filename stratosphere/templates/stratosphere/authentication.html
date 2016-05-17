@@ -47,39 +47,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="col-lg-6">
-                <div class="ibox float-e-margins">
-                    <div class="ibox-title">
-                        <h5>Passwords</h5>
-                    </div>
-                    <div class="ibox-content">
-                        {% if password_methods|length > 0 %}
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for method in password_methods %}
-                                        <tr>
-                                            <td style="width: 99%;">{{ method.name }}</td>
-                                            <td><button class="btn btn-danger btn-xs delete-method-button" method-id="{{ method.pk }}">Delete</button></td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% endif %}
-                        <form action="/authentication_methods/" method="post">
-                            {% csrf_token %}
-                            {% bootstrap_form add_password_method %}
-                            <input type="submit" value="Add" class="btn btn-primary" >
-                        </form>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
