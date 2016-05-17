@@ -1,6 +1,6 @@
 {% load static from staticfiles %}
 
-<table class="table table-striped" ng-controller="ProviderListCtrl">
+<table class="table table-striped providers-table" ng-controller="ProviderListCtrl">
     <tbody>
         <tr ng-repeat="provider in providers | orderBy: 'pretty_name' track by provider.id" ng-cloak>
             <td style="vertical-align: middle;">
@@ -48,9 +48,3 @@
         </tr>
     </tbody>
 </table>
-
-<style>
-.providers-table .checkbox {
-    margin: 0;
-}
-</style>

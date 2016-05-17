@@ -8,7 +8,7 @@
 {% block content %}
     <div class="row wrapper border-bottom white-bg page-heading">
         <div class="col-lg-12">
-            <h1>Welcome, {{ user.first_name }}!</h1>
+            {% include "stratosphere/_page_help_header.html" with page_header="Dashboard" %}
         </div>
     </div>
 
@@ -46,7 +46,7 @@
         </div>
         <div class="row">
             <div class="col-lg-12">
-                <div class="ibox float-e-margins">
+                <div class="ibox float-e-margins" data-intro="dsfsdsdf">
                     <div class="ibox-title">
                         <h5>Providers</h5>
                     </div>
@@ -87,6 +87,42 @@
     </div>
 
     <script src="{% static "stratosphere/inspinia/js/plugins/chartJs/Chart.min.js" %}"></script>
+{% endblock %}
+
+{% block body_script %}
+    window.tutorialTour = new Tour({
+        steps: [{
+                element: "#instances-chart",
+                title: "Instance states graph",
+                content: "This shows the history of running, pending, and failed instances in a stacked time-series graph.",
+                placement: "bottom"
+            },
+            {
+                element: "#instances-chart-max-range-buttons",
+                title: "Time range buttons",
+                content: "Click these to set the maximum time range that the graph displays.",
+                placement: "top"
+            },
+            {
+                element: ".noUi-handle-lower:first-of-type",
+                title: "Time range slider edges",
+                content: "Click and drag edges to shrink or expand time range shown.",
+                placement: "bottom"
+            },
+            {
+                element: "#instances-chart-range-slider",
+                title: "Time range slider middle",
+                content: "Drag middle to travel backwards or forwards through time.",
+                placement: "bottom"
+            },
+            {
+                element: ".providers-table tr:first-child .checkbox",
+                title: "Enable/disable provider",
+                content: "Disabling a provider causes all of its instances to be migrated to other providers. A provider will be automatically disabled if it generates too many errors within a certain period of time.",
+                placement: "top"
+            }
+        ]
+    });
 {% endblock %}
 
 {% block style %}

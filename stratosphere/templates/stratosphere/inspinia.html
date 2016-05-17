@@ -38,6 +38,8 @@
         <link href="{% static "stratosphere/ion.rangeSlider-2.1.2/css/ion.rangeSlider.skinFlat.css" %}" rel="stylesheet">
 
         <link href="{% static "stratosphere/inspinia/css/plugins/nouslider/jquery.nouislider.css" %}" rel="stylesheet">
+
+        <link href="{% static "stratosphere/bootstrap-tour-0.10.3/css/bootstrap-tour.min.css" %}" rel="stylesheet">
         {% endcompress %}
 
         <link href="{% static "stratosphere/a-logo-blue.png" %}" rel="shortcut icon" type="image/x-icon">
@@ -88,6 +90,14 @@
             .provider-link img {
                 height: 16px;
                 margin-left: 5px;
+            }
+
+            .start-tour-link {
+                float: right;
+                height: 1em;
+                padding-top: 4px;
+                opacity: .4;
+                cursor: pointer;
             }
 
             .list-info-block .horizontal-element {
@@ -312,6 +322,8 @@
         <script src="{% static "stratosphere/chosen/js/chosen.jquery.min.js" %}"></script>
 
         <script src="{% static "stratosphere/ion.rangeSlider-2.1.2/js/ion.rangeSlider.min.js" %}"></script>
+
+        <script src="{% static "stratosphere/bootstrap-tour-0.10.3/js/bootstrap-tour.min.js" %}"></script>
         {% endcompress %}
 
         <script>
@@ -454,6 +466,18 @@
             $(document).ready(function() {
                 if ($('#instances-chart').length)
                     setUpInstancesChart(compute_group_id);
+
+                if (typeof tutorialTour !== 'undefined') {
+                    // awful hack to delay starting until elements are created
+                    setTimeout(function() {
+                        tutorialTour.init();
+                        tutorialTour.start();
+                    }, 500);
+
+                    $('.start-tour-link').click(function() {
+                        tutorialTour.restart();
+                    });
+                }
             });
 
             var dashboardApp = angular.module('dashboardApp', ['ngResource', 'isteven-multi-select', 'ui.bootstrap'])
