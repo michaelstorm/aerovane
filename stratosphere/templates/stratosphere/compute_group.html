@@ -19,19 +19,28 @@
             <div class="wrapper wrapper-content">
                 <div class="row">
                     <div class="col-lg-12">
-                        <div class="btn-group btn-group-xs" id="instances-chart-max-range-buttons" style="float: right;">
-                            <button type="button" class="btn btn-info" seconds="1800">30 minutes</button>
-                            <button type="button" class="btn btn-default" seconds="43200">12 hours</button>
-                            <button type="button" class="btn btn-default" seconds="604800">7 days</button>
-                            <button type="button" class="btn btn-default">All time</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div id="instances-chart-container">
-                            <div id="instances-chart"></div>
-                            <div id="instances-chart-range-slider"></div>
+                        <div class="ibox float-e-margins">
+                            <div class="ibox-title">
+                                <h5>Compute instance history</h5>
+                                <div class="btn-group btn-group-xs" id="instances-chart-max-range-buttons" style="float: right;">
+                                    <button type="button" class="btn btn-info" seconds="1800">30 minutes</button>
+                                    <button type="button" class="btn btn-default" seconds="43200">12 hours</button>
+                                    <button type="button" class="btn btn-default" seconds="604800">7 days</button>
+                                    <button type="button" class="btn btn-default">All time</button>
+                                </div>
+                            </div>
+                            <div class="ibox-content">
+                                <div class="row">
+                                    <div class="col-lg-12">
+                                        <div id="instances-chart-container">
+                                            <div id="instances-chart"></div>
+                                            <div style="padding: 0 10px;">
+                                                <div id="instances-chart-range-slider"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
