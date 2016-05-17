@@ -8,7 +8,7 @@ echo "s = Site.objects.first(); s.name = 'Production'; s.domain = 'dashboard.aer
 echo "Ec2ProviderConfiguration.create_providers(); exit()" | heroku run -a $1 python manage.py shell_plus
 
 echo "Ec2ProviderConfiguration.create_regions(
-			user_configuration=None,
+			user=None,
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY'); exit()" | heroku run -a $1 python manage.py shell_plus
 

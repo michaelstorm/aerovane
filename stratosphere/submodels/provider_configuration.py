@@ -1,3 +1,5 @@
+from django.contrib.auth.models import User
+
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
@@ -43,8 +45,7 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider = models.ForeignKey('Provider', related_name='configurations')
     provider_name = models.CharField(max_length=32)
-    user_configuration = models.ForeignKey('UserConfiguration', null=True, blank=True,
-                                           related_name='provider_configurations')
+    user = models.ForeignKey(User, null=True, blank=True, related_name='provider_configurations')
     loaded = models.BooleanField(default=False)
     enabled = models.BooleanField(default=True)
 

@@ -27,14 +27,14 @@ class UserConfiguration(models.Model, SaveTheChange, TrackChanges):
     def create_phantom_instance_states_snapshot(self):
         now = timezone.now()
         args = {
-            'user_configuration': self,
+            'user': self.user,
             'time': now,
             'pending': 0,
             'running': 0,
             'failed': 0,
         }
 
-        group_snapshots = [g.create_phantom_instance_states_snapshot(now) for g in self.compute_groups.all()]
+        group_snapshots = [g.create_phantom_instance_states_snapshot(now) for g in self.user.compute_groups.all()]
         for group_snapshot in group_snapshots:
             args['pending'] += group_snapshot.pending
             args['running'] += group_snapshot.running
@@ -63,7 +63,7 @@ class UserConfiguration(models.Model, SaveTheChange, TrackChanges):
                 return snapshots_values(first) == snapshots_values(second)
 
         user_snapshot, group_snapshots = self.create_phantom_instance_states_snapshot()
-        last_user_snapshot = self.instance_states_snapshots.order_by('-time').first()
+        last_user_snapshot = self.user.instance_states_snapshots.order_by('-time').first()
 
         not_equal = not snapshot_values_equal(user_snapshot, last_user_snapshot)
 

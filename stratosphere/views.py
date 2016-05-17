@@ -66,7 +66,7 @@ def operating_systems(request):
                 'disk_image': _disk_image_to_json(selected_disk_image),
             }
 
-        provider_configurations = request.user.configuration.provider_configurations.all()
+        provider_configurations = request.user.provider_configurations.all()
 
         return {
             'id': os.pk,
@@ -89,7 +89,7 @@ def operating_systems(request):
         operating_system.disk_image_mappings.all().delete()
 
         for provider_json in params['providers']:
-            provider_configuration = request.user.configuration.provider_configurations.get(pk=provider_json['id'])
+            provider_configuration = request.user.provider_configurations.get(pk=provider_json['id'])
 
             disk_image_json = provider_json.get('disk_image')
             if isinstance(disk_image_json, dict): # Angular sometimes sends null value as empty string
@@ -119,7 +119,7 @@ def images(request):
         image_info = {}
 
         for provider_name, external_id in preloaded_image.items():
-            provider_configurations = request.user.configuration.provider_configurations
+            provider_configurations = request.user.provider_configurations
             available_provider_images = provider_configurations.get(provider__name=provider_name).available_provider_images
             provider_image = available_provider_images.get(external_id=external_id)
 
@@ -130,32 +130,30 @@ def images(request):
 
         preloaded_images[image_name] = image_info
 
-    print(preloaded_images)
-
     context = {
         'left_nav_section': 'images',
         'operating_systems': operating_systems,
-        'providers': request.user.configuration.provider_configurations.all(),
+        'providers': request.user.provider_configurations.all(),
         'preloaded_images': preloaded_images,
+        'setup_incomplete': request.user.compute_images.count() == 0,
     }
 
     return render(request, 'stratosphere/images.html', context=context)
 
 
 def is_setup_complete(user):
-    return user.configuration.provider_configurations.count() > 0 and \
-            user.configuration.authentication_methods.count() > 0 and \
+    return user.provider_configurations.count() > 0 and \
+            user.authentication_methods.count() > 0 and \
             user.compute_images.count() > 0 and \
-            user.configuration.compute_groups.count() > 0
+            user.compute_groups.count() > 0
 
 
 @login_required
 def dashboard(request):
-    provider_configurations = request.user.configuration.provider_configurations
+    provider_configurations = request.user.provider_configurations
 
     context = {
         'left_nav_section': 'dashboard',
-        'setup_incomplete': True,
     }
 
     if provider_configurations.count() == 0:
@@ -164,17 +162,16 @@ def dashboard(request):
     elif not are_providers_loaded(request.user):
         context['setup_progress'] = 0
         template = 'stratosphere/setup/loading_provider.html'
-    elif request.user.configuration.authentication_methods.count() == 0:
+    elif request.user.authentication_methods.count() == 0:
         context['setup_progress'] = 1
         template = 'stratosphere/setup/authentication.html'
     elif request.user.compute_images.count() == 0:
         context['setup_progress'] = 2
         template = 'stratosphere/setup/compute_image.html'
-    elif request.user.configuration.compute_groups.count() == 0:
+    elif request.user.compute_groups.count() == 0:
         context['setup_progress'] = 3
         template = 'stratosphere/setup/compute_group.html'
     else:
-        context['setup_incomplete'] = True
         context['providers'] = provider_configurations.all()
         template = 'stratosphere/dashboard.html'
 
@@ -193,7 +190,7 @@ def compute_groups(request):
 
 @login_required
 def compute_group(request, group_id):
-    compute_group = request.user.configuration.compute_groups.get(pk=group_id)
+    compute_group = request.user.compute_groups.get(pk=group_id)
 
     context = {
         'compute_group_id': group_id,
@@ -255,7 +252,7 @@ def add_compute_group(request):
     context = {
         'os_images_map': os_images_map,
         'possible_providers': possible_providers,
-        'authentication_methods': request.user.configuration.authentication_methods.all(),
+        'authentication_methods': request.user.authentication_methods.all(),
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'create',
     }
@@ -311,8 +308,8 @@ def _compute_group_to_json(group):
 @login_required
 def authentication(request):
     context = {
-        'key_methods': KeyAuthenticationMethod.objects.filter(user_configuration=request.user.configuration),
-        'password_methods': PasswordAuthenticationMethod.objects.filter(user_configuration=request.user.configuration),
+        'key_methods': KeyAuthenticationMethod.objects.filter(user=request.user),
+        'password_methods': PasswordAuthenticationMethod.objects.filter(user=request.user),
         'add_key_method': KeyAuthenticationMethodForm(),
         'add_password_method': PasswordAuthenticationMethodForm(),
         'left_nav_section': 'authentication',
@@ -325,10 +322,10 @@ def authentication(request):
 def authentication_methods(request, method_id=None):
     if request.method == 'POST':
         if 'key' in request.POST:
-            KeyAuthenticationMethod.objects.create(user_configuration=request.user.configuration,
+            KeyAuthenticationMethod.objects.create(user=request.user,
                 name=request.POST['name'], key=request.POST['key'])
         else:
-            PasswordAuthenticationMethod.objects.create(user_configuration=request.user.configuration,
+            PasswordAuthenticationMethod.objects.create(user=request.user,
                 name=request.POST['name'], password=request.POST['password'])
 
     elif request.method == 'DELETE':
@@ -344,10 +341,10 @@ def authentication_methods(request, method_id=None):
 def compute(request, group_id=None):
     if request.method == 'GET':
         if group_id is None:
-            compute_groups = [_compute_group_to_json(group) for group in request.user.configuration.compute_groups.all()]
+            compute_groups = [_compute_group_to_json(group) for group in request.user.compute_groups.all()]
             return JsonResponse(compute_groups, safe=False)
         else:
-            compute_group = _compute_group_to_json(request.user.configuration.compute_groups.filter(pk=group_id).first())
+            compute_group = _compute_group_to_json(request.user.compute_groups.filter(pk=group_id).first())
             # return an array because I can't figure out how to get Angular to not expect one
             return JsonResponse([compute_group], safe=False)
 
@@ -364,10 +361,10 @@ def compute(request, group_id=None):
 
         name = params.get('name')
         if name is None or len(name.strip()) == 0:
-            name = generate_name(request.user.configuration.compute_groups)
+            name = generate_name(request.user.compute_groups)
 
         authentication_method_id = params['authentication_method']
-        authentication_method = request.user.configuration.authentication_methods.filter(pk=authentication_method_id).first()
+        authentication_method = request.user.authentication_methods.filter(pk=authentication_method_id).first()
 
         provider_policy = {}
         for key in params:
@@ -378,7 +375,7 @@ def compute(request, group_id=None):
 
         os_id = params['operating_system']
         compute_image = ComputeImage.objects.get(pk=os_id)
-        group = ComputeGroup.objects.create(user_configuration=request.user.configuration, cpu=cpu, memory=memory,
+        group = ComputeGroup.objects.create(user=request.user, cpu=cpu, memory=memory,
                                             instance_count=instance_count, name=name, provider_policy=provider_policy,
                                             size_distribution={}, image=compute_image,
                                             authentication_method=authentication_method)
@@ -397,23 +394,23 @@ provider_configuration_form_classes = {
 @login_required
 def aws_provider(request):
     if request.method == 'GET':
-        provider_configurations = request.user.configuration.provider_configurations
+        provider_configurations = request.user.provider_configurations
         context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
                    for key, form_class in provider_configuration_form_classes.items()}
 
         context['left_nav_section'] = 'providers'
         context['left_sub_nav_section'] = 'aws'
 
-        aws_credentials = Ec2ProviderCredentials.objects.filter(configurations__user_configuration=request.user.configuration).first()
+        aws_credentials = Ec2ProviderCredentials.objects.filter(configurations__user=request.user).first()
         if aws_credentials is not None:
             context['aws_access_key_id'] = aws_credentials.access_key_id
 
         return render(request, 'stratosphere/aws_provider.html', context=context)
 
     elif request.method == 'POST':
-        provider_configuration = request.user.configuration.provider_configurations.instance_of(Ec2ProviderConfiguration).first()
+        provider_configuration = request.user.provider_configurations.instance_of(Ec2ProviderConfiguration).first()
         if provider_configuration is None:
-            Ec2ProviderConfiguration.create_regions(request.user.configuration,
+            Ec2ProviderConfiguration.create_regions(request.user,
                             request.POST['aws_access_key_id'], request.POST['aws_secret_access_key'])
 
         else:
@@ -437,7 +434,7 @@ def configure_provider(request, provider_name):
             provider_form = form_class(request.POST)
             provider_configuration = provider_form.save()
             provider_configuration.provider_name = key
-            provider_configuration.user_configuration = request.user.configuration
+            provider_configuration.user = request.user
             provider_configuration.save()
             context[key] = provider_form
         else:
@@ -448,7 +445,7 @@ def configure_provider(request, provider_name):
 
 def are_providers_loaded(user):
     loaded = True
-    for provider_configuration in user.configuration.provider_configurations.all():
+    for provider_configuration in user.provider_configurations.all():
         if not provider_configuration.loaded:
             loaded = False
             break
@@ -464,7 +461,7 @@ def providers_loaded(request):
 
 @login_required
 def providers_refresh(request):
-    provider_configurations = request.user.configuration.provider_configurations.all()
+    provider_configurations = request.user.provider_configurations.all()
 
     for provider_configuration in provider_configurations:
         provider_configuration.loaded = False
@@ -489,7 +486,7 @@ def _provider_json(provider_configuration):
 @login_required
 def get_providers(request, provider_id=None):
     if provider_id is None:
-        provider_configurations = request.user.configuration.provider_configurations.all()
+        provider_configurations = request.user.provider_configurations.all()
         return JsonResponse([_provider_json(pc) for pc in provider_configurations], safe=False)
 
     else:
@@ -546,9 +543,9 @@ def state_history(request, group_id=None):
         limit_query = Q(**{'%s__gte' % time_field: limit_datetime})
 
     if group_id is None:
-        snapshots = request.user.configuration.instance_states_snapshots
+        snapshots = request.user.instance_states_snapshots
     else:
-        group = request.user.configuration.compute_groups.filter(pk=group_id).first()
+        group = request.user.compute_groups.filter(pk=group_id).first()
         snapshots = GroupInstanceStatesSnapshot.objects.filter(group=group)
 
     snapshots = snapshots.order_by(time_field)

@@ -38,7 +38,7 @@ class ComputeImage(models.Model, SaveTheChange, TrackChanges):
         app_label = "stratosphere"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, related_name='compute_images') # TODO change to UserConfiguration
+    user = models.ForeignKey(User, related_name='compute_images')
     name = models.CharField(max_length=128)
 
 

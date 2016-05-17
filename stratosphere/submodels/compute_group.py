@@ -3,6 +3,7 @@ from annoying.fields import JSONField
 from datetime import datetime, timedelta
 
 from django.apps import apps
+from django.contrib.auth.models import User
 from django.db import connection, models, transaction, OperationalError
 from django.db.models import Q
 from django.db.models.signals import pre_save
@@ -24,7 +25,7 @@ class InstanceStatesSnapshot(models.Model):
         app_label = "stratosphere"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user_configuration = models.ForeignKey('UserConfiguration', related_name='instance_states_snapshots')
+    user = models.ForeignKey(User, related_name='instance_states_snapshots')
     time = models.DateTimeField()
 
     pending = models.IntegerField()
@@ -62,7 +63,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    user_configuration = models.ForeignKey('UserConfiguration', related_name='compute_groups')
+    user = models.ForeignKey(User, related_name='compute_groups')
     image = models.ForeignKey('ComputeImage', related_name='compute_groups', on_delete=models.PROTECT)
     authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
 
@@ -74,24 +75,13 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     size_distribution = JSONField()
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
 
-    @classmethod
-    def quick_create(cls, instance_count=5):
-        from ..models import UserConfiguration, ComputeImage, AuthenticationMethod, Provider
-        image = ComputeImage.objects.first()
-        providers = Provider.objects.filter(disk_image_mappings__compute_image=image)
-        provider_policy = {p.name: 'auto' for p in providers}
-        return cls.objects.create(user_configuration=UserConfiguration.objects.first(),
-                                  image=image, cpu=1, memory=512,
-                                  instance_count=instance_count, name='sdfsdf', provider_policy=provider_policy,
-                                  size_distribution={}, authentication_method=AuthenticationMethod.objects.first())
-
     def provider_states(self):
         provider_states_map = {}
         now = timezone.now()
         two_minutes_ago = now - timedelta(minutes=2)
 
         for provider_name in self.provider_policy:
-            provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name, user_configuration=self.user_configuration)
+            provider_configuration = ProviderConfiguration.objects.get(provider_name=provider_name, user=self.user)
             provider_instances = self.instances.filter(provider_image__provider__name=provider_name)
             icon_url = provider_configuration.provider.icon_url()
 
@@ -116,7 +106,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
         with transaction.atomic():
             running_count = self.instances.filter(ComputeInstance.running_instances_query()).count()
 
-            provider_configurations = self.user_configuration.provider_configurations
+            provider_configurations = self.user.provider_configurations
             good_provider_ids = [provider.pk for provider in provider_configurations.filter(enabled=True)]
 
             self.logger.warn('good providers: %s' % good_provider_ids)
@@ -164,7 +154,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
         self._create_compute_instances()
 
-        self.user_configuration.take_instance_states_snapshot_if_changed()
+        self.user.configuration.take_instance_states_snapshot_if_changed()
 
     @thread_local(DB_OVERRIDE='serializable')
     def destroy_instance(self, instance):
@@ -208,7 +198,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
         best_sizes = {}
         for provider_name in self.provider_policy:
             self.logger.debug('Getting sizes for provider %s and image %s' % (provider_name, self.image))
-            provider_configuration = self.user_configuration.provider_configurations.get(provider_name=provider_name)
+            provider_configuration = self.user.provider_configurations.get(provider_name=provider_name)
 
             if allowed_provider_ids is None or provider_configuration.pk in allowed_provider_ids:
                 available_sizes = []

@@ -111,7 +111,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
                 icon_path='stratosphere/aws_icon.png')
 
     @staticmethod
-    def create_regions(user_configuration, access_key_id, secret_access_key):
+    def create_regions(user, access_key_id, secret_access_key):
         credentials = Ec2ProviderCredentials.objects.create(
                             access_key_id=access_key_id, secret_access_key=secret_access_key)
 
@@ -124,7 +124,7 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
                 provider_name=provider_name,
                 region=region,
                 credentials=credentials,
-                user_configuration=user_configuration)
+                user=user)
 
     def create_driver(self):
         cls = get_driver(LibcloudProvider.EC2)

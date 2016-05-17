@@ -28,7 +28,7 @@ def load_provider_data(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    if provider_configuration.user_configuration is None:
+    if provider_configuration.user is None:
         provider_configuration.load_data(True)
     else:
         provider_configuration.load_data(False)
@@ -78,20 +78,20 @@ def check_provider_enabled_all():
 
 
 @app.task()
-def check_instance_states_snapshots(user_configuration_id):
-    from .models import UserConfiguration
+def check_instance_states_snapshots(user_id):
+    from django.contrib.auth.models import User
 
-    user_configuration = UserConfiguration.objects.get(pk=user_configuration_id)
-    user_configuration.take_instance_states_snapshot_if_changed()
+    user = User.objects.get(pk=user_id)
+    user.configuration.take_instance_states_snapshot_if_changed()
 
 
 @periodic_task(run_every=timedelta(seconds=15))
 def check_instance_states_snapshots_all():
-    from .models import UserConfiguration
+    from django.contrib.auth.models import User
 
-    user_configuration_ids = UserConfiguration.objects.all().values_list('pk', flat=True)
-    for user_configuration_id in user_configuration_ids:
-        check_instance_states_snapshots.delay(user_configuration_id)
+    user_ids = User.objects.all().values_list('pk', flat=True)
+    for user_id in user_ids:
+        check_instance_states_snapshots.delay(user_id)
 
 
 @app.task()
@@ -199,7 +199,7 @@ def send_failed_email(provider_configuration_id):
     compute_groups = ComputeGroup.objects.filter(instances__provider_configuration=provider_configuration).distinct()
     current_site = Site.objects.get_current()
 
-    user_email = provider_configuration.user_configuration.user.email
+    user_email = provider_configuration.user.email
     from_email = 'Aerovane <noreply@aerovane.io>'
     subject = 'Important message from Aerovane: Provider %s has FAILED' % provider_configuration.provider.pretty_name
 
