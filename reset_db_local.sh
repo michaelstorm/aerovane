@@ -8,9 +8,9 @@ python manage.py migrate
 
 echo "s = Site.objects.first(); s.name = 'localhost'; s.domain = 'localhost:8000'; s.save()" | python manage.py shell_plus
 
-echo "Ec2ProviderConfiguration.create_providers()" | python manage.py shell_plus
+echo "AWSProviderConfiguration.create_providers()" | python manage.py shell_plus
 
-echo "Ec2ProviderConfiguration.create_regions(
+echo "AWSProviderConfiguration.create_regions(
 			user=None,
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus

@@ -34,8 +34,8 @@ def load_provider_data(provider_configuration_id):
         provider_configuration.load_data(False)
 
 
-@periodic_task(run_every=timedelta(minutes=10))
-def update_provider_info_all():
+# @periodic_task(run_every=timedelta(minutes=10))
+def load_provider_data_all():
     from .models import ProviderConfiguration
 
     provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
@@ -48,7 +48,8 @@ def check_failed_instances(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.check_failed_instances()
+    if provider_configuration.user is not None:
+        provider_configuration.check_failed_instances()
 
 
 @periodic_task(run_every=timedelta(seconds=10))
@@ -65,7 +66,8 @@ def check_provider_enabled(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.check_enabled()
+    if provider_configuration.user is not None:
+        provider_configuration.check_enabled()
 
 
 @periodic_task(run_every=timedelta(seconds=10))
@@ -116,7 +118,8 @@ def update_instance_statuses(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    provider_configuration.update_instance_statuses()
+    if provider_configuration.user is not None:
+        provider_configuration.update_instance_statuses()
 
 
 @periodic_task(run_every=timedelta(seconds=10))

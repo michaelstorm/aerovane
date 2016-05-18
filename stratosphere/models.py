@@ -17,8 +17,9 @@ class ComputeInstance(ComputeInstanceBase):
 
 from .submodels.image import *
 from .submodels.provider_size import *
+from .submodels.provider_credential_set import *
 from .submodels.provider_configuration import *
-from .submodels.ec2.ec2_provider_configuration import *
+from .submodels.aws.aws_provider_configuration import *
 from .submodels.linode.linode_provider_configuration import *
 from .submodels.compute_group import *
 

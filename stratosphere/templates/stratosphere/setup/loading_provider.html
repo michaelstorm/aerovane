@@ -17,11 +17,11 @@
     $(document).ready(function() {
         window.checkLoadedInterval = setInterval(function() {
             $.ajax({
-                url: '/providers/loaded/',
+                url: '/providers/data_state/',
                 method: 'GET',
                 success: function(data) {
-                    var loaded = data['loaded'];
-                    if (loaded)
+                    var loaded = data['data_state'];
+                    if (loaded != 'NOT_LOADED')
                         location.reload();
                 },
             });

@@ -5,28 +5,26 @@ from django.dispatch import receiver
 from libcloud.compute.providers import get_driver
 from libcloud.compute.types import Provider as LibcloudProvider
 
-from stratosphere.models import ProviderConfiguration, Provider
+from stratosphere.models import Provider, ProviderConfiguration, ProviderCredentialSet
 from stratosphere.tasks import load_provider_data
 from stratosphere.util import schedule_random_default_delay
 
 import uuid
 
 
-class Ec2ProviderCredentials(models.Model):
+class AWSProviderCredentialSet(ProviderCredentialSet):
     class Meta:
         app_label = "stratosphere"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     access_key_id = models.CharField(max_length=128)
     secret_access_key = models.CharField(max_length=128)
 
 
-class Ec2ProviderConfiguration(ProviderConfiguration):
+class AWSProviderConfiguration(ProviderConfiguration):
     class Meta:
         app_label = "stratosphere"
 
     region = models.CharField(max_length=16)
-    credentials = models.ForeignKey('Ec2ProviderCredentials', related_name='configurations')
 
     ami_requirements = {
         't1': {
@@ -103,8 +101,8 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
 
     @staticmethod
     def create_providers():
-        for region, pretty_name in Ec2ProviderConfiguration.regions.items():
-            provider_name = Ec2ProviderConfiguration._provider_name_from_region(region)
+        for region, pretty_name in AWSProviderConfiguration.regions.items():
+            provider_name = AWSProviderConfiguration._provider_name_from_region(region)
             provider = Provider.objects.create(
                 name=provider_name,
                 pretty_name='AWS %s' % pretty_name,
@@ -112,23 +110,24 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
 
     @staticmethod
     def create_regions(user, access_key_id, secret_access_key):
-        credentials = Ec2ProviderCredentials.objects.create(
-                            access_key_id=access_key_id, secret_access_key=secret_access_key)
+        provider_credential_set = AWSProviderCredentialSet.objects.create(
+                                    access_key_id=access_key_id,
+                                    secret_access_key=secret_access_key)
 
-        for region, pretty_name in Ec2ProviderConfiguration.regions.items():
-            provider_name = Ec2ProviderConfiguration._provider_name_from_region(region)
+        for region, pretty_name in AWSProviderConfiguration.regions.items():
+            provider_name = AWSProviderConfiguration._provider_name_from_region(region)
             provider = Provider.objects.get(name=provider_name)
 
-            Ec2ProviderConfiguration.objects.create(
+            AWSProviderConfiguration.objects.create(
                 provider=provider,
                 provider_name=provider_name,
                 region=region,
-                credentials=credentials,
+                provider_credential_set=provider_credential_set,
                 user=user)
 
     def create_driver(self):
         cls = get_driver(LibcloudProvider.EC2)
-        return cls(self.credentials.access_key_id, self.credentials.secret_access_key,
+        return cls(self.provider_credential_set.access_key_id, self.provider_credential_set.secret_access_key,
                    region=self.region)
 
     def get_available_sizes(self, provider_image, cpu, memory):
@@ -148,8 +147,8 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
         return list(filter(filter_size, sizes))
 
     def _get_credentials_dict(self):
-        return {'access_key_id': self.credentials.access_key_id,
-                'secret_access_key': self.credentials.secret_access_key}
+        return {'access_key_id': self.provider_credential_set.access_key_id,
+                'secret_access_key': self.provider_credential_set.secret_access_key}
 
     def _get_driver_images(self, include_public):
         filters = {'image-type': 'machine', 'state': 'available'}
@@ -166,8 +165,8 @@ class Ec2ProviderConfiguration(ProviderConfiguration):
             return "%s#Instances:search=%s" % (base_url, compute_instance.external_id)
 
 
-@receiver(post_save, sender=Ec2ProviderCredentials)
+@receiver(post_save, sender=AWSProviderCredentialSet)
 def schedule_load_provider_info_credentials(sender, created, instance, **kwargs):
     # TODO is this method called before or after the relation is created?
-    for provider_configuration in instance.configurations.all():
+    for provider_configuration in instance.provider_configurations.all():
         schedule_random_default_delay(load_provider_data, provider_configuration.pk)

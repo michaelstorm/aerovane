@@ -13,12 +13,28 @@
 
     <div class="wrapper wrapper-content animated fadeInLeft">
         <div class="row">
-            <div class="col-lg-4">
+            <div class="col-lg-12">
                 <div class="ibox float-e-margins">
                     <div class="ibox-title">
                         <h5>Credentials</h5>
                     </div>
                     <div class="ibox-content">
+                        {% if data_state == 'ERROR' %}
+                            <div class="text-danger credentials-error-message">
+                                <strong>
+                                    {% if credentials_error == 'INVALID_CREDENTIALS' %}
+                                        Invalid credentials.
+                                    {% elif credentials_error == 'UNAUTHORIZED_CREDENTIALS' %}
+                                        Unauthorized credentials. Please see the screencast below for instructions on how to grant Aerovane appropriate permissions on your AWS account.
+                                    {% elif credentials_error == 'UNKNOWN_ERROR' %}
+                                        Unknown credentials error.
+                                    {% else %}
+                                        Unknown error.
+                                    {% endif %}
+                                </strong>
+                            </div>
+                        {% endif %}
+
                         <form action="/providers/aws/" method="post">
                             {% csrf_token %}
                             <div class="form-group">
@@ -34,16 +50,40 @@
                                 >
                             </div>
                             <input type="submit" value="Save" class="btn btn-primary">
+                            <input type="button" value="Open AWS IAM users page" class="btn btn-info open-iam-page">
+                            <div class="iam-instructions">It is recommended to create an IAM account for Aerovane to use and paste its credentials here. For instructions on how to do this, please watch the screencast below.</div>
                         </form>
+
+                        <iframe class="screencast" width="960" height="540" frameborder="0" allowfullscreen></iframe>
+                        <!-- src="https://www.youtube.com/embed/ga2t-a_VGhY?showinfo=0&playsinline=1&rel=0&modestbranding=1&loop=1&fs=0" -->
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .screencast {
+        margin-top: 10px;
+    }
+
+    .iam-instructions {
+        margin-top: 5px;
+    }
+
+    .credentials-error-message {
+        margin-bottom: 10px;
+    }
+</style>
 {% endblock %}
 
 {% block body_script %}
+    $(document).ready(function() {
+        $('.open-iam-page').click(function() {
+            window.open('https://console.aws.amazon.com/iam/home#users', '_blank');
+        });
+    });
 {% endblock %}
 
 {% block style %}

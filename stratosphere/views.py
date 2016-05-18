@@ -143,6 +143,7 @@ def images(request):
 
 def is_setup_complete(user):
     return user.provider_configurations.count() > 0 and \
+            compute_providers_data_state(user) == ProviderConfiguration.LOADED and \
             user.authentication_methods.count() > 0 and \
             user.compute_images.count() > 0 and \
             user.compute_groups.count() > 0
@@ -159,7 +160,9 @@ def dashboard(request):
     if provider_configurations.count() == 0:
         context['setup_progress'] = 0
         template = 'stratosphere/setup/provider_configuration.html'
-    elif not are_providers_loaded(request.user):
+    elif compute_providers_data_state(request.user) == ProviderConfiguration.ERROR:
+        return redirect('/providers/aws/')
+    elif compute_providers_data_state(request.user) == ProviderConfiguration.NOT_LOADED:
         context['setup_progress'] = 0
         template = 'stratosphere/setup/loading_provider.html'
     elif request.user.authentication_methods.count() == 0:
@@ -397,7 +400,7 @@ def compute(request, group_id=None):
 
 
 provider_configuration_form_classes = {
-    'aws': Ec2ProviderConfigurationForm,
+    'aws': AWSProviderConfigurationForm,
     'linode': LinodeProviderConfigurationForm,
 }
 
@@ -412,23 +415,35 @@ def aws_provider(request):
         context['left_nav_section'] = 'providers'
         context['left_sub_nav_section'] = 'aws'
 
-        aws_credentials = Ec2ProviderCredentials.objects.filter(configurations__user=request.user).first()
-        if aws_credentials is not None:
-            context['aws_access_key_id'] = aws_credentials.access_key_id
+        data_state = compute_providers_data_state(request.user)
+        context['data_state'] = data_state
+        if data_state == ProviderConfiguration.ERROR:
+            first_aws_pc = AWSProviderConfiguration.objects.filter(user=request.user).first()
+            context['credentials_error'] = first_aws_pc.provider_credential_set.error_type
+
+        aws_credential_set = AWSProviderCredentialSet.objects.filter(provider_configurations__user=request.user).first()
+        if aws_credential_set is not None:
+            context['aws_access_key_id'] = aws_credential_set.access_key_id
 
         return render(request, 'stratosphere/aws_provider.html', context=context)
 
     elif request.method == 'POST':
-        provider_configuration = request.user.provider_configurations.instance_of(Ec2ProviderConfiguration).first()
-        if provider_configuration is None:
-            Ec2ProviderConfiguration.create_regions(request.user,
-                            request.POST['aws_access_key_id'], request.POST['aws_secret_access_key'])
+        with transaction.atomic():
+            provider_configuration = request.user.provider_configurations.instance_of(AWSProviderConfiguration).first()
 
-        else:
-            credentials = provider_configuration.credentials
-            credentials.access_key_id = request.POST['aws_access_key_id']
-            credentials.secret_access_key = request.POST['aws_secret_access_key']
-            credentials.save()
+            if provider_configuration is None:
+                AWSProviderConfiguration.create_regions(request.user,
+                                request.POST['aws_access_key_id'], request.POST['aws_secret_access_key'])
+
+            else:
+                provider_credential_set = provider_configuration.provider_credential_set
+                provider_credential_set.access_key_id = request.POST['aws_access_key_id']
+                provider_credential_set.secret_access_key = request.POST['aws_secret_access_key']
+                provider_credential_set.save()
+
+                for provider_configuration in provider_credential_set.provider_configurations.all():
+                    provider_configuration.data_state = ProviderConfiguration.NOT_LOADED
+                    provider_configuration.save()
 
         if is_setup_complete(request.user):
             return redirect('/providers/aws/')
@@ -454,20 +469,21 @@ def configure_provider(request, provider_name):
     return redirect('/providers/')
 
 
-def are_providers_loaded(user):
-    loaded = True
+def compute_providers_data_state(user):
     for provider_configuration in user.provider_configurations.all():
-        if not provider_configuration.loaded:
-            loaded = False
-            break
+        data_state = provider_configuration.data_state
+        if data_state == ProviderConfiguration.ERROR:
+            return ProviderConfiguration.ERROR
+        elif data_state == ProviderConfiguration.NOT_LOADED:
+            return ProviderConfiguration.NOT_LOADED
 
-    return loaded
+    return ProviderConfiguration.LOADED
 
 
 @login_required
-def providers_loaded(request):
-    loaded = are_providers_loaded(request.user)
-    return JsonResponse({'loaded': loaded})
+def providers_data_state(request):
+    data_state = compute_providers_data_state(request.user)
+    return JsonResponse({'data_state': data_state})
 
 
 @login_required
@@ -475,7 +491,7 @@ def providers_refresh(request):
     provider_configurations = request.user.provider_configurations.all()
 
     for provider_configuration in provider_configurations:
-        provider_configuration.loaded = False
+        provider_configuration.data_state = ProviderConfiguration.NOT_LOADED
         provider_configuration.save()
 
         schedule_random_default_delay(load_provider_data, provider_configuration.pk)

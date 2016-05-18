@@ -1,7 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
 
-from ..models import ProviderImage, ProviderSize, DiskImage
+import libcloud.common.types
+
+from ..models import ProviderCredentialSet, ProviderImage, ProviderSize, DiskImage
 
 import json
 import uuid
@@ -71,9 +73,6 @@ class ProviderConfigurationDataLoader(object):
         self._load_available_sizes()
         self._load_available_images(include_public)
 
-        self.loaded = True
-        self.save()
-
     def _load_available_sizes(self):
         driver_sizes = self.driver.list_sizes()
         provider_size_ids = set(self.provider_sizes.values_list('id', flat=True))
@@ -125,92 +124,130 @@ class ProviderConfigurationDataLoader(object):
                    return
                yield chunk
 
-        print('Querying images for provider %s' % self.provider.name)
-        start = timezone.now()
-        driver_images = self._get_driver_images(include_public)
-        end = timezone.now()
-        print('Retrieved %d images in %s' % (len(driver_images), (end - start)))
+        def handle_load_error(error_type):
+            with transaction.atomic():
+                self.data_state = self.ERROR
+                self.save()
 
-        filtered_driver_images = list(driver_images)
-        if driver_images_limit is not None:
-            filtered_driver_images = filtered_driver_images[:driver_images_limit]
+                self.provider_credential_set.error_type = error_type
+                self.provider_credential_set.save()
 
-        print('Scanning driver and updating provider images...')
-        start = timezone.now()
+        try:
+            print('Querying images for provider %s' % self.provider.name)
+            start = timezone.now()
 
-        modified, scanned = 0, 0
-        new_driver_images_by_provider_id = {}
-        for driver_images_chunk in grouper(row_retrieval_chunk_size, filtered_driver_images):
-            provider_images_by_external_id = get_provider_images_by_external_id(driver_images_chunk)
+            try:
+                driver_images = self._get_driver_images(include_public)
 
-            for driver_image in driver_images_chunk:
-                provider_image = provider_images_by_external_id.get(driver_image.id)
-                if provider_image is None:
-                    new_provider_id = uuid.uuid4()
-                    new_driver_images_by_provider_id[new_provider_id] = driver_image
+            except Exception as e:
+                if isinstance(e, libcloud.common.types.InvalidCredsError):
+                    error_type = ProviderCredentialSet.INVALID_CREDENTIALS
+                elif isinstance(e, libcloud.common.exceptions.BaseHTTPError) and e.message.startswith('UnauthorizedOperation'):
+                    error_type = ProviderCredentialSet.UNAUTHORIZED_CREDENTIALS
                 else:
-                    provider_image.extra = json.loads(json.dumps(driver_image.extra))
+                    error_type = ProviderCredentialSet.UNAUTHORIZED_CREDENTIALS
 
-                    if provider_image.has_changed:
-                        modified += 1
-                        provider_image.save()
+                handle_load_error(error_type)
+                return
 
-            scanned += len(driver_images_chunk)
+            # except libcloud.common.types.InvalidCredsError as e:
+            #     print('Error retrieving driver images for provider %s: %s' % (self.pk, e))
+            #     handle_load_error(ProviderCredentialSet.INVALID_CREDENTIALS)
+            #     return
 
-        end = timezone.now()
-        print('Scanned %d driver images and modified %d ProviderImages in %s' %
-              (len(filtered_driver_images), modified, end - start))
-
-        with transaction.atomic():
-            new_driver_image_names = {driver_image: driver_image_name(driver_image)
-                                      for driver_image in new_driver_images_by_provider_id.values()}
-
-            print('Creating DiskImages...')
-            start = timezone.now()
-
-            new_disk_images_by_provider_id = {new_provider_id: DiskImage(name=new_driver_image_names[driver_image])
-                                              for new_provider_id, driver_image in new_driver_images_by_provider_id.items()}
-            DiskImage.objects.bulk_create(new_disk_images_by_provider_id.values())
+            # except Exception as e:
+            #     print('Error retrieving driver images for provider %s: %s' % (self.pk, e))
+            #     print(e.__class__)
+            #     handle_load_error(ProviderCredentialSet.UNKNOWN_ERROR)
+            #     return
 
             end = timezone.now()
-            print('Created %d DiskImages in %s' % (len(new_disk_images_by_provider_id), end - start))
+            print('Retrieved %d images in %s' % (len(driver_images), (end - start)))
 
-            print('Creating ProviderImages...')
+            filtered_driver_images = list(driver_images)
+            if driver_images_limit is not None:
+                filtered_driver_images = filtered_driver_images[:driver_images_limit]
+
+            print('Scanning driver and updating provider images...')
             start = timezone.now()
 
-            new_provider_images = [ProviderImage(id=new_provider_id,
-                                                 provider=self.provider,
-                                                 external_id=driver_image.id,
-                                                 name=new_driver_image_names[driver_image],
-                                                 extra=json.loads(json.dumps(driver_image.extra)),
-                                                 disk_image=new_disk_images_by_provider_id[new_provider_id])
-                                   for new_provider_id, driver_image in new_driver_images_by_provider_id.items()]
-            ProviderImage.objects.bulk_create(new_provider_images)
-
-            end = timezone.now()
-            print('Created %d ProviderImages in %s' % (len(new_provider_images), end - start))
-
-            print('Linking ProviderImages to DiskImages...')
-            start = timezone.now()
-
-            scanned, linked, unlinked = 0, 0, 0
-            new_driver_images = new_driver_images_by_provider_id.values()
+            modified, scanned = 0, 0
+            new_driver_images_by_provider_id = {}
             for driver_images_chunk in grouper(row_retrieval_chunk_size, filtered_driver_images):
                 provider_images_by_external_id = get_provider_images_by_external_id(driver_images_chunk)
 
                 for driver_image in driver_images_chunk:
-                    provider_image = provider_images_by_external_id[driver_image.id]
-
-                    # TODO this is Amazon-specific
-                    if provider_image.extra.get('is_public'):
-                        unlinked += 1
-                        provider_image.provider_configurations.remove(self)
+                    provider_image = provider_images_by_external_id.get(driver_image.id)
+                    if provider_image is None:
+                        new_provider_id = uuid.uuid4()
+                        new_driver_images_by_provider_id[new_provider_id] = driver_image
                     else:
-                        linked += 1
-                        provider_image.provider_configurations.add(self)
+                        provider_image.extra = json.loads(json.dumps(driver_image.extra))
+
+                        if provider_image.has_changed:
+                            modified += 1
+                            provider_image.save()
 
                 scanned += len(driver_images_chunk)
 
             end = timezone.now()
-            print('Scanned %d ProviderImages, linked %d, unlinked %d to DiskImages in %s' %
-                  (scanned, linked, unlinked, end - start))
+            print('Scanned %d driver images and modified %d ProviderImages in %s' %
+                  (len(filtered_driver_images), modified, end - start))
+
+            with transaction.atomic():
+                new_driver_image_names = {driver_image: driver_image_name(driver_image)
+                                          for driver_image in new_driver_images_by_provider_id.values()}
+
+                print('Creating DiskImages...')
+                start = timezone.now()
+
+                new_disk_images_by_provider_id = {new_provider_id: DiskImage(name=new_driver_image_names[driver_image])
+                                                  for new_provider_id, driver_image in new_driver_images_by_provider_id.items()}
+                DiskImage.objects.bulk_create(new_disk_images_by_provider_id.values())
+
+                end = timezone.now()
+                print('Created %d DiskImages in %s' % (len(new_disk_images_by_provider_id), end - start))
+
+                print('Creating ProviderImages...')
+                start = timezone.now()
+
+                new_provider_images = [ProviderImage(id=new_provider_id,
+                                                     provider=self.provider,
+                                                     external_id=driver_image.id,
+                                                     name=new_driver_image_names[driver_image],
+                                                     extra=json.loads(json.dumps(driver_image.extra)),
+                                                     disk_image=new_disk_images_by_provider_id[new_provider_id])
+                                       for new_provider_id, driver_image in new_driver_images_by_provider_id.items()]
+                ProviderImage.objects.bulk_create(new_provider_images)
+
+                end = timezone.now()
+                print('Created %d ProviderImages in %s' % (len(new_provider_images), end - start))
+
+                print('Linking ProviderImages to DiskImages...')
+                start = timezone.now()
+
+                scanned, linked, unlinked = 0, 0, 0
+                new_driver_images = new_driver_images_by_provider_id.values()
+                for driver_images_chunk in grouper(row_retrieval_chunk_size, filtered_driver_images):
+                    provider_images_by_external_id = get_provider_images_by_external_id(driver_images_chunk)
+
+                    for driver_image in driver_images_chunk:
+                        provider_image = provider_images_by_external_id[driver_image.id]
+
+                        # TODO this is Amazon-specific
+                        if provider_image.extra.get('is_public'):
+                            unlinked += 1
+                            provider_image.provider_configurations.remove(self)
+                        else:
+                            linked += 1
+                            provider_image.provider_configurations.add(self)
+
+                    scanned += len(driver_images_chunk)
+
+                end = timezone.now()
+                print('Scanned %d ProviderImages, linked %d, unlinked %d to DiskImages in %s' %
+                      (scanned, linked, unlinked, end - start))
+
+        except:
+            handle_load_error(None)
+            return

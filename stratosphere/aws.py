@@ -37,7 +37,7 @@ def run_instances(request):
 
     authorization_header = request.META['HTTP_AUTHORIZATION']
     access_key_id = re.match(r'.*Credential=(.+?)/', authorization_header).group(1)
-    provider_configuration = Ec2ProviderCredentials.objects.get(access_key_id=access_key_id).configurations.first()
+    provider_configuration = AWSProviderCredentialSet.objects.get(access_key_id=access_key_id).provider_configurations.first()
 
     name_suffix = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(8))
     name = 'terraform-%s' % name_suffix

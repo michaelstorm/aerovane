@@ -175,6 +175,7 @@ def create_db_config(isolation_level):
 
     db_options = db_config['OPTIONS'] if 'OPTIONS' in db_config else {}
     db_options['isolation_level'] = isolation_level
+    # db_options['cursor_factory'] = LoggingCursor
 
     db_config['ENGINE'] = 'transaction_hooks.backends.postgresql_psycopg2'
     db_config['OPTIONS'] = db_options

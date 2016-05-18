@@ -14,7 +14,7 @@ urlpatterns = [
     url(r'^compute/state_history/(?P<group_id>[0-9a-f\-]+)/$', views.state_history),
     url(r'^authentication_methods/$', views.authentication_methods),
     url(r'^authentication_methods/(?P<method_id>[0-9a-f\-]+)/$', views.authentication_methods),
-    url(r'^providers/loaded/$', views.providers_loaded),
+    url(r'^providers/data_state/$', views.providers_data_state),
     url(r'^providers/refresh/$', views.providers_refresh),
     url(r'^providers/$', views.get_providers),
     url(r'^providers/aws/$', views.aws_provider),

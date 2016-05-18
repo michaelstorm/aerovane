@@ -42,11 +42,22 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
     class Meta:
         app_label = "stratosphere"
 
+    NOT_LOADED = 'NOT_LOADED'
+    LOADED = 'LOADED'
+    ERROR = 'ERROR'
+
+    DATA_STATE_CHOICES = (
+        (NOT_LOADED, 'Not loaded'),
+        (LOADED, 'Loaded'),
+        (ERROR, 'Error'),
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, null=True, blank=True, related_name='provider_configurations')
     provider = models.ForeignKey('Provider', related_name='configurations')
     provider_name = models.CharField(max_length=32)
-    user = models.ForeignKey(User, null=True, blank=True, related_name='provider_configurations')
-    loaded = models.BooleanField(default=False)
+    provider_credential_set = models.ForeignKey('ProviderCredentialSet', related_name='provider_configurations')
+    data_state = models.CharField(max_length=16, default='NOT_LOADED', choices=DATA_STATE_CHOICES)
     enabled = models.BooleanField(default=True)
 
     @property

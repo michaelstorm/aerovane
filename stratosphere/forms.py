@@ -5,7 +5,7 @@ from django.forms.models import modelform_factory
 from .models import *
 
 
-Ec2ProviderConfigurationForm = modelform_factory(Ec2ProviderConfiguration, fields=('user',), widgets={'user': HiddenInput})
+AWSProviderConfigurationForm = modelform_factory(AWSProviderConfiguration, fields=('user',), widgets={'user': HiddenInput})
 
 LinodeProviderConfigurationForm = modelform_factory(LinodeProviderConfiguration, fields=('api_key',), widgets={'api_key': PasswordInput, 'user': HiddenInput})
 
