@@ -204,6 +204,13 @@
                         >
                             <a href="/images/"><i class="fa fa-object-group"></i> <span class="nav-label">Images</span></a>
                         </li>
+                        <li
+                            {% if left_nav_section == "health_checks" %}
+                                class="active"
+                            {% endif %}
+                        >
+                            <a href="/health_checks/"><i class="fa fa-medkit"></i> <span class="nav-label">Health checks</span></a>
+                        </li>
                     </ul>
 
                 </div>

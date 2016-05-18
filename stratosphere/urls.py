@@ -28,6 +28,7 @@ urlpatterns = [
     url(r'^compute_groups/(?P<group_id>[0-9a-f\-]+)/$', views.compute_group),
     url(r'^authentication/$', views.authentication),
     url(r'^images/$', views.images),
+    url(r'^health_checks/$', views.health_checks),
 
     url(r'^aws/.*$', aws.initial),
     url(r'^accounts/', include('allauth.urls')),

@@ -179,6 +179,17 @@ def dashboard(request):
 
 
 @login_required
+def health_checks(request):
+    provider_configurations = request.user.provider_configurations
+
+    context = {
+        'left_nav_section': 'health_checks',
+    }
+
+    return render(request, 'stratosphere/health_checks.html', context=context)
+
+
+@login_required
 def compute_groups(request):
     context = {
         'left_nav_section': 'groups',
