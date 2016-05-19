@@ -439,11 +439,14 @@ def aws_provider(request):
                 provider_credential_set = provider_configuration.provider_credential_set
                 provider_credential_set.access_key_id = request.POST['aws_access_key_id']
                 provider_credential_set.secret_access_key = request.POST['aws_secret_access_key']
+                provider_credential_set.error_type = None
                 provider_credential_set.save()
 
                 for provider_configuration in provider_credential_set.provider_configurations.all():
                     provider_configuration.data_state = ProviderConfiguration.NOT_LOADED
                     provider_configuration.save()
+
+                    schedule_random_default_delay(load_provider_data, provider_configuration.pk)
 
         if is_setup_complete(request.user):
             return redirect('/providers/aws/')
@@ -494,7 +497,7 @@ def providers_refresh(request):
         provider_configuration.data_state = ProviderConfiguration.NOT_LOADED
         provider_configuration.save()
 
-        schedule_random_default_delay(load_provider_data, provider_configuration.pk)
+        load_provider_data.apply_async(args=[provider_configuration.pk])
 
     return HttpResponse('')
 

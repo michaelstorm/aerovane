@@ -6,8 +6,6 @@ from libcloud.compute.providers import get_driver
 from libcloud.compute.types import Provider as LibcloudProvider
 
 from stratosphere.models import Provider, ProviderConfiguration, ProviderCredentialSet
-from stratosphere.tasks import load_provider_data
-from stratosphere.util import schedule_random_default_delay
 
 import uuid
 
@@ -163,10 +161,3 @@ class AWSProviderConfiguration(ProviderConfiguration):
             return base_url
         else:
             return "%s#Instances:search=%s" % (base_url, compute_instance.external_id)
-
-
-@receiver(post_save, sender=AWSProviderCredentialSet)
-def schedule_load_provider_info_credentials(sender, created, instance, **kwargs):
-    # TODO is this method called before or after the relation is created?
-    for provider_configuration in instance.provider_configurations.all():
-        schedule_random_default_delay(load_provider_data, provider_configuration.pk)

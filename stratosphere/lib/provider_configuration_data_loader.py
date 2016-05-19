@@ -6,6 +6,7 @@ import libcloud.common.types
 from ..models import ProviderCredentialSet, ProviderImage, ProviderSize, DiskImage
 
 import json
+import traceback
 import uuid
 
 
@@ -125,6 +126,7 @@ class ProviderConfigurationDataLoader(object):
                yield chunk
 
         def handle_load_error(error_type):
+            print('Caught exception while loading provider images for %s:\n%s' % (self.pk, traceback.format_exc()))
             with transaction.atomic():
                 self.data_state = self.ERROR
                 self.save()
@@ -149,17 +151,6 @@ class ProviderConfigurationDataLoader(object):
 
                 handle_load_error(error_type)
                 return
-
-            # except libcloud.common.types.InvalidCredsError as e:
-            #     print('Error retrieving driver images for provider %s: %s' % (self.pk, e))
-            #     handle_load_error(ProviderCredentialSet.INVALID_CREDENTIALS)
-            #     return
-
-            # except Exception as e:
-            #     print('Error retrieving driver images for provider %s: %s' % (self.pk, e))
-            #     print(e.__class__)
-            #     handle_load_error(ProviderCredentialSet.UNKNOWN_ERROR)
-            #     return
 
             end = timezone.now()
             print('Retrieved %d images in %s' % (len(driver_images), (end - start)))

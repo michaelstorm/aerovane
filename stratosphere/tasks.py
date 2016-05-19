@@ -29,13 +29,14 @@ def load_provider_data(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    if provider_configuration.user is None:
-        provider_configuration.load_data(True)
-    else:
-        provider_configuration.load_data(False)
+    if provider_configuration.provider_credential_set.error_type is None:
+        if provider_configuration.user is None:
+            provider_configuration.load_data(True)
+        else:
+            provider_configuration.load_data(False)
 
 
-# @periodic_task(run_every=timedelta(minutes=10))
+@periodic_task(run_every=timedelta(minutes=10))
 def load_provider_data_all():
     from .models import ProviderConfiguration
 
@@ -115,7 +116,7 @@ def update_instance_statuses(provider_configuration_id):
     from .models import ProviderConfiguration
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
-    if provider_configuration.user is not None:
+    if provider_configuration.user is not None and provider_configuration.instances.count() > 0:
         provider_configuration.update_instance_statuses()
 
 
