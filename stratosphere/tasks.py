@@ -3,6 +3,7 @@ from celery.decorators import periodic_task
 
 from datetime import datetime, timedelta
 
+from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.core.mail import send_mail
 from django.db import connection, OperationalError, transaction
@@ -81,17 +82,13 @@ def check_provider_enabled_all():
 
 @app.task()
 def check_instance_states_snapshots(user_id):
-    from django.contrib.auth.models import User
-
-    user = User.objects.get(pk=user_id)
-    user.configuration.take_instance_states_snapshot_if_changed()
+    user = get_user_model().objects.get(pk=user_id)
+    user.take_instance_states_snapshot_if_changed()
 
 
 @periodic_task(run_every=timedelta(seconds=15))
 def check_instance_states_snapshots_all():
-    from django.contrib.auth.models import User
-
-    user_ids = User.objects.all().values_list('pk', flat=True)
+    user_ids = get_user_model().objects.all().values_list('pk', flat=True)
     for user_id in user_ids:
         check_instance_states_snapshots.delay(user_id)
 

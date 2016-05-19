@@ -1,6 +1,6 @@
 from annoying.fields import JSONField
 
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import models
 
 from libcloud.compute.base import NodeImage
@@ -38,7 +38,7 @@ class ComputeImage(models.Model, SaveTheChange, TrackChanges):
         app_label = "stratosphere"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, related_name='compute_images')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='compute_images')
     name = models.CharField(max_length=128)
 
 

@@ -250,4 +250,6 @@ class ProviderConfigurationDataLoader(object):
 
         except:
             handle_load_error(None)
-            return
+        else:
+            self.data_state = self.LOADED
+            self.save()

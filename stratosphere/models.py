@@ -4,6 +4,8 @@ from simple_history.models import HistoricalRecords
 
 from .tasks import create_libcloud_node, load_provider_data
 
+from .submodels.user import *
+
 from .submodels.authentication_method import *
 from .submodels.compute_instance import *
 from .submodels.provider import *
@@ -26,9 +28,6 @@ from .submodels.compute_group import *
 
 class ComputeGroup(ComputeGroupBase):
     history = HistoricalRecords()
-
-
-from .submodels.user_configuration import *
 
 
 @receiver(pre_save, sender=ComputeInstance)

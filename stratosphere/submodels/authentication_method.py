@@ -1,4 +1,4 @@
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import models
 
 from polymorphic import PolymorphicModel
@@ -15,7 +15,7 @@ class AuthenticationMethod(PolymorphicModel, SaveTheChange, TrackChanges):
         app_label = "stratosphere"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, related_name='authentication_methods')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='authentication_methods')
     name = models.CharField(max_length=64)
 
 

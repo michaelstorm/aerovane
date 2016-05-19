@@ -143,4 +143,4 @@ class ProviderConfigurationStatusChecker(object):
 
             if self.user is not None:
                 with thread_local(DB_OVERRIDE='serializable'):
-                    self.user.configuration.take_instance_states_snapshot_if_changed()
+                    self.user.take_instance_states_snapshot_if_changed()

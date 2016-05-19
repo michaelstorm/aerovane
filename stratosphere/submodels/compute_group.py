@@ -3,7 +3,7 @@ from annoying.fields import JSONField
 from datetime import datetime, timedelta
 
 from django.apps import apps
-from django.contrib.auth.models import User
+from django.conf import settings
 from django.db import connection, models, transaction, OperationalError
 from django.db.models import Q
 from django.db.models.signals import pre_save
@@ -25,7 +25,7 @@ class InstanceStatesSnapshot(models.Model):
         app_label = "stratosphere"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, related_name='instance_states_snapshots')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='instance_states_snapshots')
     time = models.DateTimeField()
 
     pending = models.IntegerField()
@@ -63,7 +63,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    user = models.ForeignKey(User, related_name='compute_groups')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='compute_groups')
     image = models.ForeignKey('ComputeImage', related_name='compute_groups', on_delete=models.PROTECT)
     authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
 
@@ -154,7 +154,7 @@ class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
 
         self._create_compute_instances()
 
-        self.user.configuration.take_instance_states_snapshot_if_changed()
+        self.user.take_instance_states_snapshot_if_changed()
 
     @thread_local(DB_OVERRIDE='serializable')
     def destroy_instance(self, instance):

@@ -132,6 +132,8 @@ LOGGING = {
 WSGI_APPLICATION = 'multicloud.wsgi.application'
 
 
+AUTH_USER_MODEL = 'stratosphere.User'
+
 AUTHENTICATION_BACKENDS = (
     # Needed to login by username in Django admin, regardless of `allauth`
     "django.contrib.auth.backends.ModelBackend",
@@ -147,6 +149,7 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 ACCOUNT_SIGNUP_FORM_CLASS = "stratosphere.forms.SignupForm"
 ACCOUNT_SIGNUP_PASSWORD_VERIFICATION = False
 ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_USERNAME_REQUIRED = False
 
 LOGIN_URL = '/accounts/login/'
@@ -197,6 +200,7 @@ BROKER_URL = os.environ['CLOUDAMQP_URL']
 CELERYD_HIJACK_ROOT_LOGGER = True
 CELERY_IGNORE_RESULT = True
 CELERY_DEFAULT_QUEUE = 'default'
+CELERY_ALWAYS_EAGER = os.environ.get('CELERY_ALWAYS_EAGER', False)
 
 
 # Internationalization
