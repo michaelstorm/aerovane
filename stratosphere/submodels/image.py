@@ -17,7 +17,7 @@ class DiskImage(models.Model, SaveTheChange, TrackChanges):
         app_label = "stratosphere"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(max_length=128, db_index=True)
+    name = models.CharField(max_length=128, null=True, blank=True, db_index=True)
 
 
 # DiskImages can have ProviderImages from different Providers under them, so it's necessary

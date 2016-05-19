@@ -108,7 +108,7 @@ class ProviderConfigurationDataLoader(object):
     # TODO locally delete images deleted remotely
     def _load_available_images(self, include_public, driver_images_limit=None, row_retrieval_chunk_size=100):
         def driver_image_name(driver_image):
-            return driver_image.name if driver_image.name is not None else '<%s>' % driver_image.id
+            return driver_image.name
 
         def get_provider_images_by_external_id(driver_images):
             driver_image_ids = [driver_image.id for driver_image in driver_images]
@@ -186,7 +186,7 @@ class ProviderConfigurationDataLoader(object):
                   (len(filtered_driver_images), modified, end - start))
 
             with transaction.atomic():
-                new_driver_image_names = {driver_image: driver_image_name(driver_image)
+                new_driver_image_names = {driver_image: driver_image.name
                                           for driver_image in new_driver_images_by_provider_id.values()}
 
                 print('Creating DiskImages...')

@@ -96,10 +96,11 @@
 
         window.checkLoadedInterval = setInterval(function() {
             $.ajax({
-                url: '/providers/loaded/',
+                url: '/providers/data_state/',
                 method: 'GET',
                 success: function(data) {
-                    var loaded = data['loaded'];
+                    var data_state = data['data_state'];
+                    var loaded = data_state != 'NOT_LOADED';
                     $('#loading-alert').toggle(!loaded);
                     $('#refresh-provider').toggle(loaded);
                     if (loaded)
