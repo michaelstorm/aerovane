@@ -18,10 +18,25 @@ KeyAuthenticationMethodForm = modelform_factory(KeyAuthenticationMethod, fields=
 
 
 class SignupForm(forms.Form):
+    beta_key = forms.CharField(label='Beta key', widget=forms.TextInput(attrs={'autofocus': 'autofocus'}))
     first_name = forms.CharField(max_length=30, label='First name')
     last_name = forms.CharField(max_length=30, label='Last name')
+
+    def clean_beta_key(self):
+        value = self.cleaned_data['beta_key'].strip().lower()
+        beta_key = BetaKey.objects.filter(value=value).first()
+        if beta_key is None:
+            raise forms.ValidationError('This beta key is not recognized.')
+        elif beta_key.user is not None:
+            raise forms.ValidationError('This beta key is already is use.')
+        return value
 
     def signup(self, request, user):
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
         user.save()
+
+        beta_key_value = self.cleaned_data['beta_key']
+        beta_key = BetaKey.objects.filter(value=beta_key_value).first()
+        beta_key.user = user
+        beta_key.save()

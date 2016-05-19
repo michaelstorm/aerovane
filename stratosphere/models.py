@@ -24,6 +24,7 @@ from .submodels.provider_configuration import *
 from .submodels.aws.aws_provider_configuration import *
 from .submodels.linode.linode_provider_configuration import *
 from .submodels.compute_group import *
+from .submodels.beta_key import *
 
 
 class ComputeGroup(ComputeGroupBase):

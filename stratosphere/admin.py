@@ -27,3 +27,4 @@ admin.site.register(PasswordAuthenticationMethod, PasswordAuthenticationMethodAd
 admin.site.register(ProviderImage)
 admin.site.register(ProviderSize, ProviderSizeAdmin)
 admin.site.register(User)
+admin.site.register(BetaKey)
