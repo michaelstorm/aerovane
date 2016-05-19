@@ -7,7 +7,7 @@
         <a>      
             <span bind-html-unsafe="match.label | typeaheadHighlight:query">        
             </span>    
-            {$ match.model.name $}
+            &lt;{$ match.model.provider_external_id $}&gt; {$ match.model.name $}
         </a>
     </script>
 
@@ -581,7 +581,7 @@
                 angular.extend($scope, {
                     onDiskImageSelected: function (item, model, label) {
                         setTimeout(function() {
-                            $(document.activeElement).val(item.name);
+                            $(document.activeElement).val('<' + item.provider_external_id + '> ' + item.name);
                         });
                     },
 

@@ -44,13 +44,15 @@ def robots(request):
     return render(request, 'robots.txt', content_type='text/plain')
 
 
-def _disk_image_to_json(d):
-    if d is None:
+def _disk_image_to_json(disk_image, provider_configuration):
+    if disk_image is None:
         return None
     else:
+        provider_image = provider_configuration.available_provider_images.get(disk_image=disk_image)
         return {
-            'id': d.pk,
-            'name': d.name,
+            'id': disk_image.pk,
+            'provider_external_id': provider_image.external_id,
+            'name': disk_image.name,
         }
 
 
@@ -446,7 +448,7 @@ def aws_provider(request):
                     provider_configuration.data_state = ProviderConfiguration.NOT_LOADED
                     provider_configuration.save()
 
-                    schedule_random_default_delay(load_provider_data, provider_configuration.pk)
+                    load_provider_data.apply_async(args=[provider_configuration.pk])
 
         if is_setup_complete(request.user):
             return redirect('/providers/aws/')
@@ -548,7 +550,7 @@ def provider_disk_images(request, provider_id):
 
         disk_images = provider_configuration.available_disk_images.filter(f)
 
-        disk_images_json = [_disk_image_to_json(d) for d in disk_images[:10]]
+        disk_images_json = [_disk_image_to_json(d, provider_configuration) for d in disk_images[:10]]
         return JsonResponse(disk_images_json, safe=False)
     else:
         return JsonResponse([], safe=False)
