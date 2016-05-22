@@ -80,6 +80,7 @@ class ProviderConfigurationDataLoader(object):
 
         for driver_size in driver_sizes:
             if driver_size.id.startswith('t'):
+                # TODO this Amazon-specific
                 # t* instance types can only be used in VPCs
                 continue
 

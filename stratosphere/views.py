@@ -65,7 +65,7 @@ def operating_systems(request):
             return {
                 'id': provider_configuration.pk,
                 'pretty_name': provider_configuration.provider.pretty_name,
-                'disk_image': _disk_image_to_json(selected_disk_image),
+                'disk_image': _disk_image_to_json(selected_disk_image, provider_configuration),
             }
 
         provider_configurations = request.user.provider_configurations.all()
