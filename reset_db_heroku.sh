@@ -1,4 +1,6 @@
 #!/bin/bash -xe
+heroku run -a $1 celery -A multicloud purge -f
+
 heroku pg:reset -a $1 DATABASE_URL --confirm $1
 heroku run -a $1 python manage.py migrate auth
 heroku run -a $1 python manage.py migrate
