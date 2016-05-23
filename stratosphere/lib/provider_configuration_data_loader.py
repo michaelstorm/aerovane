@@ -136,7 +136,7 @@ class ProviderConfigurationDataLoader(object):
                 self.provider_credential_set.save()
 
         try:
-            print('Querying images for provider %s' % self.provider.name)
+            print('Querying images for provider %s for user %s' % (self.provider.name, self.user))
             start = timezone.now()
 
             try:

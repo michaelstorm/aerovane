@@ -30,19 +30,39 @@ def load_provider_data(provider_configuration_id):
 
     provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
     if provider_configuration.provider_credential_set.error_type is None:
-        if provider_configuration.user is None:
-            provider_configuration.load_data(True)
-        else:
-            provider_configuration.load_data(False)
+        provider_configuration.load_data(False)
+
+
+@app.task()
+def load_public_provider_data(provider_configuration_id):
+    from .models import ProviderConfiguration
+
+    provider_configuration = ProviderConfiguration.objects.get(pk=provider_configuration_id)
+    if provider_configuration.provider_credential_set.error_type is None:
+        provider_configuration.load_data(True)
 
 
 @periodic_task(run_every=timedelta(minutes=10))
 def load_provider_data_all():
     from .models import ProviderConfiguration
 
-    provider_configuration_ids = ProviderConfiguration.objects.all().values_list('pk', flat=True)
+    provider_configuration_ids = ProviderConfiguration.objects.exclude(user=None).values_list('pk', flat=True)
     for provider_configuration_id in provider_configuration_ids:
         schedule_random_default_delay(load_provider_data, provider_configuration_id)
+
+
+# There's no pagination for EC2 DescribeImages requests, which are what libcloud uses to query driver
+# images. When querying public images, this loads about 40-70k driver images into memory. This is fine for
+# one provider, but when a single worker queries multiple providers simultaneously, it can blow out memory on
+# Heroku. So we send the tasks to a different queue that's processed by a worker with its concurrency set to
+# 1.
+@periodic_task(run_every=timedelta(minutes=10))
+def load_public_provider_data_all():
+    from .models import ProviderConfiguration
+
+    provider_configuration_ids = ProviderConfiguration.objects.filter(user=None).values_list('pk', flat=True)
+    for provider_configuration_id in provider_configuration_ids:
+        load_public_provider_data.apply_async(args=[provider_configuration_id], queue='load_public_provider_data')
 
 
 @app.task()
