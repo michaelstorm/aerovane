@@ -2,7 +2,7 @@ from django.db import models
 
 from simple_history.models import HistoricalRecords
 
-from .tasks import create_libcloud_node, load_provider_data
+from .tasks import create_libcloud_node, load_provider_data, load_public_provider_data
 
 from .submodels.user import *
 
@@ -43,7 +43,10 @@ def compute_instance_post_save(sender, created, instance, **kwargs):
 
 def schedule_load_provider_info(sender, created, instance, **kwargs):
     if created:
-        schedule_random_default_delay(load_provider_data, instance.pk)
+        if instance.user is None:
+            schedule_random_default_delay(load_public_provider_data, instance.pk)
+        else:
+            schedule_random_default_delay(load_provider_data, instance.pk)
 
 
 for subclass in ProviderConfiguration.__subclasses__():
