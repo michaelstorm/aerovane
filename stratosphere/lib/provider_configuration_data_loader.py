@@ -136,7 +136,7 @@ class ProviderConfigurationDataLoader(object):
                 self.provider_credential_set.save()
 
         try:
-            print('Querying images for provider %s for user %s' % (self.provider.name, self.user))
+            print('Querying %s images for provider %s for user %s' % ('public' if include_public else 'private', self.provider.name, self.user))
             start = timezone.now()
 
             try:
@@ -203,17 +203,18 @@ class ProviderConfigurationDataLoader(object):
                 print('Creating ProviderImages...')
                 start = timezone.now()
 
-                new_provider_images = [ProviderImage(id=new_provider_id,
-                                                     provider=self.provider,
-                                                     external_id=driver_image.id,
-                                                     name=new_driver_image_names[driver_image],
-                                                     extra=json.loads(json.dumps(driver_image.extra)),
-                                                     disk_image=new_disk_images_by_provider_id[new_provider_id])
-                                       for new_provider_id, driver_image in new_driver_images_by_provider_id.items()]
-                ProviderImage.objects.bulk_create(new_provider_images)
+                for chunk in grouper(1000, new_driver_images_by_provider_id.items()):
+                    new_provider_images = [ProviderImage(id=new_provider_id,
+                                                         provider=self.provider,
+                                                         external_id=driver_image.id,
+                                                         name=new_driver_image_names[driver_image],
+                                                         extra=json.loads(json.dumps(driver_image.extra)),
+                                                         disk_image=new_disk_images_by_provider_id[new_provider_id])
+                                           for new_provider_id, driver_image in chunk]
+                    ProviderImage.objects.bulk_create(new_provider_images)
 
                 end = timezone.now()
-                print('Created %d ProviderImages in %s' % (len(new_provider_images), end - start))
+                print('Created %d ProviderImages in %s' % (len(new_driver_images_by_provider_id), end - start))
 
                 print('Linking ProviderImages to DiskImages...')
                 start = timezone.now()
