@@ -171,7 +171,7 @@ def dashboard(request):
         'left_nav_available': get_left_nav_available(request.user),
     }
 
-    if provider_configurations.count() == 0:
+    if not provider_configurations.exists():
         context['setup_progress'] = 0
         template = 'stratosphere/setup/provider_configuration.html'
     elif compute_providers_data_state(request.user) == ProviderConfiguration.ERROR:
@@ -179,13 +179,13 @@ def dashboard(request):
     elif compute_providers_data_state(request.user) == ProviderConfiguration.NOT_LOADED:
         context['setup_progress'] = 0
         template = 'stratosphere/setup/loading_provider.html'
-    elif request.user.authentication_methods.count() == 0:
+    elif not request.user.authentication_methods.exists():
         context['setup_progress'] = 1
         template = 'stratosphere/setup/authentication.html'
-    elif request.user.compute_images.count() == 0:
+    elif not request.user.compute_images.exists():
         context['setup_progress'] = 2
         template = 'stratosphere/setup/compute_image.html'
-    elif request.user.compute_groups.count() == 0:
+    elif not request.user.compute_groups.exists():
         context['setup_progress'] = 3
         template = 'stratosphere/setup/compute_group.html'
     else:
