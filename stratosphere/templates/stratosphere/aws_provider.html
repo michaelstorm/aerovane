@@ -49,7 +49,7 @@
                                     {% endif %}
                                 >
                             </div>
-                            <input type="submit" value="Save" class="btn btn-primary">
+                            <input type="submit" value="Save" class="btn btn-primary save-aws-button">
                             <input type="button" value="Open AWS IAM users page" class="btn btn-info open-iam-page">
                             <div class="iam-instructions">It is recommended to create an IAM account for Aerovane to use and paste its credentials here. For instructions on how to do this, please watch the screencast below.</div>
                         </form>
@@ -82,6 +82,19 @@
         $('.open-iam-page').click(function() {
             window.open('https://console.aws.amazon.com/iam/home#users', '_blank');
         });
+
+        var checkSaveButtonEnabled = function() {
+            var saveEnabled = $('input[name="aws_access_key_id"]').val().length > 0 && $('input[name="aws_secret_access_key"]').val().length > 0;
+            if (saveEnabled)
+                $('.save-aws-button').removeAttr('disabled');
+            else
+                $('.save-aws-button').attr('disabled', true);
+        };
+
+        checkSaveButtonEnabled();
+        setInterval(checkSaveButtonEnabled, 300); // only reliable way to catch browser autofill
+
+        $('input[name="aws_access_key_id"], input[name="aws_secret_access_key"]').on('input', checkSaveButtonEnabled);
     });
 {% endblock %}
 
