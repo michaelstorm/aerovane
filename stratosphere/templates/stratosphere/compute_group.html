@@ -10,7 +10,7 @@
 {% block content %}
     <div class="row wrapper border-bottom white-bg page-heading">
         <div class="col-lg-12">
-            {% include "stratosphere/_page_help_header.html" with page_header=compute_group_name %}
+            <h1>{{ compute_group_name }}</h1>
         </div>
     </div>
 
@@ -120,19 +120,6 @@
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block body_script %}
-    window.tutorialTour = new Tour({
-        name: 'compute_group',
-        steps: [{
-                element: "#side-menu>li:nth-child(2)",
-                title: "Dashboard",
-                content: "Click here to view providers, groups, and instances states across all of your clouds.",
-                placement: "right"
-            }
-        ]
-    });
 {% endblock %}
 
 {% block style %}
