@@ -13,8 +13,8 @@
                     --><a href="{$ provider.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
                 </div>
             </td>
-            <td style="vertical-align: middle; width: 100%;">
-                <div class="list-info-block">
+            <td style="vertical-align: middle;">
+                <div class="list-info-block" style="white-space: nowrap;">
                     <div class="horizontal-element">
                         <table>
                             <tr>
@@ -39,10 +39,12 @@
                             </tr>
                         </table>
                     </div>
-                    <div class="horizontal-element checkbox checkbox-success">
-                        <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
-                        <label for="provider-enabled-{$ provider.id $}">Enabled</label>
-                    </div>
+                </div>
+            </td>
+            <td style="vertical-align: middle; width: 99%;">
+                <div class="horizontal-element checkbox checkbox-success" style="white-space: nowrap;">
+                    <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
+                    <label for="provider-enabled-{$ provider.id $}">Enabled</label>
                 </div>
             </td>
         </tr>
