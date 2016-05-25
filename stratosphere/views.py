@@ -113,19 +113,17 @@ def operating_system(request, group_id):
 
 
 def get_left_nav_available(user):
-    if not user.provider_configurations.exists():
+    if not user.provider_configurations.exists() or compute_providers_data_state(user) != ProviderConfiguration.LOADED:
         return 0
-    elif compute_providers_data_state(user) != ProviderConfiguration.LOADED:
-        return 1
     elif not user.authentication_methods.exists():
-        return 2
+        return 1
     elif not user.compute_images.exists():
-        return 3
+        return 2
     elif not user.compute_groups.exists():
-        return 4
+        return 3
     # make sure to update constant in is_setup_complete() when adding sections
     else:
-        return 5
+        return 4
 
 
 @login_required
@@ -203,6 +201,7 @@ def health_checks(request):
 
     context = {
         'left_nav_section': 'health_checks',
+        'left_nav_available': get_left_nav_available(request.user),
     }
 
     return render(request, 'stratosphere/health_checks.html', context=context)
@@ -213,6 +212,7 @@ def compute_groups(request):
     context = {
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
+        'left_nav_available': get_left_nav_available(request.user),
     }
 
     return render(request, 'stratosphere/compute_groups.html', context=context)
@@ -227,6 +227,7 @@ def compute_group(request, group_id):
         'compute_group_name': compute_group.name,
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
+        'left_nav_available': get_left_nav_available(request.user),
     }
 
     return render(request, 'stratosphere/compute_group.html', context=context)
@@ -285,6 +286,7 @@ def add_compute_group(request):
         'authentication_methods': request.user.authentication_methods.all(),
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'create',
+        'left_nav_available': get_left_nav_available(request.user),
     }
     return render(request, 'stratosphere/add_compute_group.html', context=context)
 
@@ -343,6 +345,7 @@ def authentication(request):
         'add_key_method': KeyAuthenticationMethodForm(),
         'add_password_method': PasswordAuthenticationMethodForm(),
         'left_nav_section': 'authentication',
+        'left_nav_available': get_left_nav_available(request.user),
     }
 
     return render(request, 'stratosphere/authentication.html', context=context)
@@ -430,6 +433,7 @@ def aws_provider(request):
 
         context['left_nav_section'] = 'providers'
         context['left_sub_nav_section'] = 'aws'
+        context['left_nav_available'] = get_left_nav_available(request.user)
 
         data_state = compute_providers_data_state(request.user)
         context['data_state'] = data_state
