@@ -112,6 +112,22 @@ def operating_system(request, group_id):
         return HttpResponse('')
 
 
+def get_left_nav_available(user):
+    if not user.provider_configurations.exists():
+        return 0
+    elif compute_providers_data_state(user) != ProviderConfiguration.LOADED:
+        return 1
+    elif not user.authentication_methods.exists():
+        return 2
+    elif not user.compute_images.exists():
+        return 3
+    elif not user.compute_groups.exists():
+        return 4
+    # make sure to update constant in is_setup_complete() when adding sections
+    else:
+        return 5
+
+
 @login_required
 def images(request):
     operating_systems = request.user.compute_images.all()
@@ -134,9 +150,10 @@ def images(request):
 
     context = {
         'left_nav_section': 'images',
+        'left_nav_available': get_left_nav_available(request.user),
         'operating_systems': operating_systems,
-        'providers': request.user.provider_configurations.all(),
         'preloaded_images': preloaded_images,
+        'providers': request.user.provider_configurations.all(),
         'setup_incomplete': request.user.compute_images.count() == 0,
     }
 
@@ -144,11 +161,7 @@ def images(request):
 
 
 def is_setup_complete(user):
-    return user.provider_configurations.count() > 0 and \
-            compute_providers_data_state(user) == ProviderConfiguration.LOADED and \
-            user.authentication_methods.count() > 0 and \
-            user.compute_images.count() > 0 and \
-            user.compute_groups.count() > 0
+    return get_left_nav_available(user) == 5
 
 
 @login_required
@@ -157,6 +170,7 @@ def dashboard(request):
 
     context = {
         'left_nav_section': 'dashboard',
+        'left_nav_available': get_left_nav_available(request.user),
     }
 
     if provider_configurations.count() == 0:

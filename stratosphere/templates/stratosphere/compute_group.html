@@ -122,6 +122,19 @@
     </div>
 {% endblock %}
 
+{% block body_script %}
+    window.tutorialTour = new Tour({
+        name: 'compute_group',
+        steps: [{
+                element: "#side-menu>li:nth-child(2)",
+                title: "Dashboard",
+                content: "Click here to view providers, groups, and instances states across all of your clouds.",
+                placement: "right"
+            }
+        ]
+    });
+{% endblock %}
+
 {% block style %}
     .instances-table code {
         color: black;

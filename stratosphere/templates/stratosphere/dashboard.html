@@ -48,12 +48,16 @@
                     </div>
                     <div class="ibox-content table-responsive providers-table">
                         <div class="row">
-                            <div class="col-lg-9">
+                            <div class="col-lg-6">
                                 {% include "stratosphere/_provider_list.html" %}
                             </div>
-                            <div class="col-lg-3" style="text-align: center;">
+                            <div class="col-lg-3 text-center">
                                 <canvas id="providerCostDoughnutChart" class="cost-doughnut-chart" width="300" height="150"></canvas>
                                 <h4>Cost by provider</h4>
+                            </div>
+                            <div class="col-lg-3 text-center">
+                                <div id="provider-site-map" style="height: 150px;"></div>
+                                <h4>Enabled sites</h4>
                             </div>
                         </div>
                     </div>
@@ -87,6 +91,7 @@
 
 {% block body_script %}
     window.tutorialTour = new Tour({
+        name: 'dashboard',
         steps: [{
                 element: "#instances-chart",
                 title: "Instance states graph",
