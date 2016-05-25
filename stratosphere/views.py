@@ -489,14 +489,12 @@ def configure_provider(request, provider_name):
 
 
 def compute_providers_data_state(user):
-    for provider_configuration in user.provider_configurations.all():
-        data_state = provider_configuration.data_state
-        if data_state == ProviderConfiguration.ERROR:
-            return ProviderConfiguration.ERROR
-        elif data_state == ProviderConfiguration.NOT_LOADED:
-            return ProviderConfiguration.NOT_LOADED
-
-    return ProviderConfiguration.LOADED
+    if user.provider_configurations.filter(data_state=ProviderConfiguration.ERROR).exists():
+        return ProviderConfiguration.ERROR
+    elif user.provider_configurations.filter(data_state=ProviderConfiguration.NOT_LOADED).exists():
+        return ProviderConfiguration.NOT_LOADED
+    else:
+        return ProviderConfiguration.LOADED
 
 
 @login_required
