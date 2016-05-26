@@ -33,7 +33,7 @@
                                     {% for method in key_methods %}
                                         <tr style="height: 5px;">
                                             <td style="word-wrap: break-word;">{{ method.name }}</td>
-                                            <td style="overflow-x: auto; word-wrap: break-word;">
+                                            <td style="overflow-x: auto;">
                                                 <span class="short-key">{{ method.key|truncatechars:20 }}</span>
                                                 <span class="long-key">{{ method.key }}</span>
                                                 <button type="button" class="btn btn-xs btn-info toggle-long-key">Show</button>
