@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.forms import ModelForm, PasswordInput, HiddenInput
 from django.forms.models import modelform_factory
 
@@ -12,7 +13,7 @@ LinodeProviderConfigurationForm = modelform_factory(LinodeProviderConfiguration,
 PasswordAuthenticationMethodForm = modelform_factory(PasswordAuthenticationMethod,
                                                      fields=('name', 'password'),
                                                      widgets={'password': PasswordInput(attrs={'autocomplete':'new-password'}),
-                                                               'user': HiddenInput})
+                                                              'user': HiddenInput})
 
 KeyAuthenticationMethodForm = modelform_factory(KeyAuthenticationMethod, fields=('name', 'key'), widgets={'user': HiddenInput})
 
@@ -24,11 +25,12 @@ class SignupForm(forms.Form):
 
     def clean_beta_key(self):
         value = self.cleaned_data['beta_key'].strip().lower()
-        beta_key = BetaKey.objects.filter(value=value).first()
-        if beta_key is None:
-            raise forms.ValidationError('This beta key is not recognized.')
-        elif beta_key.user is not None:
-            raise forms.ValidationError('This beta key is already is use.')
+        if not settings.DEBUG:
+            beta_key = BetaKey.objects.filter(value=value).first()
+            if beta_key is None:
+                raise forms.ValidationError('This beta key is not recognized.')
+            elif beta_key.user is not None:
+                raise forms.ValidationError('This beta key is already is use.')
         return value
 
     def signup(self, request, user):
@@ -36,7 +38,8 @@ class SignupForm(forms.Form):
         user.last_name = self.cleaned_data['last_name']
         user.save()
 
-        beta_key_value = self.cleaned_data['beta_key']
-        beta_key = BetaKey.objects.filter(value=beta_key_value).first()
-        beta_key.user = user
-        beta_key.save()
+        if not settings.DEBUG:
+            beta_key_value = self.cleaned_data['beta_key']
+            beta_key = BetaKey.objects.filter(value=beta_key_value).first()
+            beta_key.user = user
+            beta_key.save()
