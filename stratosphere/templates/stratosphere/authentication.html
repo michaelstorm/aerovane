@@ -18,20 +18,26 @@
                     <div class="ibox-title">
                         <h5>SSH Keys</h5>
                     </div>
-                    <div class="ibox-content">
+                    <div class="ibox-content table-responsive">
                         {% if key_methods|length > 0 %}
-                            <table class="table table-striped">
+                            <table class="table table-striped ssh-keys-table">
                                 <thead>
                                     <tr>
                                         <th>Name</th>
+                                        <th style="width: 60%;">Key</th>
                                         <th></th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for method in key_methods %}
-                                        <tr>
-                                            <td style="width: 99%;">{{ method.name }}</td>
-                                            <td>
+                                        <tr style="height: 5px;">
+                                            <td style="word-wrap: break-word;">{{ method.name }} sdfdsfsdf eewrwerwerewrewewrewrewrewrewrewewrewr</td>
+                                            <td style="width: 99%; overflow-x: auto;">
+                                                <span class="short-key">{{ method.key|truncatechars:20 }}</span>
+                                                <span class="long-key">{{ method.key }}</span>
+                                                <a href="#" class="toggle-long-key">Show</a>
+                                            </td>
+                                            <td class="text-right">
                                                 <button class="btn btn-danger btn-xs delete-method-button" method-id="{{ method.id }}">Delete</button>
                                             </td>
                                         </tr>
@@ -60,11 +66,32 @@
             display: inline-block;
             vertical-align: middle;
         }
+
+        .ssh-keys-table {
+            table-layout: fixed;
+        }
+
+        .ssh-keys-table > tbody > tr > td {
+            vertical-align: middle;
+        }
+
+        .ssh-keys-table .long-key {
+            display: none;
+        }
     </style>
 {% endblock %}
 
 {% block body_script %}
     $(document).ready(function() {
+        $('.toggle-long-key').click(function() {
+            var parent = $(this).parent('td');
+            var shortKey = parent.children('.short-key');
+            var longKey = parent.children('.long-key');
+            shortKey.toggle();
+            longKey.toggle();
+            $(this).text(longKey.is(':visible') ? 'Hide' : 'Show');
+        });
+
         $('.delete-method-button').click(function() {
             $.ajax({
                 url: '/authentication_methods/' + $(this).attr('method-id') + '/',
