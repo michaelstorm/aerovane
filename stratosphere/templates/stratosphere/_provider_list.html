@@ -2,7 +2,7 @@
 
 <table class="table table-striped providers-table" ng-controller="ProviderListCtrl">
     <tbody>
-        <tr ng-repeat="provider in providers | orderBy: 'pretty_name' track by provider.id" ng-cloak>
+        <tr ng-repeat="provider in providers | orderBy: 'pretty_name' track by provider.id" class="{$ provider.failed ? 'failed' : '' $}" ng-cloak>
             <td style="vertical-align: middle;">
                 <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
                 <div class="provider-link" style="white-space: nowrap;">
@@ -50,3 +50,9 @@
         </tr>
     </tbody>
 </table>
+
+<style>
+    .providers-table .failed {
+        background-color: #F0BAB8 !important;
+    }
+</style>

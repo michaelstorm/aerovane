@@ -58,6 +58,7 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
     provider_credential_set = models.ForeignKey('ProviderCredentialSet', related_name='provider_configurations')
     data_state = models.CharField(max_length=16, default='NOT_LOADED', choices=DATA_STATE_CHOICES)
     enabled = models.BooleanField(default=True)
+    failed = models.BooleanField(default=False)
 
     @property
     def driver(self):

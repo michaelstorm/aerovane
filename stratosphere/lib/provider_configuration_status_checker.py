@@ -24,10 +24,12 @@ class ProviderConfigurationStatusChecker(object):
                     instance.save()
 
                 self.enabled = True
+                self.failed = False
                 self.save()
 
             else:
                 self.enabled = False
+                self.failed = True
                 self.save()
 
     def max_failure_count(self):
@@ -56,7 +58,7 @@ class ProviderConfigurationStatusChecker(object):
                 connection.on_commit(lambda: self.schedule_send_failed_email())
 
                 self.logger.warn('Disabling provider %s (%s)' % (self.pk, self.provider.name))
-                self.enabled = False
+                self.set_enabled(False)
                 self.save()
         else:
             self.logger.info('Provider %s (%s) already disabled' % (self.pk, self.provider.name))

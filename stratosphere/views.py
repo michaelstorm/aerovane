@@ -112,8 +112,8 @@ def operating_system(request, group_id):
         return HttpResponse('')
 
 
-def get_left_nav_available(user):
-    if not user.provider_configurations.exists() or compute_providers_data_state(user) != ProviderConfiguration.LOADED:
+def get_setup_progress(user):
+    if not user.provider_configurations.exists():
         return 0
     elif not user.authentication_methods.exists():
         return 1
@@ -148,7 +148,7 @@ def images(request):
 
     context = {
         'left_nav_section': 'images',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': get_setup_progress(request.user),
         'operating_systems': operating_systems,
         'preloaded_images': preloaded_images,
         'providers': request.user.provider_configurations.all(),
@@ -159,35 +159,39 @@ def images(request):
 
 
 def is_setup_complete(user):
-    return get_left_nav_available(user) == 5
+    return get_setup_progress(user) == 5
 
 
 @login_required
 def dashboard(request):
     provider_configurations = request.user.provider_configurations
+    setup_progress = get_setup_progress(request.user)
+    data_state = compute_providers_data_state(request.user)
+
+    print(setup_progress, data_state)
 
     context = {
         'left_nav_section': 'dashboard',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': setup_progress,
     }
 
-    if not provider_configurations.exists():
-        context['setup_progress'] = 0
-        template = 'stratosphere/setup/provider_configuration.html'
-    elif compute_providers_data_state(request.user) == ProviderConfiguration.ERROR:
-        return redirect('/providers/aws/')
-    elif compute_providers_data_state(request.user) == ProviderConfiguration.NOT_LOADED:
-        context['setup_progress'] = 0
-        template = 'stratosphere/setup/loading_provider.html'
-    elif not request.user.authentication_methods.exists():
-        context['setup_progress'] = 1
+    if setup_progress == 0:
+        if data_state == ProviderConfiguration.ERROR:
+            return redirect('/providers/aws/')
+        elif data_state == ProviderConfiguration.NOT_LOADED:
+            template = 'stratosphere/setup/loading_provider.html'
+        else:
+            template = 'stratosphere/setup/provider_configuration.html'
+
+    elif setup_progress == 1:
         template = 'stratosphere/setup/authentication.html'
-    elif not request.user.compute_images.exists():
-        context['setup_progress'] = 2
+
+    elif setup_progress == 2:
         template = 'stratosphere/setup/compute_image.html'
-    elif not request.user.compute_groups.exists():
-        context['setup_progress'] = 3
+
+    elif setup_progress == 3:
         template = 'stratosphere/setup/compute_group.html'
+
     else:
         context['providers'] = provider_configurations.all()
         template = 'stratosphere/dashboard.html'
@@ -201,7 +205,7 @@ def health_checks(request):
 
     context = {
         'left_nav_section': 'health_checks',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': get_setup_progress(request.user),
     }
 
     return render(request, 'stratosphere/health_checks.html', context=context)
@@ -212,7 +216,7 @@ def compute_groups(request):
     context = {
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': get_setup_progress(request.user),
     }
 
     return render(request, 'stratosphere/compute_groups.html', context=context)
@@ -227,7 +231,7 @@ def compute_group(request, group_id):
         'compute_group_name': compute_group.name,
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'view',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': get_setup_progress(request.user),
     }
 
     return render(request, 'stratosphere/compute_group.html', context=context)
@@ -286,7 +290,7 @@ def add_compute_group(request):
         'authentication_methods': request.user.authentication_methods.all(),
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'create',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': get_setup_progress(request.user),
     }
     return render(request, 'stratosphere/add_compute_group.html', context=context)
 
@@ -307,6 +311,8 @@ def _compute_instance_to_json(instance):
         display_state = 'destroyed'
     elif instance.is_failed():
         display_state = 'failed'
+    else:
+        display_state = None
 
     destroyed_at = instance.destroyed_at.timestamp() if instance.destroyed_at is not None else None
     failed_at = instance.failed_at.timestamp() if instance.failed_at is not None else None
@@ -345,7 +351,7 @@ def authentication(request):
         'add_key_method': KeyAuthenticationMethodForm(),
         'add_password_method': PasswordAuthenticationMethodForm(),
         'left_nav_section': 'authentication',
-        'left_nav_available': get_left_nav_available(request.user),
+        'setup_progress': get_setup_progress(request.user),
     }
 
     return render(request, 'stratosphere/authentication.html', context=context)
@@ -433,7 +439,7 @@ def aws_provider(request):
 
         context['left_nav_section'] = 'providers'
         context['left_sub_nav_section'] = 'aws'
-        context['left_nav_available'] = get_left_nav_available(request.user)
+        context['setup_progress'] = get_setup_progress(request.user)
 
         data_state = compute_providers_data_state(request.user)
         context['data_state'] = data_state
@@ -528,7 +534,8 @@ def _provider_json(provider_configuration):
             'running_count': provider_configuration.instances.filter(ComputeInstance.running_instances_query()).count(),
             'cost': provider_configuration.estimated_cost(),
             'admin_url': provider_configuration.admin_url(),
-            'icon_url': provider_configuration.provider.icon_url()}
+            'icon_url': provider_configuration.provider.icon_url(),
+            'failed': provider_configuration.failed}
 
 
 @login_required

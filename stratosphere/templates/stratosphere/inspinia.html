@@ -169,7 +169,7 @@
                                 {% if left_nav_section == "dashboard" %}
                                     active
                                 {% endif %}
-                                {% if left_nav_available < 0 %}
+                                {% if setup_progress < 0 %}
                                     disabled
                                 {% endif %}
                             "
@@ -181,7 +181,7 @@
                                 {% if left_nav_section == "groups" %}
                                     active
                                 {% endif %}
-                                {% if left_nav_available < 3 %}
+                                {% if setup_progress < 3 %}
                                     disabled
                                 {% endif %}
                             "
@@ -205,7 +205,7 @@
                                 {% if left_nav_section == "providers" %}
                                     active
                                 {% endif %}
-                                {% if left_nav_available < 0 %}
+                                {% if setup_progress < 0 %}
                                     disabled
                                 {% endif %}
                             "
@@ -228,7 +228,7 @@
                                 {% if left_nav_section == "authentication" %}
                                     active
                                 {% endif %}
-                                {% if left_nav_available < 1 %}
+                                {% if setup_progress < 1 %}
                                     disabled
                                 {% endif %}
                             "
@@ -240,7 +240,7 @@
                                 {% if left_nav_section == "images" %}
                                     active
                                 {% endif %}
-                                {% if left_nav_available < 2 %}
+                                {% if setup_progress < 2 %}
                                     disabled
                                 {% endif %}
                             "
@@ -252,7 +252,7 @@
                                 {% if left_nav_section == "health_checks" %}
                                     active
                                 {% endif %}
-                                {% if left_nav_available < 4 %}
+                                {% if setup_progress < 4 %}
                                     disabled
                                 {% endif %}
                             "
