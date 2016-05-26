@@ -18,8 +18,9 @@
                     <div class="ibox-title">
                         <h5>SSH Keys</h5>
                     </div>
-                    <div class="ibox-content table-responsive">
+                    <div class="ibox-content">
                         {% if key_methods|length > 0 %}
+                            {% comment %} not using table-responsive because it breaks word wrapping {% endcomment %}
                             <table class="table table-striped ssh-keys-table">
                                 <thead>
                                     <tr>
@@ -31,13 +32,13 @@
                                 <tbody>
                                     {% for method in key_methods %}
                                         <tr style="height: 5px;">
-                                            <td style="word-wrap: break-word;">{{ method.name }} sdfdsfsdf eewrwerwerewrewewrewrewrewrewrewewrewr</td>
-                                            <td style="width: 99%; overflow-x: auto;">
+                                            <td style="word-wrap: break-word;">{{ method.name }}</td>
+                                            <td style="overflow-x: auto; word-wrap: break-word;">
                                                 <span class="short-key">{{ method.key|truncatechars:20 }}</span>
                                                 <span class="long-key">{{ method.key }}</span>
-                                                <a href="#" class="toggle-long-key">Show</a>
+                                                <button type="button" class="btn btn-xs btn-info toggle-long-key">Show</button>
                                             </td>
-                                            <td class="text-right">
+                                            <td class="text-center">
                                                 <button class="btn btn-danger btn-xs delete-method-button" method-id="{{ method.id }}">Delete</button>
                                             </td>
                                         </tr>
