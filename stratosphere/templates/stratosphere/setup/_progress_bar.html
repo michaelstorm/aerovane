@@ -67,14 +67,38 @@
                             <div class="icon-container"><i class="fa fa-cubes"></i></div>
                         </div>
                     </div>
-
                 </div>
+            </div>
+
+            <div class="step-info {% if setup_progress == 0 %} active {% endif %}">
+                Create a provider
+            </div><!--
+            --><div class="step-info {% if setup_progress == 1 %} active {% endif %}">
+                Create an authentication method
+            </div><!--
+            --><div class="step-info {% if setup_progress == 2 %} active {% endif %}">
+                Create an image
+            </div><!--
+            --><div class="step-info {% if setup_progress == 3 %} active {% endif %}">
+                Create a compute group
             </div>
         </div>
     </div>
 </div>
 
 <style>
+    .step-info {
+        display: inline-block;
+        width: 25%;
+        margin-top: 5px;
+        color: black;
+        opacity: 0.5;
+    }
+
+    .step-info.active {
+        opacity: 0.8;
+    }
+
     .nav-container {
         display: inline-block;
         width: 25%;
