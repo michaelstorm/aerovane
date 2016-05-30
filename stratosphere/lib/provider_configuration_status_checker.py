@@ -12,6 +12,7 @@ from stratosphere.util import thread_local
 import traceback
 
 from ..tasks import send_failed_email
+from ..util import call_with_retry
 
 
 class ProviderConfigurationStatusChecker(object):
@@ -99,7 +100,7 @@ class ProviderConfigurationStatusChecker(object):
     def update_instance_statuses(self):
         try:
             print('Querying statuses for instances of provider %s' % self.pk)
-            libcloud_nodes = self.driver.list_nodes()
+            libcloud_nodes = call_with_retry(lambda: self.driver.list_nodes(), Exception, logger=self.logger)
             print('Got %d nodes' % len(libcloud_nodes))
 
         except Exception as e:
