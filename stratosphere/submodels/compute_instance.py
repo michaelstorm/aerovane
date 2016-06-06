@@ -12,13 +12,13 @@ from libcloud.compute.types import NodeState
 import random
 import uuid
 
-from save_the_change.mixins import SaveTheChange, TrackChanges
+from .mixins import TrackSavedChanges
 
 from ..tasks import create_libcloud_node, destroy_libcloud_node
 from ..util import decode_node_extra, schedule_random_default_delay, thread_local
 
 
-class ComputeInstanceBase(models.Model, SaveTheChange, TrackChanges):
+class ComputeInstanceBase(TrackSavedChanges, models.Model):
     class Meta:
         abstract = True
 

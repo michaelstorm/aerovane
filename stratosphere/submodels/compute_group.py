@@ -12,6 +12,8 @@ from django.utils import timezone
 
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
+from .mixins import TrackSavedChanges
+
 from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
 from ..util import generate_name, HasLogger, retry, call_with_retry, thread_local
 
@@ -46,7 +48,7 @@ class GroupInstanceStatesSnapshot(models.Model):
     failed  = models.IntegerField()
 
 
-class ComputeGroupBase(models.Model, HasLogger, SaveTheChange, TrackChanges):
+class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
     class Meta:
         abstract = True
 

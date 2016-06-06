@@ -2,12 +2,12 @@ from django.contrib.sites.models import Site
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.db import models
 
-from save_the_change.mixins import SaveTheChange, TrackChanges
+from save_the_change.mixins import SaveTheChange
 
 import uuid
 
 
-class Provider(models.Model, SaveTheChange, TrackChanges):
+class Provider(models.Model, SaveTheChange):
     class Meta:
         app_label = "stratosphere"
 
