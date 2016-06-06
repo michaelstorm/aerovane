@@ -62,7 +62,7 @@ def decode_node_extra(dct):
         return dct
 
 
-def call_with_retry(f, exception_type, tries=4, delay=10, backoff=3, logger=None, args=[], kwargs={}):
+def call_with_retry(f, exception_type, tries=4, delay=0.01, backoff=4, logger=None, args=[], kwargs={}):
     mtries, mdelay = tries, delay
     ret = None
     succeeded = False
