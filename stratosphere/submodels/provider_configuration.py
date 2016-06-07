@@ -15,7 +15,7 @@ from save_the_change.mixins import SaveTheChange, TrackChanges
 from stratosphere.lib.provider_configuration_data_loader import ProviderConfigurationDataLoader
 from stratosphere.lib.provider_configuration_status_checker import ProviderConfigurationStatusChecker
 
-from ..models import DiskImage, ProviderImage
+from ..models import ComputeInstance, DiskImage, ProviderImage
 from ..util import *
 
 import threading
@@ -96,7 +96,7 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
     def estimated_cost(self):
         cost = 0
         if self.enabled:
-            for instance in self.instances.all():
+            for instance in self.instances.filter(ComputeInstance.running_instances_query() | ComputeInstance.pending_instances_query()):
                 cost += instance.provider_size.price
         return cost
 

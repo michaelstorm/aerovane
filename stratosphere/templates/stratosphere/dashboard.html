@@ -16,24 +16,19 @@
         <div class="row">
             <div class="col-lg-12">
                 <div class="ibox float-e-margins">
-                    <div class="ibox-title">
-                        <h5>Compute instance history</h5>
-                        <div class="btn-group btn-group-xs" id="instances-chart-max-range-buttons" style="float: right;">
-                            <button type="button" class="btn btn-info" seconds="1800">30 minutes</button>
-                            <button type="button" class="btn btn-default" seconds="43200">12 hours</button>
-                            <button type="button" class="btn btn-default" seconds="604800">7 days</button>
-                            <button type="button" class="btn btn-default">All time</button>
-                        </div>
-                    </div>
-                    <div class="ibox-content">
+                    <div class="ibox-content dashboard-widget-container">
                         <div class="row">
-                            <div class="col-lg-12">
-                                <div id="instances-chart-container">
-                                    <div id="instances-chart"></div>
-                                    <div style="padding: 0 10px;">
-                                        <div id="instances-chart-range-slider"></div>
-                                    </div>
-                                </div>
+                            <div class="col-lg-4 text-center dashboard-widget">
+                                <canvas id="providerCostDoughnutChart" class="" lass="cost-doughnut-chart" width="300" height="150"></canvas>
+                                <h4>Cost by provider</h4>
+                            </div>
+                            <div class="col-lg-4 text-center dashboard-widget">
+                                <div id="provider-site-map" style="height: 150px;"></div>
+                                <h4>Enabled sites</h4>
+                            </div>
+                            <div class="col-lg-4 text-center dashboard-widget">
+                                <canvas id="computeGroupCostDoughnutChart" class="cost-doughnut-chart" width="300" height="150"></canvas>
+                                <h4>Cost by compute group</h4>
                             </div>
                         </div>
                     </div>
@@ -41,25 +36,23 @@
             </div>
         </div>
         <div class="row">
-            <div class="col-lg-12">
+            <div class="col-lg-6">
                 <div class="ibox float-e-margins" data-intro="dsfsdsdf">
                     <div class="ibox-title">
                         <h5>Providers</h5>
                     </div>
                     <div class="ibox-content table-responsive providers-table">
-                        <div class="row">
-                            <div class="col-lg-6">
-                                {% include "stratosphere/_provider_list.html" %}
-                            </div>
-                            <div class="col-lg-3 text-center">
-                                <canvas id="providerCostDoughnutChart" class="cost-doughnut-chart" width="300" height="150"></canvas>
-                                <h4>Cost by provider</h4>
-                            </div>
-                            <div class="col-lg-3 text-center">
-                                <div id="provider-site-map" style="height: 150px;"></div>
-                                <h4>Enabled sites</h4>
-                            </div>
-                        </div>
+                        {% include "stratosphere/_provider_list.html" %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>Compute groups</h5>
+                    </div>
+                    <div class="ibox-content table-responsive">
+                        {% include "stratosphere/_compute_group_list.html" %}
                     </div>
                 </div>
             </div>
@@ -68,16 +61,27 @@
             <div class="col-lg-12">
                 <div class="ibox float-e-margins">
                     <div class="ibox-title">
-                        <h5>Compute groups</h5>
+                        <h5>Events</h5>
                     </div>
                     <div class="ibox-content table-responsive">
                         <div class="row">
-                            <div class="col-lg-9">
-                                {% include "stratosphere/_compute_group_list.html" %}
-                            </div>
-                            <div class="col-lg-3" style="text-align: center;">
-                                <canvas id="computeGroupCostDoughnutChart" class="cost-doughnut-chart" width="300" height="150"></canvas>
-                                <h4>Cost by compute group</h4>
+                            <div class="col-lg-12">
+                                <table class="table table-striped" ng-controller="EventListCtrl">
+                                    <thead>
+                                        <tr>
+                                            <th>Time</th>
+                                            <th>Object</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr ng-repeat="event in events | orderBy: 'created_at':true track by event.id" ng-cloak>
+                                            <td>{$ event.pretty_time $}<br><small>{$ event.time $}</small></td>
+                                            <td><a href="{$ event.object_url $}" ng-if="event.object_url">{$ event.object_name $}</a><span ng-if="!event.object_url">{$ event.object_name $}</span></td>
+                                            <td ng-bind-html="event.description"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>

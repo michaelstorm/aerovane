@@ -1,9 +1,9 @@
 <table class="table table-striped compute-groups-table" ng-controller="ComputeGroupListCtrl">
     <tbody>
-        <tr ng-repeat="group in groups | orderBy: 'created_at' track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+        <tr ng-repeat="group in groups | orderBy: ['-state', 'created_at'] track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
             <td style="padding-right: 40px;">
                 <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
-                <div style="margin-bottom: 5px;"><a href="/compute_groups/{$ group.id $}/" style="font-size: 1.5em;">{$ group.name $}</a></div>
+                <div style="margin-bottom: 5px;"><a href="/compute_groups/{$ group.id $}/" style="font-size: 1.5em;">{$ group.name $}</a> <small ng-if="group.state == 'DESTROYED'">(Terminated)</small></div>
                 <div class="list-info-block">
                     <div class="horizontal-element">
                         <table>
@@ -46,7 +46,6 @@
             <td class="group-providers-graph-cell">
                 <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
             </td>
-            <td class="text-right"><button type="button" class="btn btn-danger btn-xs" ng-click="deleteEntry(group.id)"><i class="fa fa-times"></i> Terminate</button></td>
         </tr>
     </tbody>
 </table>

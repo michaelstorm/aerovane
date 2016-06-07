@@ -339,7 +339,8 @@ def _compute_group_to_json(group):
     return {'id': group.pk, 'name': group.name, 'cpu': group.cpu, 'memory': group.memory,
             'running_instance_count': group.instances.filter(ComputeInstance.running_instances_query()).count(),
             'instance_count': group.instance_count, 'providers': group.provider_states(),
-            'state': group.state, 'instances': instances_json, 'created_at': group.created_at.timestamp(),
+            'state': 'DESTROYED' if group.state == 'DESTROYED' else 'RUNNING',
+            'instances': instances_json, 'created_at': group.created_at.timestamp(),
             'cost': group.estimated_cost()}
 
 
@@ -624,6 +625,47 @@ def state_history(request, group_id=None):
 
     history = [get_history_dict(h) for h in history]
     return JsonResponse(history, safe=False)
+
+
+def _event_to_json(event):
+    json = {'id': event.pk, 'type': event.__class__.__name__, 'time': unix_time_millis(event.created_at),
+            'object_name': event.object_name, 'description': event.rich_description}
+
+    if hasattr(event, 'object_url'):
+        json['object_url'] = event.object_url
+
+    if isinstance(event, RebalanceEvent):
+        json['old_size_distribution'] = event.old_size_distribution
+        json['new_size_distribution'] = event.new_size_distribution
+    elif isinstance(event, InstanceStateChangeEvent):
+        json['old_state'] = event.old_state
+        json['new_state'] = event.new_state
+
+    return json
+
+@login_required
+def get_events(request, filter_type=None, filter_object_id=None):
+    events = request.user.events
+
+    if filter_type is not None:
+        if filter_type not in ('compute_group',):
+            return HttpResponse('Invalid filter type', 422)
+        else:
+            if filter_object_id is None:
+                return HttpResponse('Filter object ID must be specified', 422)
+
+            try:
+                uuid.UUID(filter_object_id)
+            except ValueError as e:
+                return HttpResponse('Invalid filter object ID: %s' % e, 422)
+
+            filtered_events = events.filter(**{filter_type: filter_object_id})
+
+    else:
+        filtered_events = events.all()
+
+    json = [_event_to_json(event) for event in filtered_events]
+    return JsonResponse(json, safe=False)
 
 
 def letsencrypt_challenge(request):

@@ -135,6 +135,24 @@
                 color: #777;
             }
 
+            .rebalance-event-distribution-table {
+                margin-top: 5px;
+                margin-bottom: 0;
+            }
+
+            .ibox-content {
+                padding-bottom: 15px;
+            }
+
+            .dashboard-widget-container {
+                padding-top: 20px;
+                padding-bottom: 20px;
+            }
+
+            .dashboard-widget h4 {
+                margin-bottom: 0;
+            }
+
             {% block style %}
             {% endblock %}
         </style>
@@ -359,6 +377,7 @@
         <script src="{% static "stratosphere/angular-ui-select/select.min.js" %}"></script>
 
         <script src="{% static "stratosphere/instances-chart/instances-chart.js" %}"></script>
+        <script src="{% static "stratosphere/jquery-dateFormat.min.js" %}"></script>
 
         <!-- Mainly scripts -->
         <script src="{% static "stratosphere/inspinia/js/bootstrap.min.js" %}"></script>
@@ -631,6 +650,10 @@
                 return $resource('/operating_system/:id/');
             });
 
+            dashboardApp.factory('Event', function($resource) {
+                return $resource('/events/:id/');
+            });
+
             dashboardApp.controller('OperatingSystemListCtrl',
                                     ['$scope', 'OperatingSystem', '$http',
                                      function ($scope, OperatingSystem, $http) {
@@ -726,9 +749,39 @@
                     return group.price * 24;
                 }
 
+                $scope.delete = function() {
+                    Group.delete({id: compute_group_id}, function() {
+                        $scope.group.state == 'DESTROYED';
+                    });
+                }
+
                 $interval(function() {
                     Group.query({id: compute_group_id}, function(data) {
                         $scope.group = data[0];
+                    });
+                }, 3000);
+            }]);
+
+            dashboardApp.controller('EventListCtrl', ['$scope', 'Event', '$interval', '$sce',
+                                    function ($scope, Event, $interval, $sce) {
+                var formatFields = function(event) {
+                    var time = new Date(event.time);
+                    event.time = jQuery.format.date(time, 'dd/MM/yyyy HH:mm:ss');
+                    event.pretty_time = jQuery.format.prettyDate(time);
+                    event.description = $sce.trustAsHtml(event.description);
+                };
+
+                Event.query(function(data) {
+                    $scope.events = data;
+                    for (var i = 0; i < $scope.events.length; i++)
+                        formatFields($scope.events[i]);
+                });
+
+                $interval(function() {
+                    Event.query(function(data) {
+                        $scope.events = data;
+                        for (var i = 0; i < $scope.events.length; i++)
+                            formatFields($scope.events[i]);
                     });
                 }, 3000);
             }]);
@@ -743,7 +796,7 @@
 
                 $interval(function() {
                     Provider.query(function(data) {
-                        // fixes race condition between user changing value and receiving periodic update
+                        // hack around race condition between user changing value and receiving periodic update
                         if (!changingEnabled)
                             $scope.providers = data;
                     });
@@ -805,16 +858,6 @@
                         $scope.groups = data;
                     });
                 }, 3000);
-
-                $scope.deleteEntry = function(id) {
-                    Group.delete({id: id}, function() {
-                        for(var i = $scope.groups.length - 1; i >= 0; i--) {
-                            if ($scope.groups[i].id == id) {
-                                $scope.groups[i].state = 'DESTROYED';
-                            }
-                        }
-                    });
-                }
 
                 $scope.costDoughnutChart = createDoughnutChart("computeGroupCostDoughnutChart");
 

@@ -18,3 +18,10 @@ echo "AWSProviderConfiguration.create_regions(
 			user=None,
 			access_key_id='$AWS_ACCESS_KEY_ID',
 			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
+
+echo "User.objects.create_superuser(email='oopsdude@gmail.com', password='password')" | python manage.py shell_plus
+
+echo "AWSProviderConfiguration.create_regions(
+                    user=User.objects.first(),
+                    access_key_id='$AWS_ACCESS_KEY_ID',
+                    secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus

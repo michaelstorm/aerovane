@@ -14,8 +14,33 @@ import uuid
 
 from .mixins import TrackSavedChanges
 
+from ..models import Event
 from ..tasks import create_libcloud_node, destroy_libcloud_node
 from ..util import decode_node_extra, schedule_random_default_delay, thread_local
+
+
+class InstanceStateChangeEvent(Event):
+    class Meta:
+        app_label = "stratosphere"
+
+    old_state = models.CharField(max_length=16, null=True, blank=True)
+    new_state = models.CharField(max_length=16, null=True, blank=True)
+
+    @property
+    def object_name(self):
+        return self.compute_instance.name
+
+    def _state_change_table(self):
+        table = '<table class="table rebalance-event-distribution-table">'
+        table += '<thead><tr><th>Old state</th><th>New state</th>'
+        table += '<tr><td>%s</td><td>%s</td></tr>' % (self.old_state, self.new_state)
+        table += '</table>'
+
+        return table
+
+    @property
+    def rich_description(self):
+        return "<b>%s</b>'s state changed from <strong>%s</strong> to <strong>%s</strong>." % (self.compute_instance.name, self.old_state, self.new_state)
 
 
 class ComputeInstanceBase(TrackSavedChanges, models.Model):

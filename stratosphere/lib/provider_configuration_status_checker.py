@@ -11,6 +11,7 @@ from stratosphere.util import thread_local
 
 import traceback
 
+from ..models import InstanceStateChangeEvent
 from ..tasks import send_failed_email
 from ..util import call_with_retry
 
@@ -135,10 +136,14 @@ class ProviderConfigurationStatusChecker(object):
                     instance.private_ips = node.private_ips
                     instance.public_ips = node.public_ips
 
-                # prevent too many history instances from being created
+                # prevent transaction from failing, or causing other transactions to fail, if nothing has changed
+                # TODO is this actually effective?
                 if instance.has_changed:
                     if 'state' in instance.changed_fields:
-                        self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, instance.old_values['state'], instance.state))
+                        old_state = instance.old_values['state']
+                        self.logger.info('Updating state of instance %s from %s to %s' % (instance.pk, old_state, instance.state))
+                        InstanceStateChangeEvent.objects.create(user=self.user, provider_configuration=self, compute_group=instance.group,
+                                                                compute_instance=instance, old_state=old_state, new_state=instance.state)
 
                     instance.save()
 

@@ -4,8 +4,8 @@ from simple_history.models import HistoricalRecords
 
 from .tasks import create_libcloud_node, load_provider_data, load_public_provider_data
 
+from .submodels.event import *
 from .submodels.user import *
-
 from .submodels.authentication_method import *
 from .submodels.compute_instance import *
 from .submodels.provider import *
@@ -29,6 +29,16 @@ from .submodels.beta_key import *
 
 class ComputeGroup(ComputeGroupBase):
     history = HistoricalRecords()
+
+
+@receiver(pre_save, sender=ComputeGroup)
+def compute_group_pre_save(sender, instance, raw, using, update_fields, **kwargs):
+    ComputeGroup.handle_pre_save(sender, instance, raw, using, update_fields, **kwargs)
+
+
+@receiver(post_save, sender=ComputeGroup)
+def compute_group_post_save(sender, created, instance, **kwargs):
+    ComputeGroup.handle_post_save(sender, created, instance, **kwargs)
 
 
 @receiver(pre_save, sender=ComputeInstance)

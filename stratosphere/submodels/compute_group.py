@@ -14,7 +14,7 @@ from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from .mixins import TrackSavedChanges
 
-from ..models import ComputeInstance, ProviderConfiguration, ProviderSize
+from ..models import ComputeInstance, Event, ProviderConfiguration, ProviderSize
 from ..util import generate_name, HasLogger, retry, call_with_retry, thread_local
 
 import json
@@ -48,6 +48,80 @@ class GroupInstanceStatesSnapshot(models.Model):
     failed  = models.IntegerField()
 
 
+class GroupEvent(Event):
+    class Meta:
+        app_label = "stratosphere"
+
+    @property
+    def object_name(self):
+        return self.compute_group.name
+
+    @property
+    def object_url(self):
+        return '/compute_groups/' + str(self.compute_group.pk)
+
+
+class GroupCreatedEvent(GroupEvent):
+    class Meta:
+        app_label = "stratosphere"
+
+    @property
+    def rich_description(self):
+        return "Compute group <b>%s</b> was created." % self.compute_group.name
+
+
+class GroupTerminatedEvent(GroupEvent):
+    class Meta:
+        app_label = "stratosphere"
+
+    @property
+    def rich_description(self):
+        return "Compute group <b>%s</b> was terminated." % self.compute_group.name
+
+
+class RebalanceEvent(GroupEvent):
+    class Meta:
+        app_label = "stratosphere"
+
+    old_size_distribution = JSONField()
+    new_size_distribution = JSONField()
+
+    def _size_distribution_table(self):
+        size_ids = set(self.old_size_distribution.keys()) | set(self.new_size_distribution.keys())
+
+        counts = []
+        for size_id in size_ids:
+            size = ProviderSize.objects.filter(pk=size_id).first()
+            if size is None:
+                name = '<missing>'
+            else:
+                name = size.provider_configuration.provider.pretty_name
+
+            old_count = self.old_size_distribution.get(size_id, 0)
+            new_count = self.new_size_distribution.get(size_id, 0)
+            counts.append('<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td></tr>' % (name, size.external_id, old_count, new_count))
+
+        table = '<table class="table rebalance-event-distribution-table">'
+        table += '<thead><tr><th>Provider</th><th>Size</th><th>Old instance count</th><th>New instance count</th>'
+        table += ''.join(['<tr>' + c + "</tr>" for c in counts])
+        table += '</table>'
+
+        return table
+
+    @property
+    def rich_description(self):
+        return "<b>%s</b>'s instances were rebalanced.%s" % (self.compute_group.name, self._size_distribution_table())
+
+
+class HailMaryEvent(RebalanceEvent):
+    class Meta:
+        app_label = "stratosphere"
+
+    @property
+    def rich_description(self):
+        return "<b>%s</b>'s entered <strong style='color: red;'>Hail Mary</strong> mode. Its instances were rebalanced:%s" % (self.compute_group.name, self._size_distribution_table())
+
+
 class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
     class Meta:
         abstract = True
@@ -76,6 +150,11 @@ class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
     provider_policy = JSONField()
     size_distribution = JSONField()
     state = models.CharField(max_length=16, choices=STATE_CHOICES, default=PENDING)
+
+    # workaround for https://github.com/chrisglass/django_polymorphic/issues/160
+    def delete(self):
+        self.events.non_polymorphic().filter(compute_group=self).all().delete()
+        super(ComputeGroupBase, self).delete()
 
     def provider_states(self):
         provider_states_map = {}
@@ -113,15 +192,9 @@ class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
 
             self.logger.warn('good providers: %s' % good_provider_ids)
 
-            deleted = False
-
             if self.state == self.DESTROYED:
                 available_count = self.instances.filter(~ComputeInstance.unavailable_instances_query()).count()
                 self.logger.info('Compute group state is DESTROYED. Remaining available instances: %d' % available_count)
-                if available_count == 0:
-                    self.logger.warn('Deleting self')
-                    deleted = True
-                    self.delete()
 
             else:
                 self.logger.info('Group state is %s' % self.state)
@@ -129,34 +202,41 @@ class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
                     self.state = self.RUNNING
                     self.save()
 
-            if deleted:
-                # don't rebalance, since any save()s after deletion cause the object to be recreated
-                self.logger.warn('Not rebalancing because group was deleted')
-            else:
-                # rebalance even if running count matches, in order to correct imbalance if provider is added or re-enabled
-                self.logger.warn('Rebalancing instances')
-                self.rebalance_instances(good_provider_ids)
+            # rebalance even if running count matches, in order to correct imbalance if provider is added or re-enabled
+            self.logger.warn('Rebalancing instances')
+            self.rebalance_instances(good_provider_ids)
 
     @thread_local(DB_OVERRIDE='serializable')
     def rebalance_instances(self, provider_ids=None):
-        best_sizes = self._get_best_sizes(provider_ids)
+        with transaction.atomic():
+            best_sizes = self._get_best_sizes(provider_ids)
 
-        # if there aren't any providers left deploy the required number of
-        # instances to every provider in hopes that one of them will work
-        if len(best_sizes) == 0:
-            self.logger.warn('No sizes available for any provider; rebalancing across all providers as a Hail Mary')
-            best_sizes = self._get_best_sizes()
-            instance_counts_by_size_id = self._get_emergency_size_distribution(best_sizes)
-        else:
-            instance_counts_by_size_id = self._get_size_distribution(best_sizes)
+            # if there aren't any providers left, deploy the required number of
+            # instances to every provider in hopes that one of them will work
+            if len(best_sizes) == 0 and self.instance_count > 0:
+                self.logger.warn('No sizes available for any provider; rebalancing across all providers as a Hail Mary')
+                best_sizes = self._get_best_sizes()
+                instance_counts_by_size_id = self._get_emergency_size_distribution(best_sizes)
+                hail_mary = True
+            else:
+                instance_counts_by_size_id = self._get_size_distribution(best_sizes)
+                hail_mary = False
 
-        self.logger.info('New size distribution: %s' % instance_counts_by_size_id)
-        self.size_distribution = instance_counts_by_size_id
-        self.save()
+            if self.size_distribution != instance_counts_by_size_id:
+                self.logger.info('New size distribution: %s' % instance_counts_by_size_id)
+                if hail_mary:
+                    HailMaryEvent.objects.create(user=self.user, compute_group=self, old_size_distribution=self.size_distribution,
+                                                 new_size_distribution=instance_counts_by_size_id)
+                else:
+                    RebalanceEvent.objects.create(user=self.user, compute_group=self, old_size_distribution=self.size_distribution,
+                                                  new_size_distribution=instance_counts_by_size_id)
 
-        self._create_compute_instances()
+            self.size_distribution = instance_counts_by_size_id
+            self.save()
 
-        self.user.take_instance_states_snapshot_if_changed()
+            self._create_compute_instances()
+
+            self.user.take_instance_states_snapshot_if_changed()
 
     @thread_local(DB_OVERRIDE='serializable')
     def destroy_instance(self, instance):
@@ -235,6 +315,20 @@ class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
     def _get_provider_size_key(provider_size):
         # the database converts to string keys anyway, so we do it here for consistency
         return str(provider_size.pk)
+
+    @classmethod
+    def handle_pre_save(cls, sender, instance, raw, using, update_fields, **kwargs):
+        print('instance.state: %s' % instance.state)
+        if instance.state == 'DESTROYED':
+            old_instance = cls.objects.get(pk=instance.id)
+            print('old_instance.state: %s' % instance.state)
+            if old_instance.state != 'DESTROYED':
+                GroupTerminatedEvent.objects.create(user=instance.user, compute_group=instance)
+
+    @classmethod
+    def handle_post_save(cls, sender, created, instance, **kwargs):
+        if created:
+            GroupCreatedEvent.objects.create(user=instance.user, compute_group=instance)
 
     def _get_size_distribution(self, sizes):
         instance_counts = {self._get_provider_size_key(provider_size): 0 for provider_size in sizes.values()}

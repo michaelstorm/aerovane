@@ -8,34 +8,40 @@
 {% block angular-app-name %}dashboardApp{% endblock %}
 
 {% block content %}
-    <div class="row wrapper border-bottom white-bg page-heading">
-        <div class="col-lg-12">
-            <h1>{{ compute_group_name }}</h1>
+    <div ng-controller="ComputeGroupCtrl">
+        <div class="row wrapper border-bottom white-bg page-heading">
+            <div class="col-lg-12">
+                <h1>
+                    <span style="float: left;">{{ compute_group_name }}</span>
+                    <button type="button" class="btn btn-danger btn-xs" ng-click="delete()" style="float: right; margin-top: 5px;" ng-disabled="group.state == 'DESTROYED'" ng-cloak><i class="fa fa-times"></i> Terminate</button>
+                    <div style="clear: both;"></div>
+                </h1>
+            </div>
         </div>
-    </div>
 
-    <div class="row animated fadeInLeft">
-        <div class="col-lg-12">
-            <div class="wrapper wrapper-content">
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="ibox float-e-margins">
-                            <div class="ibox-title">
-                                <h5>Compute instance history</h5>
-                                <div class="btn-group btn-group-xs" id="instances-chart-max-range-buttons" style="float: right;">
-                                    <button type="button" class="btn btn-info" seconds="1800">30 minutes</button>
-                                    <button type="button" class="btn btn-default" seconds="43200">12 hours</button>
-                                    <button type="button" class="btn btn-default" seconds="604800">7 days</button>
-                                    <button type="button" class="btn btn-default">All time</button>
+        <div class="row animated fadeInLeft">
+            <div class="col-lg-12">
+                <div class="wrapper wrapper-content">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="ibox float-e-margins">
+                                <div class="ibox-title">
+                                    <h5>Compute instance history</h5>
+                                    <div class="btn-group btn-group-xs" id="instances-chart-max-range-buttons" style="float: right;">
+                                        <button type="button" class="btn btn-info" seconds="1800">30 minutes</button>
+                                        <button type="button" class="btn btn-default" seconds="43200">12 hours</button>
+                                        <button type="button" class="btn btn-default" seconds="604800">7 days</button>
+                                        <button type="button" class="btn btn-default">All time</button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="ibox-content">
-                                <div class="row">
-                                    <div class="col-lg-12">
-                                        <div id="instances-chart-container">
-                                            <div id="instances-chart"></div>
-                                            <div style="padding: 0 10px;">
-                                                <div id="instances-chart-range-slider"></div>
+                                <div class="ibox-content">
+                                    <div class="row">
+                                        <div class="col-lg-12">
+                                            <div id="instances-chart-container">
+                                                <div id="instances-chart"></div>
+                                                <div style="padding: 0 10px;">
+                                                    <div id="instances-chart-range-slider"></div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -43,76 +49,76 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-lg-12">
-                        <div class="ibox float-e-margins" ng-controller="ComputeGroupCtrl">
-                            <div class="ibox-title">
-                                <h5 ng-cloak>Compute instances</h5>
-                            </div>
-                            <div class="ibox-content table-responsive">
-                                <table class="table instances-table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Provider</th>
-                                            <th>State</th>
-                                            <th>Name</th>
-                                            <th>Size</th>
-                                            <th>Hourly cost</th>
-                                            <th>Monthly cost</th>
-                                            <th>ID</th>
-                                            <th>Public IPs</th>
-                                            <th>Private IPs</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr ng-repeat="instance in group.instances | orderBy: ['provider_pretty_name', 'created_at'] track by instance.id" ng-cloak>
-                                            <!-- Provider -->
-                                            <td class="provider-link">
-                                                <a href="/providers/aws/">
-                                                    <img class="provider-icon" ng-src="{$ instance.provider_icon_url $}"><!--
-                                                    --><span>{$ instance.provider_pretty_name $}</span><!--
-                                                --></a><!--
-                                                --><a href="{$ instance.provider_admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a><!--
-                                            --></td>
-                                            <!-- State -->
-                                            <td class="instance-state">
-                                                <div class="instance-state-circle {$ instance.display_state $}"></div><!--
-                                                --><span>{$ instance.state == null ? 'CREATING' : instance.state $}</span>
-                                            </td>
-                                            <!-- Name -->
-                                            <td>{$ instance.name $}</td>
-                                            <!-- Size -->
-                                            <td class="provider-link">
-                                                <span>{$ instance.size $}</span><!--
-                                                --><a href="{$ instance.size_info_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
-                                            </td>
-                                            <!-- Hourly cost -->
-                                            <td>${$ instance.size_price $}</td>
-                                            <!-- Monthly cost -->
-                                            <td>${$ instance.size_price * 24 * 30 $}</td>
-                                            <!-- ID -->
-                                            <td class="provider-link">
-                                                <span>{$ instance.external_id $}</span><!--
-                                                --><a href="{$ instance.admin_url $}" target="_blank" ng-show="instance.external_id"><img src="{% static "stratosphere/external-link.svg" %}"></a>
-                                            </td>
-                                            <!-- Public IPs -->
-                                            <td>
-                                                <code class="public-ip" ng-repeat="ip in instance.public_ips"><!--
-                                                    --><span>{$ ip $}</span><!--
-                                                    --><a href="ssh://{$ ip $}"><img src="{% static "stratosphere/ssh.svg" %}"></a><!--
-                                                    --><a href="http://{$ ip $}" target="_blank"><img src="{% static "stratosphere/web.svg" %}"></a><!-- eliminate extra space when there are multiple elements
-                                                --></code>
-                                            </td>
-                                            <!-- Private IPs -->
-                                            <td>
-                                                <code ng-repeat="ip in instance.private_ips">
-                                                    {$ ip $}<!-- eliminate extra space when there are multiple elements
-                                                --></code>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="ibox float-e-margins">
+                                <div class="ibox-title">
+                                    <h5 ng-cloak>Compute instances</h5>
+                                </div>
+                                <div class="ibox-content table-responsive">
+                                    <table class="table instances-table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Provider</th>
+                                                <th>State</th>
+                                                <th>Name</th>
+                                                <th>Size</th>
+                                                <th>Hourly cost</th>
+                                                <th>Monthly cost</th>
+                                                <th>ID</th>
+                                                <th>Public IPs</th>
+                                                <th>Private IPs</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr ng-repeat="instance in group.instances | orderBy: ['provider_pretty_name', 'created_at'] track by instance.id" ng-cloak>
+                                                <!-- Provider -->
+                                                <td class="provider-link">
+                                                    <a href="/providers/aws/">
+                                                        <img class="provider-icon" ng-src="{$ instance.provider_icon_url $}"><!--
+                                                        --><span>{$ instance.provider_pretty_name $}</span><!--
+                                                    --></a><!--
+                                                    --><a href="{$ instance.provider_admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a><!--
+                                                --></td>
+                                                <!-- State -->
+                                                <td class="instance-state">
+                                                    <div class="instance-state-circle {$ instance.display_state $}"></div><!--
+                                                    --><span>{$ instance.state == null ? 'CREATING' : instance.state $}</span>
+                                                </td>
+                                                <!-- Name -->
+                                                <td>{$ instance.name $}</td>
+                                                <!-- Size -->
+                                                <td class="provider-link">
+                                                    <span>{$ instance.size $}</span><!--
+                                                    --><a href="{$ instance.size_info_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
+                                                </td>
+                                                <!-- Hourly cost -->
+                                                <td>${$ instance.size_price $}</td>
+                                                <!-- Monthly cost -->
+                                                <td>${$ instance.size_price * 24 * 30 $}</td>
+                                                <!-- ID -->
+                                                <td class="provider-link">
+                                                    <span>{$ instance.external_id $}</span><!--
+                                                    --><a href="{$ instance.admin_url $}" target="_blank" ng-show="instance.external_id"><img src="{% static "stratosphere/external-link.svg" %}"></a>
+                                                </td>
+                                                <!-- Public IPs -->
+                                                <td>
+                                                    <code class="public-ip" ng-repeat="ip in instance.public_ips"><!--
+                                                        --><span>{$ ip $}</span><!--
+                                                        --><a href="ssh://{$ ip $}"><img src="{% static "stratosphere/ssh.svg" %}"></a><!--
+                                                        --><a href="http://{$ ip $}" target="_blank"><img src="{% static "stratosphere/web.svg" %}"></a><!-- eliminate extra space when there are multiple elements
+                                                    --></code>
+                                                </td>
+                                                <!-- Private IPs -->
+                                                <td>
+                                                    <code ng-repeat="ip in instance.private_ips">
+                                                        {$ ip $}<!-- eliminate extra space when there are multiple elements
+                                                    --></code>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -22,6 +22,7 @@ urlpatterns = [
     url(r'^providers/(?P<provider_id>[0-9a-f\-]+)/enabled/$', views.set_provider_enabled),
     url(r'^providers/(?P<provider_name>\w+)/$', views.configure_provider),
     url(r'^providers/(?P<provider_id>[0-9a-f\-]+)/disk_images/$', views.provider_disk_images),
+    url(r'^events/$', views.get_events),
 
     url(r'^compute_groups/$', views.compute_groups),
     url(r'^compute_groups/create/$', views.add_compute_group),
