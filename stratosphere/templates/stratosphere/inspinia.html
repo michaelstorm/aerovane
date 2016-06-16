@@ -746,7 +746,7 @@
 
             dashboardApp.controller('ComputeGroupCtrl', ['$scope', 'Group', '$interval',
                                     function ($scope, Group, $interval) {
-                addPagination($scope, 2, 10);
+                addPagination($scope, 5, 10);
 
                 Group.query({id: compute_group_id}, function(data) {
                     $scope.group = data[0];
@@ -882,9 +882,10 @@
                 }, true);
             }]);
 
-            dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval', '$http',
-                                                             function ($scope, Group, $timeout, $interval, $http) {
-                addPagination($scope, 3, 5);
+            dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval', '$http', '$attrs',
+                                                             function ($scope, Group, $timeout, $interval, $http, $attrs) {
+                var itemsPerPage = $attrs['itemsPerPage'] || 5;
+                addPagination($scope, itemsPerPage, 10);
 
                 Group.query(function(data) {
                     $scope.items = data;

@@ -1,4 +1,4 @@
-<div ng-controller="ComputeGroupListCtrl">
+<div ng-controller="ComputeGroupListCtrl" items-per-page="{{ items_per_page }}">
     <table class="table table-striped compute-groups-table">
         <tbody>
             <tr ng-repeat="group in filteredItems | orderBy: ['-state', 'created_at'] track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
