@@ -48,10 +48,7 @@ class GroupInstanceStatesSnapshot(models.Model):
     failed  = models.IntegerField()
 
 
-class GroupEvent(Event):
-    class Meta:
-        app_label = "stratosphere"
-
+class GroupEvent(object):
     @property
     def object_name(self):
         return self.compute_group.name
@@ -61,7 +58,7 @@ class GroupEvent(Event):
         return '/compute_groups/' + str(self.compute_group.pk)
 
 
-class GroupCreatedEvent(GroupEvent):
+class GroupCreatedEvent(Event, GroupEvent):
     class Meta:
         app_label = "stratosphere"
 
@@ -70,7 +67,7 @@ class GroupCreatedEvent(GroupEvent):
         return "Compute group <b>%s</b> was created." % self.compute_group.name
 
 
-class GroupTerminatedEvent(GroupEvent):
+class GroupTerminatedEvent(Event, GroupEvent):
     class Meta:
         app_label = "stratosphere"
 
@@ -79,7 +76,7 @@ class GroupTerminatedEvent(GroupEvent):
         return "Compute group <b>%s</b> was terminated." % self.compute_group.name
 
 
-class RebalanceEvent(GroupEvent):
+class RebalanceEvent(Event, GroupEvent):
     class Meta:
         app_label = "stratosphere"
 
@@ -119,7 +116,7 @@ class HailMaryEvent(RebalanceEvent):
 
     @property
     def rich_description(self):
-        return "<b>%s</b>'s entered <strong style='color: red;'>Hail Mary</strong> mode. Its instances were rebalanced:%s" % (self.compute_group.name, self._size_distribution_table())
+        return "<b>%s</b> entered <strong style='color: red;'>Hail Mary</strong> mode. Its instances were rebalanced:%s" % (self.compute_group.name, self._size_distribution_table())
 
 
 class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):

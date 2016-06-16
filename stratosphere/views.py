@@ -644,27 +644,22 @@ def _event_to_json(event):
     return json
 
 @login_required
-def get_events(request, filter_type=None, filter_object_id=None):
-    events = request.user.events
+def get_events(request):
+    compute_group_id = request.GET.get('computeGroupId')
+    events = request.user.events.all()
 
-    if filter_type is not None:
-        if filter_type not in ('compute_group',):
-            return HttpResponse('Invalid filter type', 422)
-        else:
-            if filter_object_id is None:
-                return HttpResponse('Filter object ID must be specified', 422)
+    if compute_group_id is not None:
+        try:
+            uuid.UUID(compute_group_id)
+        except ValueError as e:
+            return HttpResponse('Invalid filter object ID: %s' % e, 422)
 
-            try:
-                uuid.UUID(filter_object_id)
-            except ValueError as e:
-                return HttpResponse('Invalid filter object ID: %s' % e, 422)
+        compute_group = ComputeGroup.objects.get(pk=compute_group_id)
+        provider_configuration_ids = [ProviderConfiguration.objects.get(provider_name=provider_name, user=compute_group.user)
+                                      for provider_name in compute_group.provider_policy.keys()]
+        events = events.filter(Q(compute_group_id=compute_group_id) | Q(provider_configuration_id__in=provider_configuration_ids))
 
-            filtered_events = events.filter(**{filter_type: filter_object_id})
-
-    else:
-        filtered_events = events.all()
-
-    json = [_event_to_json(event) for event in filtered_events]
+    json = [_event_to_json(event) for event in events]
     return JsonResponse(json, safe=False)
 
 

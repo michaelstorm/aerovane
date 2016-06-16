@@ -153,6 +153,11 @@
                 margin-bottom: 0;
             }
 
+            .pagination {
+                float: right;
+                margin: 15px 0 0 0;
+            }
+
             {% block style %}
             {% endblock %}
         </style>
@@ -741,8 +746,11 @@
 
             dashboardApp.controller('ComputeGroupCtrl', ['$scope', 'Group', '$interval',
                                     function ($scope, Group, $interval) {
+                addPagination($scope, 2, 10);
+
                 Group.query({id: compute_group_id}, function(data) {
                     $scope.group = data[0];
+                    $scope.items = $scope.group.instances;
                 });
 
                 $scope.hourly_cost = function(group) {
@@ -762,34 +770,61 @@
                 }, 3000);
             }]);
 
-            dashboardApp.controller('EventListCtrl', ['$scope', 'Event', '$interval', '$sce',
-                                    function ($scope, Event, $interval, $sce) {
+            dashboardApp.controller('EventListCtrl', ['$scope', 'Event', '$interval', '$sce', '$attrs',
+                                    function ($scope, Event, $interval, $sce, $attrs) {
+                addPagination($scope, 5, 10);
+
+                var computeGroupId = $attrs['computeGroupId'];
+
                 var formatFields = function(event) {
-                    var time = new Date(event.time);
-                    event.time = jQuery.format.date(time, 'dd/MM/yyyy HH:mm:ss');
-                    event.pretty_time = jQuery.format.prettyDate(time);
+                    var dateTime = new Date(event.time);
+                    event.formatted_time = jQuery.format.date(dateTime, 'MM/dd/yyyy HH:mm:ss');
+                    event.pretty_time = jQuery.format.prettyDate(dateTime);
                     event.description = $sce.trustAsHtml(event.description);
                 };
 
-                Event.query(function(data) {
-                    $scope.events = data;
-                    for (var i = 0; i < $scope.events.length; i++)
-                        formatFields($scope.events[i]);
+                Event.query({computeGroupId: computeGroupId}, function(data) {
+                    data.sort(function(a, b) {return b.time - a.time});
+                    $scope.items = data;
+                    for (var i = 0; i < $scope.items.length; i++)
+                        formatFields($scope.items[i]);
                 });
 
                 $interval(function() {
-                    Event.query(function(data) {
-                        $scope.events = data;
-                        for (var i = 0; i < $scope.events.length; i++)
-                            formatFields($scope.events[i]);
+                    Event.query({computeGroupId: computeGroupId}, function(data) {
+                        data.sort(function(a, b) {return b.time - a.time});
+                        $scope.items = data;
+                        for (var i = 0; i < $scope.items.length; i++)
+                            formatFields($scope.items[i]);
                     });
                 }, 3000);
             }]);
 
+            function addPagination($scope, numPerPage, maxSize) {
+                $scope.items = [];
+                $scope.filteredItems = [];
+
+                $scope.currentPage = 1;
+                $scope.numPerPage = numPerPage;
+                $scope.maxSize = maxSize;
+
+                var updateFilteredItems = function() {
+                    var begin = ($scope.currentPage - 1) * $scope.numPerPage;
+                    var end = begin + $scope.numPerPage;
+
+                    $scope.filteredItems = $scope.items.slice(begin, end);
+                }
+
+                $scope.$watch('currentPage + numPerPage', updateFilteredItems);
+                $scope.$watch('items', updateFilteredItems);
+            }
+
             dashboardApp.controller('ProviderListCtrl', ['$scope', 'Provider', '$timeout', '$interval', '$http',
                                                          function ($scope, Provider, $timeout, $interval, $http) {
+                addPagination($scope, 3, 5);
+
                 Provider.query(function(data) {
-                    $scope.providers = data;
+                    $scope.items = data;
                 });
 
                 var changingEnabled = false;
@@ -798,7 +833,7 @@
                     Provider.query(function(data) {
                         // hack around race condition between user changing value and receiving periodic update
                         if (!changingEnabled)
-                            $scope.providers = data;
+                            $scope.items = data;
                     });
                 }, 3000);
 
@@ -812,10 +847,10 @@
 
                 $scope.costDoughnutChart = createDoughnutChart("providerCostDoughnutChart");
 
-                $scope.$watch('providers', function(newValue, oldValue) {
+                $scope.$watch('items', function(newValue, oldValue) {
                     $timeout(function() {
                         if (typeof newValue !== 'undefined') {
-                            newValue.sort(function(a, b) { return a.id > b.id; });
+                            newValue.sort(function(a, b) { return a.id - b.id; });
 
                             var getSiteValues = function(providerValues) {
                                 var siteValues = [];
@@ -832,7 +867,7 @@
                             if (typeof oldValue === 'undefined')
                                 differentSites = true;
                             else {
-                                oldValue.sort(function(a, b) { return a.id > b.id; });
+                                oldValue.sort(function(a, b) { return a.id - b.id; });
                                 var oldValueIds = getSiteValues(oldValue);
                                 differentSites = JSON.stringify(newValueIds) !== JSON.stringify(oldValueIds);
                             }
@@ -849,25 +884,28 @@
 
             dashboardApp.controller('ComputeGroupListCtrl', ['$scope', 'Group', '$timeout', '$interval', '$http',
                                                              function ($scope, Group, $timeout, $interval, $http) {
+                addPagination($scope, 3, 5);
+
                 Group.query(function(data) {
-                    $scope.groups = data;
+                    $scope.items = data;
                 });
 
                 $interval(function() {
                     Group.query(function(data) {
-                        $scope.groups = data;
+                        $scope.items = data;
                     });
                 }, 3000);
 
                 $scope.costDoughnutChart = createDoughnutChart("computeGroupCostDoughnutChart");
 
-                $scope.$watch('groups', function(newValue, oldValue) {
+                $scope.$watch('[items,filteredItems]', function(newValue, oldValue) {
                     $timeout(function() {
                         $('.group button').removeAttr('disabled');
                         $('.group-DESTROYED button').attr('disabled', true);
 
                         if (typeof newValue !== 'undefined') {
-                            newValue.sort(function(a, b) { return a.created_at > b.created_at; });
+                            newValue = newValue[0].slice(0); // prevent in-place sorting from screwing up pagination
+                            newValue.sort(function(a, b) { return a.created_at - b.created_at; });
 
                             if ($scope.costDoughnutChart != null)
                                 updateDoughnutChart($scope.costDoughnutChart, newValue, "name");

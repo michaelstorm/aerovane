@@ -1,57 +1,71 @@
 {% load static from staticfiles %}
 
-<table class="table table-striped providers-table" ng-controller="ProviderListCtrl">
-    <tbody>
-        <tr ng-repeat="provider in providers | orderBy: 'pretty_name' track by provider.id" class="{$ provider.failed ? 'failed' : '' $}" ng-cloak>
-            <td style="vertical-align: middle;">
-                <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
-                <div class="provider-link" style="white-space: nowrap;">
-                    <a href="/providers/aws/">
-                        <img class="provider-icon" ng-src="{$ provider.icon_url $}" style="height: 1.4em; margin-right: 8px;"><!--
-                        --><span style="font-size: 1.1em;">{$ provider.pretty_name $}</span>
-                    </a><!--
-                    --><a href="{$ provider.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
-                </div>
-            </td>
-            <td style="vertical-align: middle;">
-                <div class="list-info-block" style="white-space: nowrap;">
-                    <div class="horizontal-element">
-                        <table>
-                            <tr>
-                                <td class="text-right"><small>Running instances:</small></td>
-                                <td class="text-right right-cell">{$ provider.running_count $}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right"><small>Failures in last hour:</small></td>
-                                <td class="text-right right-cell">{$ provider.failure_count $}</td>
-                            </tr>
-                        </table>
+<div ng-controller="ProviderListCtrl">
+    <table class="table table-striped providers-table">
+        <tbody>
+            <tr ng-repeat="provider in filteredItems | orderBy: 'pretty_name' track by provider.id" class="{$ provider.failed ? 'failed' : '' $}" ng-cloak>
+                <td style="vertical-align: middle;">
+                    <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
+                    <div class="provider-link" style="white-space: nowrap;">
+                        <a href="/providers/aws/">
+                            <img class="provider-icon" ng-src="{$ provider.icon_url $}" style="height: 1.4em; margin-right: 8px;"><!--
+                            --><span style="font-size: 1.1em;">{$ provider.pretty_name $}</span>
+                        </a><!--
+                        --><a href="{$ provider.admin_url $}" target="_blank"><img src="{% static "stratosphere/external-link.svg" %}"></a>
                     </div>
-                    <div class="horizontal-element">
-                        <table>
-                            <tr>
-                                <td class="text-right"><small>Hourly:</small></td>
-                                <td class="text-right right-cell">${$ provider.cost | number:3 $}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right"><small>Monthly:</small></td>
-                                <td class="text-right right-cell">${$ provider.cost * 24 * 30 | number:2 $}</td>
-                            </tr>
-                        </table>
+                </td>
+                <td style="vertical-align: middle;">
+                    <div class="list-info-block" style="white-space: nowrap;">
+                        <div class="horizontal-element">
+                            <table>
+                                <tr>
+                                    <td class="text-right"><small>Running instances:</small></td>
+                                    <td class="text-right right-cell">{$ provider.running_count $}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right"><small>Failures in last hour:</small></td>
+                                    <td class="text-right right-cell">{$ provider.failure_count $}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="horizontal-element">
+                            <table>
+                                <tr>
+                                    <td class="text-right"><small>Hourly:</small></td>
+                                    <td class="text-right right-cell">${$ provider.cost | number:3 $}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right"><small>Monthly:</small></td>
+                                    <td class="text-right right-cell">${$ provider.cost * 24 * 30 | number:2 $}</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
-                </div>
-            </td>
-            <td style="vertical-align: middle; width: 99%;">
-                <div class="horizontal-element checkbox checkbox-success" style="white-space: nowrap;">
-                    <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
-                    <label for="provider-enabled-{$ provider.id $}">Enabled</label>
-                </div>
-            </td>
-        </tr>
-    </tbody>
-</table>
+                </td>
+                <td style="vertical-align: middle; width: 99%;">
+                    <div class="horizontal-element checkbox checkbox-success" style="white-space: nowrap;">
+                        <input type="checkbox" provider="{$ provider.id $}" id="provider-enabled-{$ provider.id $}" ng-model="provider.enabled" ng-change="changeProviderEnabled(provider)">
+                        <label for="provider-enabled-{$ provider.id $}">Enabled</label>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <uib-pagination
+        total-items="items.length"
+        ng-model="currentPage"
+        class="pagination-sm"
+        items-per-page="numPerPage"
+        boundary-links="true">
+    </uib-pagination>
+</div>
 
 <style>
+    .providers-table {
+        margin-bottom: 0;
+    }
+
     .providers-table .failed {
         background-color: #F0BAB8 !important;
     }

@@ -1,51 +1,68 @@
-<table class="table table-striped compute-groups-table" ng-controller="ComputeGroupListCtrl">
-    <tbody>
-        <tr ng-repeat="group in groups | orderBy: ['-state', 'created_at'] track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
-            <td style="padding-right: 40px;">
-                <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
-                <div style="margin-bottom: 5px;"><a href="/compute_groups/{$ group.id $}/" style="font-size: 1.5em;">{$ group.name $}</a> <small ng-if="group.state == 'DESTROYED'">(Terminated)</small></div>
-                <div class="list-info-block">
-                    <div class="horizontal-element">
-                        <table>
-                            <tr>
-                                <td class="text-right">{$ group.cpu $}</td>
-                                <td class="right-cell"><small>ECU</small></td>
-                            </tr>
-                            <tr>
-                                <td class="text-right">{$ group.memory $}</td>
-                                <td class="right-cell"><small>MB</small></td>
-                            </tr>
-                        </table>
+<div ng-controller="ComputeGroupListCtrl">
+    <table class="table table-striped compute-groups-table">
+        <tbody>
+            <tr ng-repeat="group in filteredItems | orderBy: ['-state', 'created_at'] track by group.id" group-id="{$ group.id $}" class="group group-{$ group.state $}" state="{$ group.state $}" ng-cloak av-group>
+                <td style="padding-right: 40px;">
+                    <!-- wrap in <div> to provide $compile a valid HTML structure in avGroup directive -->
+                    <div style="margin-bottom: 5px;"><a href="/compute_groups/{$ group.id $}/" style="font-size: 1.5em;">{$ group.name $}</a> <small ng-if="group.state == 'DESTROYED'">(Terminated)</small></div>
+                    <div class="list-info-block">
+                        <div class="horizontal-element">
+                            <table>
+                                <tr>
+                                    <td class="text-right">{$ group.cpu $}</td>
+                                    <td class="right-cell"><small>ECU</small></td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right">{$ group.memory $}</td>
+                                    <td class="right-cell"><small>MB</small></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="horizontal-element">
+                            <table>
+                                <tr>
+                                    <td class="text-right"><small>Running instances:</small></td>
+                                    <td class="text-right right-cell">{$ group.running_instance_count $}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right"><small>Expected instances:</small></td>
+                                    <td class="text-right right-cell">{$ group.instance_count $}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="horizontal-element">
+                            <table>
+                                <tr>
+                                    <td class="text-right"><small>Hourly:</small></td>
+                                    <td class="text-right right-cell">${$ group.cost | number:3 $}</td>
+                                </tr>
+                                <tr>
+                                    <td class="text-right"><small>Monthly:</small></td>
+                                    <td class="text-right right-cell">${$ group.cost * 24 * 30 | number:2 $}</td>
+                                </tr>
+                            </table>
+                        </div>
                     </div>
-                    <div class="horizontal-element">
-                        <table>
-                            <tr>
-                                <td class="text-right"><small>Running instances:</small></td>
-                                <td class="text-right right-cell">{$ group.running_instance_count $}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right"><small>Expected instances:</small></td>
-                                <td class="text-right right-cell">{$ group.instance_count $}</td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="horizontal-element">
-                        <table>
-                            <tr>
-                                <td class="text-right"><small>Hourly:</small></td>
-                                <td class="text-right right-cell">${$ group.cost | number:3 $}</td>
-                            </tr>
-                            <tr>
-                                <td class="text-right"><small>Monthly:</small></td>
-                                <td class="text-right right-cell">${$ group.cost * 24 * 30 | number:2 $}</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </td>
-            <td class="group-providers-graph-cell">
-                <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
-            </td>
-        </tr>
-    </tbody>
-</table>
+                </td>
+                <td class="group-providers-graph-cell">
+                    <div class="graph-placeholder" style="height: 40px; width: 100%;"></div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <uib-pagination
+        total-items="items.length"
+        ng-model="currentPage"
+        class="pagination-sm"
+        max-size="maxSize"
+        items-per-page="numPerPage"
+        boundary-links="true">
+    </uib-pagination>
+</div>
+
+<style>
+    .compute-groups-table {
+        margin-bottom: 0;
+    }
+</style>

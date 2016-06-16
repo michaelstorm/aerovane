@@ -19,16 +19,22 @@ from ..tasks import create_libcloud_node, destroy_libcloud_node
 from ..util import decode_node_extra, schedule_random_default_delay, thread_local
 
 
-class InstanceStateChangeEvent(Event):
+class InstanceEvent(object):
+    @property
+    def object_name(self):
+        return self.compute_instance.name
+
+    @property
+    def object_url(self):
+        return '/compute_groups/' + str(self.compute_instance.group.pk)
+
+
+class InstanceStateChangeEvent(Event, InstanceEvent):
     class Meta:
         app_label = "stratosphere"
 
     old_state = models.CharField(max_length=16, null=True, blank=True)
     new_state = models.CharField(max_length=16, null=True, blank=True)
-
-    @property
-    def object_name(self):
-        return self.compute_instance.name
 
     def _state_change_table(self):
         table = '<table class="table rebalance-event-distribution-table">'
@@ -41,6 +47,15 @@ class InstanceStateChangeEvent(Event):
     @property
     def rich_description(self):
         return "<b>%s</b>'s state changed from <strong>%s</strong> to <strong>%s</strong>." % (self.compute_instance.name, self.old_state, self.new_state)
+
+
+class InstanceFailedEvent(Event, InstanceEvent):
+    class Meta:
+        app_label = "stratosphere"
+
+    @property
+    def rich_description(self):
+        return "Instance <b>%s</b> <strong style='color: red;'>FAILED</strong>." % self.compute_instance.name
 
 
 class ComputeInstanceBase(TrackSavedChanges, models.Model):

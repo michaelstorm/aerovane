@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db import connection, transaction
+from django.db import connection, models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -11,9 +11,37 @@ from stratosphere.util import thread_local
 
 import traceback
 
-from ..models import InstanceStateChangeEvent
+from ..models import Event, InstanceFailedEvent, InstanceStateChangeEvent
 from ..tasks import send_failed_email
 from ..util import call_with_retry
+
+
+class ProviderConfigurationFailedEvent(Event):
+    class Meta:
+        app_label = "stratosphere"
+
+    @property
+    def object_name(self):
+        return self.provider_configuration.provider.pretty_name
+
+    @property
+    def rich_description(self):
+        return "Provider <b>%s</b> <strong style='color: red;'>FAILED</strong>." % self.provider_configuration.provider.pretty_name
+
+
+class ProviderConfigurationEnabledEvent(Event):
+    class Meta:
+        app_label = "stratosphere"
+
+    enabled = models.BooleanField()
+
+    @property
+    def object_name(self):
+        return self.provider_configuration.provider.pretty_name
+
+    @property
+    def rich_description(self):
+        return "Provider <b>%s</b> %s." % (self.provider_configuration.provider.pretty_name, 'enabled' if self.enabled else 'disabled')
 
 
 class ProviderConfigurationStatusChecker(object):
@@ -31,8 +59,10 @@ class ProviderConfigurationStatusChecker(object):
 
             else:
                 self.enabled = False
-                self.failed = True
+                self.failed = False
                 self.save()
+
+            ProviderConfigurationEnabledEvent.objects.create(user=self.user, provider_configuration=self, enabled=enabled_value)
 
     def max_failure_count(self):
         instance_count = self.instances.count()
@@ -61,7 +91,10 @@ class ProviderConfigurationStatusChecker(object):
 
                 self.logger.warn('Disabling provider %s (%s)' % (self.pk, self.provider.name))
                 self.set_enabled(False)
+                self.failed = True
                 self.save()
+
+                ProviderConfigurationFailedEvent.objects.create(user=self.user, provider_configuration=self)
         else:
             self.logger.info('Provider %s (%s) already disabled' % (self.pk, self.provider.name))
 
@@ -92,11 +125,15 @@ class ProviderConfigurationStatusChecker(object):
         # TODO this is where all the other health checks would go
 
         for instance in bad_instances:
-            self.logger.warn('Marking instance %s failed for provider %s' % (instance.pk, self.pk))
-            self.logger.warn('state: %s, failed: %s, destroyed: %s' % (instance.state, instance.failed, instance.destroyed))
-            instance.failed = True
-            instance.failed_at = now
-            instance.save()
+            with transaction.atomic():
+                self.logger.warn('Marking instance %s failed for provider %s' % (instance.pk, self.pk))
+                self.logger.warn('state: %s, failed: %s, destroyed: %s' % (instance.state, instance.failed, instance.destroyed))
+
+                instance.failed = True
+                instance.failed_at = now
+                instance.save()
+
+                InstanceFailedEvent.objects.create(user=self.user, provider_configuration=self, compute_group=instance.group, compute_instance=instance)
 
     def update_instance_statuses(self):
         try:

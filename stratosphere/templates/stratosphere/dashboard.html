@@ -41,7 +41,7 @@
                     <div class="ibox-title">
                         <h5>Providers</h5>
                     </div>
-                    <div class="ibox-content table-responsive providers-table">
+                    <div class="ibox-content table-responsive">
                         {% include "stratosphere/_provider_list.html" %}
                     </div>
                 </div>
@@ -65,8 +65,8 @@
                     </div>
                     <div class="ibox-content table-responsive">
                         <div class="row">
-                            <div class="col-lg-12">
-                                <table class="table table-striped" ng-controller="EventListCtrl">
+                            <div class="col-lg-12" ng-controller="EventListCtrl">
+                                <table class="table table-striped">
                                     <thead>
                                         <tr>
                                             <th>Time</th>
@@ -75,13 +75,21 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr ng-repeat="event in events | orderBy: 'created_at':true track by event.id" ng-cloak>
-                                            <td>{$ event.pretty_time $}<br><small>{$ event.time $}</small></td>
+                                        <tr ng-repeat="event in filteredItems track by event.id" ng-cloak>
+                                            <td>{$ event.pretty_time $}<br><small>{$ event.formatted_time $}</small></td>
                                             <td><a href="{$ event.object_url $}" ng-if="event.object_url">{$ event.object_name $}</a><span ng-if="!event.object_url">{$ event.object_name $}</span></td>
                                             <td ng-bind-html="event.description"></td>
                                         </tr>
                                     </tbody>
                                 </table>
+                                <uib-pagination
+                                    total-items="items.length"
+                                    ng-model="currentPage"
+                                    class="pagination-sm"
+                                    max-size="maxSize"
+                                    items-per-page="numPerPage"
+                                    boundary-links="true">
+                                </uib-pagination>
                             </div>
                         </div>
                     </div>
