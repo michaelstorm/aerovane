@@ -75,6 +75,16 @@ class ProviderConfigurationStatusChecker(object):
     def schedule_send_failed_email(self):
         send_failed_email.apply_async(args=[self.pk])
 
+    def fail(self):
+        connection.on_commit(lambda: self.schedule_send_failed_email())
+
+        self.logger.warn('Disabling provider %s (%s)' % (self.pk, self.provider.name))
+        self.set_enabled(False)
+        self.failed = True
+        self.save()
+
+        ProviderConfigurationFailedEvent.objects.create(user=self.user, provider_configuration=self)
+
     @thread_local(DB_OVERRIDE='serializable')
     def check_enabled(self):
         now = timezone.now()
@@ -87,14 +97,7 @@ class ProviderConfigurationStatusChecker(object):
 
         if self.enabled:
             if max_failure_count_value > 0 and failure_count_value >= max_failure_count_value:
-                connection.on_commit(lambda: self.schedule_send_failed_email())
-
-                self.logger.warn('Disabling provider %s (%s)' % (self.pk, self.provider.name))
-                self.set_enabled(False)
-                self.failed = True
-                self.save()
-
-                ProviderConfigurationFailedEvent.objects.create(user=self.user, provider_configuration=self)
+                self.fail()
         else:
             self.logger.info('Provider %s (%s) already disabled' % (self.pk, self.provider.name))
 

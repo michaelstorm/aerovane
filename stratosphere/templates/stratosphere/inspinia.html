@@ -845,6 +845,10 @@
                     );
                 }
 
+                $scope.simulateFailure = function(provider) {
+                    $http.post('/providers/' + provider.id + '/fail/');
+                }
+
                 $scope.costDoughnutChart = createDoughnutChart("providerCostDoughnutChart");
 
                 $scope.$watch('items', function(newValue, oldValue) {

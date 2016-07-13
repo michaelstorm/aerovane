@@ -555,8 +555,16 @@ def set_provider_enabled(request, provider_id):
     params = json.loads(request.body.decode('utf-8'))
     enabled = params['enabled']
 
-    provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
+    provider_configuration = request.user.provider_configurations.get(pk=provider_id)
     provider_configuration.set_enabled(enabled)
+
+    return HttpResponse('')
+
+
+@login_required
+def fail_provider(request, provider_id):
+    provider_configuration = request.user.provider_configurations.get(pk=provider_id)
+    provider_configuration.fail()
 
     return HttpResponse('')
 
@@ -564,7 +572,7 @@ def set_provider_enabled(request, provider_id):
 @login_required
 def provider_disk_images(request, provider_id):
     query = request.GET.get('query')
-    provider_configuration = ProviderConfiguration.objects.get(pk=provider_id)
+    provider_configuration = request.user.provider_configurations.get(pk=provider_id)
 
     terms = [t for t in re.split(r'\s+', query) if len(t) > 0]
     if len(terms) > 0:
@@ -654,7 +662,7 @@ def get_events(request):
         except ValueError as e:
             return HttpResponse('Invalid filter object ID: %s' % e, 422)
 
-        compute_group = ComputeGroup.objects.get(pk=compute_group_id)
+        compute_group = request.user.compute_groups.get(pk=compute_group_id)
         provider_configuration_ids = [ProviderConfiguration.objects.get(provider_name=provider_name, user=compute_group.user)
                                       for provider_name in compute_group.provider_policy.keys()]
         events = events.filter(Q(compute_group_id=compute_group_id) | Q(provider_configuration_id__in=provider_configuration_ids))

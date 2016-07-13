@@ -48,6 +48,11 @@
                         <label for="provider-enabled-{$ provider.id $}">Enabled</label>
                     </div>
                 </td>
+                <td style="vertical-align: middle;">
+                    <div style="white-space: nowrap;">
+                        <button class="btn btn-xs btn-danger" ng-click="simulateFailure(provider)" ng-disabled="!provider.enabled">Simulate failure</button>
+                    </div>
+                </td>
             </tr>
         </tbody>
     </table>
