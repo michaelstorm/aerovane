@@ -244,6 +244,15 @@
                                     <img class="provider-icon" src="{% static "stratosphere/aws_icon.png" %}"><!--
                                     --><span>AWS</span>
                                 </a></li>
+                                <li
+                                    {% if left_sub_nav_section == "azure" %}
+                                        class="active"
+                                    {% endif %}
+                                >
+                                <a href="/providers/azure/" class="provider-link">
+                                    <img class="provider-icon" src="{% static "stratosphere/azure_icon.png" %}"><!--
+                                    --><span>Azure</span>
+                                </a></li>
                             </ul>
                         </li>
                         <li

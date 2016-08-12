@@ -10,18 +10,4 @@ python manage.py migrate
 
 export CELERY_ALWAYS_EAGER=True
 
-echo "s = Site.objects.first(); s.name = 'localhost'; s.domain = 'localhost:8000'; s.save()" | python manage.py shell_plus
-
-echo "AWSProviderConfiguration.create_providers()" | python manage.py shell_plus
-
-echo "AWSProviderConfiguration.create_regions(
-			user=None,
-			access_key_id='$AWS_ACCESS_KEY_ID',
-			secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
-
-echo "User.objects.create_superuser(email='oopsdude@gmail.com', password='password')" | python manage.py shell_plus
-
-echo "AWSProviderConfiguration.create_regions(
-                    user=User.objects.first(),
-                    access_key_id='$AWS_ACCESS_KEY_ID',
-                    secret_access_key='$AWS_SECRET_ACCESS_KEY')" | python manage.py shell_plus
+cat seed_db.py | python manage.py shell_plus

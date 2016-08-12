@@ -46,13 +46,24 @@
                                         </div>
                                     </div>
                                     <div class="row">
-                                        <div class="col-lg-12">
+                                        <div class="col-lg-6">
                                             <div class="form-group" id="select-auth-container">
-                                                <label>Authentication method</label>
-                                                <select class="fancy-select" ng-model="group.authentication_method" name="authentication_method">
+                                                <label>SSH key authentication method</label>
+                                                <select class="fancy-select" ng-model="group.key_authentication_method" name="key_authentication_method">
                                                     <option></option>
-                                                    {% for method in authentication_methods %}
-                                                        <option value="{{ method.pk }}">{{ method.pretty_type }}: {{ method.name }}</option>
+                                                    {% for method in key_authentication_methods %}
+                                                        <option value="{{ method.pk }}">{{ method.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-6">
+                                            <div class="form-group" id="select-auth-container">
+                                                <label>Password authentication method</label>
+                                                <select class="fancy-select" ng-model="group.password_authentication_method" name="password_authentication_method">
+                                                    <option></option>
+                                                    {% for method in password_authentication_methods %}
+                                                        <option value="{{ method.pk }}">{{ method.name }}</option>
                                                     {% endfor %}
                                                 </select>
                                             </div>

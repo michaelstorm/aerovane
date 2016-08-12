@@ -25,15 +25,9 @@ class PasswordAuthenticationMethod(AuthenticationMethod):
 
     password = models.CharField(max_length=256)
 
-    def pretty_type(self):
-        return 'Password'
-
 
 class KeyAuthenticationMethod(AuthenticationMethod):
     class Meta:
         app_label = "stratosphere"
 
     key = models.TextField()
-
-    def pretty_type(self):
-        return 'Key'

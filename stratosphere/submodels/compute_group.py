@@ -138,7 +138,11 @@ class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='compute_groups')
     image = models.ForeignKey('ComputeImage', related_name='compute_groups', on_delete=models.PROTECT)
-    authentication_method = models.ForeignKey('AuthenticationMethod', related_name='compute_groups')
+
+    # not constraining to proper subclasses because of weird migration problems; possibly related to
+    # https://stackoverflow.com/questions/20334029/django-app-cannot-assign-imagetext-link-must-be-a-link-instance
+    key_authentication_method = models.ForeignKey('AuthenticationMethod', related_name='key_compute_groups', null=True, blank=True)
+    password_authentication_method = models.ForeignKey('AuthenticationMethod', related_name='password_compute_groups', null=True, blank=True)
 
     instance_count = models.IntegerField()
     cpu = models.IntegerField()
@@ -315,10 +319,8 @@ class ComputeGroupBase(TrackSavedChanges, models.Model, HasLogger):
 
     @classmethod
     def handle_pre_save(cls, sender, instance, raw, using, update_fields, **kwargs):
-        print('instance.state: %s' % instance.state)
         if instance.state == 'DESTROYED':
             old_instance = cls.objects.get(pk=instance.id)
-            print('old_instance.state: %s' % instance.state)
             if old_instance.state != 'DESTROYED':
                 GroupTerminatedEvent.objects.create(user=instance.user, compute_group=instance)
 

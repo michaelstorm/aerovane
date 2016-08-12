@@ -8,8 +8,6 @@ from .models import *
 
 AWSProviderConfigurationForm = modelform_factory(AWSProviderConfiguration, fields=('user',), widgets={'user': HiddenInput})
 
-LinodeProviderConfigurationForm = modelform_factory(LinodeProviderConfiguration, fields=('api_key',), widgets={'api_key': PasswordInput, 'user': HiddenInput})
-
 PasswordAuthenticationMethodForm = modelform_factory(PasswordAuthenticationMethod,
                                                      fields=('name', 'password'),
                                                      widgets={'password': PasswordInput(attrs={'autocomplete':'new-password'}),

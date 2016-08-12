@@ -5,6 +5,8 @@ from django.db import models
 
 from libcloud.compute.base import NodeImage
 
+from polymorphic import PolymorphicModel
+
 from save_the_change.mixins import SaveTheChange, TrackChanges
 
 from ..util import *
@@ -42,6 +44,7 @@ class ComputeImage(models.Model, SaveTheChange, TrackChanges):
     name = models.CharField(max_length=128)
 
 
+# TODO convert to polymorphic class in order to implement image_is_public() from ProviderConfiguration
 class ProviderImage(models.Model, SaveTheChange, TrackChanges):
     class Meta:
         app_label = "stratosphere"

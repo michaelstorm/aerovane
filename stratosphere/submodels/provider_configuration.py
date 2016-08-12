@@ -101,19 +101,15 @@ class ProviderConfiguration(PolymorphicModel, ProviderConfigurationStatusChecker
         return cost
 
     def _destroy_all_nodes(self):
-        print('listing nodes in %s' % self.provider_name)
-        nodes = self.driver.list_nodes()
-        print('found %d nodes in %s' % (len(nodes), self.provider_name))
+        self.logger.info('Listing nodes in %s' % self.provider_name)
+        nodes = self._list_nodes()
+        self.logger.info('Found %d nodes in %s' % (len(nodes), self.provider_name))
         for node in nodes:
-            print('destroying %s' % node.id)
+            self.logger.info('Destroying node %s' % node.id)
             try:
                 self.driver.destroy_node(node)
             except Exception as e:
-                print(e)
-
-    def create_libcloud_node(self, name, libcloud_image, libcloud_size, libcloud_auth, **extra_args):
-        return self.driver.create_node(name=name, image=libcloud_image, size=libcloud_size, auth=libcloud_auth,
-                                       **extra_args)
+                self.logger.error(e)
 
     def destroy_libcloud_node(self, libcloud_node):
         try:

@@ -2,7 +2,7 @@
 {% load staticfiles %}
 {% load bootstrap3 %}
 
-{% block title %}Providers{% endblock %}
+{% block title %}Amazon Web Services{% endblock %}
 
 {% block content %}
     <div class="row wrapper border-bottom white-bg page-heading">
@@ -49,7 +49,7 @@
                                     {% endif %}
                                 >
                             </div>
-                            <input type="submit" value="Save" class="btn btn-primary save-aws-button">
+                            <input type="submit" value="Save" class="btn btn-primary save-button">
                             <input type="button" value="Open AWS IAM users page" class="btn btn-info open-iam-page">
                             <div class="iam-instructions">It is recommended to create an IAM account for Aerovane to use and paste its credentials here. For instructions on how to do this, please watch the screencast below.</div>
                         </form>
@@ -86,9 +86,9 @@
         var checkSaveButtonEnabled = function() {
             var saveEnabled = $('input[name="aws_access_key_id"]').val().length > 0 && $('input[name="aws_secret_access_key"]').val().length > 0;
             if (saveEnabled)
-                $('.save-aws-button').removeAttr('disabled');
+                $('.save-button').removeAttr('disabled');
             else
-                $('.save-aws-button').attr('disabled', true);
+                $('.save-button').attr('disabled', true);
         };
 
         checkSaveButtonEnabled();

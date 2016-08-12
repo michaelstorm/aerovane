@@ -54,6 +54,41 @@
                     </div>
                 </div>
             </div>
+            <div class="col-lg-6">
+                <div class="ibox float-e-margins">
+                    <div class="ibox-title">
+                        <h5>Passwords</h5>
+                    </div>
+                    <div class="ibox-content">
+                        {% if key_methods|length > 0 %}
+                            {% comment %} not using table-responsive because it breaks word wrapping {% endcomment %}
+                            <table class="table table-striped ssh-keys-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for method in password_methods %}
+                                        <tr style="height: 5px;">
+                                            <td style="word-wrap: break-word;">{{ method.name }}</td>
+                                            <td class="text-center">
+                                                <button class="btn btn-danger btn-xs delete-method-button" method-id="{{ method.id }}">Delete</button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                        <form action="/authentication_methods/" method="post" autocomplete="off">
+                            {% csrf_token %}
+                            {% bootstrap_form add_password_method %}
+                            <input type="submit" value="Add" class="btn btn-primary" >
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

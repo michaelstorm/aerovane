@@ -31,7 +31,10 @@ class ProviderSize(models.Model, SaveTheChange, TrackChanges):
 
     def info_url(self):
         # TODO this is Amazon-specific
-        return "http://www.ec2instances.info/?region=%s&selected=%s" % (self.provider_configuration.region, self.external_id)
+        if self.provider_configuration.provider.name.startswith('aws'):
+            return "http://www.ec2instances.info/?region=%s&selected=%s" % (self.provider_configuration.region, self.external_id)
+        else:
+            return ''
 
     def to_libcloud_size(self):
         return NodeSize(id=self.external_id, name=self.name, ram=self.ram, disk=self.disk,

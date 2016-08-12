@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.8/ref/settings/
 """
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+import logging
 import os
 import dj_database_url
 import psycopg2.extensions
@@ -31,6 +32,7 @@ DEBUG = os.environ.get('DEBUG', 'FALSE').upper() in ('YES', 'ON', 'TRUE', '1')
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',')
 
+HEROKU = os.environ.get('HEROKU', 'FALSE').upper() in ('YES', 'ON', 'TRUE', '1')
 
 # Application definition
 
@@ -59,6 +61,7 @@ INSTALLED_APPS = (
 )
 
 MIDDLEWARE_CLASSES = (
+    'log_request_id.middleware.RequestIDMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     # run before CommonMiddleware so that redirects due to APPEND_SLASH are also ignored
     'stratosphere.middleware.NewRelicIgnoreAdminSiteMiddleware',
@@ -96,41 +99,50 @@ APPEND_SLASH = True
 
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False, # True
+    'disable_existing_loggers': False,
+    'filters': {
+        'request_id': {
+            '()': 'log_request_id.filters.RequestIDFilter'
+        },
+        'celery_task_info': {
+            '()': 'stratosphere.util.CeleryTaskInfoFilter'
+        },
+        'request_and_task_info': {
+            '()': 'stratosphere.util.RequestAndTaskInfoFilter'
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
+            'filters': ['request_id', 'celery_task_info', 'request_and_task_info'],
         },
-        # 'file': {
-        #     'level': 'DEBUG',
-        #     'class': 'logging.FileHandler',
-        #     'filename': 'log/debug.log',
-        # },
     },
     'formatters': {
         'simple': {
-            'format': '%(levelname)s %(name)s - %(message)s',
+            # change in CELERYD_TASK_LOG_FORMAT when changed here
+            'format': '%(levelname)-7s [%(asctime)s]%(request_and_task_info)s %(name)s - %(message)s',
         },
     },
     'loggers': {
         '': {
-            'handlers': ['console'], #, 'file'],
+            'handlers': ['console'],
             'level': os.getenv('LOG_LEVEL', 'DEBUG'),
         },
         'django': {
-            'handlers': ['console'], #, 'file'],
+            'handlers': ['console'],
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
         },
-        # 'django.db.backends': {
-        #     'level': 'DEBUG',
-        #     'handlers': ['console'],
-        # },
     },
 }
 
-WSGI_APPLICATION = 'multicloud.wsgi.application'
+if HEROKU:
+    LOG_REQUEST_ID_HEADER = "HTTP_X_REQUEST_ID"
 
+# AMQP logging is kind of annoying
+logging.getLogger('amqp').setLevel(logging.INFO)
+
+WSGI_APPLICATION = 'multicloud.wsgi.application'
 
 AUTH_USER_MODEL = 'stratosphere.User'
 
@@ -196,10 +208,12 @@ DATABASE_ROUTERS = ['stratosphere.settings_router.SettingsRouter']
 
 # Celery
 BROKER_URL = os.environ['CLOUDAMQP_URL']
-CELERYD_HIJACK_ROOT_LOGGER = True
+CELERYD_HIJACK_ROOT_LOGGER = False
 CELERY_IGNORE_RESULT = True
 CELERY_DEFAULT_QUEUE = 'default'
 CELERY_ALWAYS_EAGER = os.environ.get('CELERY_ALWAYS_EAGER', False)
+# change in LOGGING when changed here
+CELERYD_TASK_LOG_FORMAT = '%(levelname)-7s [%(asctime)s] <%(task_name)s[%(task_id)s]> %(name)s - %(message)s'
 
 
 # Internationalization
@@ -249,7 +263,7 @@ USE_TZ = True
 # seem to be able to omit `$ python manage.py collectstatic` if all assets are in `compress` blocks, but I like
 # to include it for safety's sake. Also, Heroku does it by default.
 #
-# Speaking of Heroku, we trigger the latter two commands by sticking it them `bin/post_compile`, which is a
+# Speaking of Heroku, we trigger the latter two commands by sticking them in `bin/post_compile`, which is a
 # special file that Heroku looks for.
 #
 # Running `whitenoise.compress` shouldn't be necessary, according to the docs, but (a) gzipped assets aren't
@@ -292,5 +306,6 @@ PRELOADED_IMAGES = {
         'aws_us_east_1': 'ami-736b7219',
         'aws_us_west_1': 'ami-e6ed9286',
         'aws_us_west_2': 'ami-469d6c26',
+        'azure_south_central_us': 'b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-16_04-LTS-amd64-server-20160627-en-us-30GB'
     }
 }

@@ -2,7 +2,7 @@ from django.db import models
 
 from simple_history.models import HistoricalRecords
 
-from .tasks import create_libcloud_node, load_provider_data, load_public_provider_data
+from .tasks import load_provider_data, load_public_provider_data
 
 from .submodels.event import *
 from .submodels.user import *
@@ -22,7 +22,7 @@ from .submodels.provider_size import *
 from .submodels.provider_credential_set import *
 from .submodels.provider_configuration import *
 from .submodels.aws.aws_provider_configuration import *
-from .submodels.linode.linode_provider_configuration import *
+from .submodels.azure.azure_provider_configuration import *
 from .submodels.compute_group import *
 from .submodels.beta_key import *
 
@@ -56,6 +56,7 @@ def schedule_load_provider_info(sender, created, instance, **kwargs):
         if instance.user is None:
             schedule_random_default_delay(load_public_provider_data, instance.pk)
         else:
+            instance.init()
             schedule_random_default_delay(load_provider_data, instance.pk)
 
 

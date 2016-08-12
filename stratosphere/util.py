@@ -6,6 +6,8 @@ import threading
 import time
 import traceback
 
+from celery import current_task
+from celery.utils.log import get_task_logger
 from django.contrib.staticfiles.storage import CachedFilesMixin
 from django.utils import timezone
 from functools import wraps
@@ -28,7 +30,7 @@ class HasLogger(object):
     @property
     def logger(self):
         if self._logger is None:
-            self._logger = logging.getLogger(self.__class__.__name__)
+            self._logger = get_task_logger(self.__class__.__name__)
 
         return self._logger
 
@@ -226,3 +228,30 @@ class static_thread_local(thread_local):
 
     def __call__(self, *args, **kwargs):
         return super().__call__(self.func)(*args, **kwargs)
+
+
+class CeleryTaskInfoFilter(logging.Filter):
+    def filter(self, record):
+        # make sure to use `current_task == None` instead of `current_task is None` because current_task is a proxy
+        # object whose nullity is determined upon evaluation, so it has to be compared for equality, not identity
+        record.task_name = None if current_task == None else current_task.name
+        record.task_id = None if current_task == None else current_task.request.id
+
+        return True
+
+
+# When run outside of a celery worker, the logger returned by get_task_logger() does not automatically insert task name
+# and ID. This is an issue when running tasks synchronously, as when run manually. Tasks can theoretically be run
+# synchronously from requests, so we jump through some hoops to include both the request and task info, if both are
+# available.
+class RequestAndTaskInfoFilter(logging.Filter):
+    def filter(self, record):
+        first_part = None if record.request_id == 'none' else record.request_id
+        second_part = None if record.task_id == None else '%s[%s]' % (record.task_name, record.task_id)
+
+        if first_part == None and second_part == None:
+            record.request_and_task_info = ''
+        else:
+            record.request_and_task_info = ' <%s>' % ', '.join([p for p in [first_part, second_part] if p != None])
+
+        return True

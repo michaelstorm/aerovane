@@ -140,13 +140,13 @@ class ProviderConfigurationStatusChecker(object):
 
     def update_instance_statuses(self):
         try:
-            print('Querying statuses for instances of provider %s' % self.pk)
-            libcloud_nodes = call_with_retry(lambda: self.driver.list_nodes(), Exception, logger=self.logger)
-            print('Got %d nodes' % len(libcloud_nodes))
+            self.logger.info('Querying statuses for instances of provider %s' % self.pk)
+            libcloud_nodes = call_with_retry(lambda: self._list_nodes(), Exception, logger=self.logger)
+            self.logger.info('Got %d nodes' % len(libcloud_nodes))
 
         except Exception as e:
             # TODO increment failure count even if there aren't any nodes
-            print('Error listing nodes of %s' % self)
+            self.logger.error('Error listing nodes of %s' % self)
 
             traceback.print_exc()
             for instance in self.instances.all():
@@ -170,11 +170,11 @@ class ProviderConfigurationStatusChecker(object):
                 else:
                     node = nodes[0]
 
-                    self.logger.warn('Remote node %s state: %s' % (instance.pk, NodeState.tostring(node.state)))
-
                     instance.state = NodeState.tostring(node.state)
                     instance.private_ips = node.private_ips
                     instance.public_ips = node.public_ips
+
+                    self.logger.info('State of node %s is %s' % (instance.pk, instance.state))
 
                 # prevent transaction from failing, or causing other transactions to fail, if nothing has changed
                 # TODO is this actually effective?

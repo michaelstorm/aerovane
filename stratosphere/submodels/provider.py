@@ -15,6 +15,8 @@ class Provider(models.Model, SaveTheChange):
     name = models.CharField(max_length=32)
     pretty_name = models.CharField(max_length=32)
     icon_path = models.TextField()
+    supports_ssh_instance_auth = models.BooleanField()
+    supports_password_instance_auth = models.BooleanField()
 
     def icon_url(self):
         icon_path = staticfiles_storage.url(self.icon_path)

@@ -1,5 +1,6 @@
-from celery.task.schedules import crontab
 from celery.decorators import periodic_task
+from celery.task.schedules import crontab
+from celery.utils.log import get_task_logger
 
 from datetime import datetime, timedelta
 
@@ -13,6 +14,7 @@ from django.utils import timezone
 
 from libcloud.compute.base import Node, NodeAuthPassword, NodeAuthSSHKey
 
+import logging
 import json
 
 from multicloud.celery import app
@@ -22,6 +24,9 @@ import random
 from .util import NodeJSONEncoder, schedule_random_default_delay, thread_local
 
 # we don't import import models here, since doing so seems to screw up bootstrapping
+
+
+logger = get_task_logger(__name__)
 
 
 @app.task()
@@ -161,7 +166,7 @@ def clean_up_destroyed_instances():
 
     leftover_instances = ComputeInstance.objects.filter(query)
     for instance in leftover_instances:
-        print('Destroying leftover instance %s' % instance.pk)
+        logger.warning('Destroying leftover instance %s' % instance.pk)
         destroy_libcloud_node.delay(instance.pk)
 
 
@@ -172,7 +177,7 @@ def destroy_libcloud_node(compute_instance_id):
     instance = ComputeInstance.objects.get(pk=compute_instance_id)
 
     if instance.external_id is None:
-        print('No external_id for instance %s; not destroying libcloud node' % instance.pk)
+        logger.warning('No external_id for instance %s; not destroying libcloud node' % instance.pk)
     else:
         instance.provider_configuration.destroy_libcloud_node(instance.to_libcloud_node())
 
@@ -182,20 +187,21 @@ def create_libcloud_node(compute_instance_id):
     from .models import ComputeInstance, PasswordAuthenticationMethod
 
     compute_instance = ComputeInstance.objects.get(pk=compute_instance_id)
-    authentication_method = compute_instance.group.authentication_method
     provider_configuration = compute_instance.provider_configuration
     provider_size = compute_instance.provider_size
 
-    if isinstance(authentication_method, PasswordAuthenticationMethod):
-        libcloud_auth = NodeAuthPassword(authentication_method.password)
+    key_authentication_method = compute_instance.group.key_authentication_method
+    password_authentication_method = compute_instance.group.password_authentication_method
+    if key_authentication_method != None and compute_instance.provider_configuration.provider.supports_ssh_instance_auth:
+        libcloud_auth = NodeAuthSSHKey(key_authentication_method.key)
     else:
-        libcloud_auth = NodeAuthSSHKey(authentication_method.key)
+        libcloud_auth = NodeAuthPassword(password_authentication_method.password)
 
     libcloud_name = '%s_%s' % (compute_instance.group.name, compute_instance.name)
     libcloud_size = provider_size.to_libcloud_size()
     libcloud_image = compute_instance.provider_image.to_libcloud_image(provider_configuration)
 
-    print('Creating libcloud node for instance %s, size %s' % (compute_instance.pk, provider_size))
+    logger.info('Creating libcloud node for instance %s, size %s' % (compute_instance.pk, provider_size))
     libcloud_node_args = {
         'name': libcloud_name,
         'libcloud_image': libcloud_image,
@@ -204,7 +210,7 @@ def create_libcloud_node(compute_instance_id):
     }
     libcloud_node = provider_configuration.create_libcloud_node(**libcloud_node_args)
 
-    print('Done creating libcloud node for instance %s, size %s' % (compute_instance.pk, provider_size))
+    logger.info('Done creating libcloud node for instance %s, size %s: id %s' % (compute_instance.pk, provider_size, libcloud_node.id))
     compute_instance.external_id = libcloud_node.id
     compute_instance.public_ips = json.loads(json.dumps(libcloud_node.public_ips))
     compute_instance.private_ips = json.loads(json.dumps(libcloud_node.private_ips))

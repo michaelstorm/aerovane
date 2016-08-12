@@ -133,16 +133,18 @@ def images(request):
 
     for image_name, preloaded_image in settings.PRELOADED_IMAGES.items():
         image_info = {}
+        provider_configurations = request.user.provider_configurations
 
         for provider_name, external_id in preloaded_image.items():
-            provider_configurations = request.user.provider_configurations
-            available_provider_images = provider_configurations.get(provider__name=provider_name).available_provider_images
-            provider_image = available_provider_images.get(external_id=external_id)
+            provider_configuration = provider_configurations.filter(provider__name=provider_name).first()
 
-            provider_info = {}
-            provider_info['id'] = provider_image.disk_image.pk
-            provider_info['name'] = provider_image.disk_image.name
-            image_info[provider_name] = provider_info
+            if provider_configuration != None:
+                provider_image = provider_configuration.available_provider_images.get(external_id=external_id)
+
+                provider_info = {}
+                provider_info['id'] = provider_image.disk_image.pk
+                provider_info['name'] = provider_image.disk_image.name
+                image_info[provider_name] = provider_info
 
         preloaded_images[image_name] = image_info
 
@@ -263,8 +265,8 @@ def add_compute_group(request):
             'available': False,
         },
         {
-            'name': 'azure',
-            'available': False,
+            'name': 'azure_south_central_us',
+            'available': True,
         },
         {
             'name': 'digitalocean',
@@ -284,10 +286,20 @@ def add_compute_group(request):
         },
     ]
 
+    for provider_info in possible_providers:
+        provider = Provider.objects.filter(name=provider_info['name']).first()
+        if provider != None:
+            provider_info['supports_password_instance_auth'] = provider.supports_password_instance_auth
+            provider_info['supports_ssh_instance_auth'] = provider.supports_ssh_instance_auth
+        else:
+            provider_info['supports_password_instance_auth'] = False
+            provider_info['supports_ssh_instance_auth'] = False
+
     context = {
         'os_images_map': os_images_map,
         'possible_providers': possible_providers,
-        'authentication_methods': request.user.authentication_methods.all(),
+        'password_authentication_methods': request.user.authentication_methods.instance_of(PasswordAuthenticationMethod),
+        'key_authentication_methods': request.user.authentication_methods.instance_of(KeyAuthenticationMethod),
         'left_nav_section': 'groups',
         'left_sub_nav_section': 'create',
         'setup_progress': get_setup_progress(request.user),
@@ -403,8 +415,17 @@ def compute(request, group_id=None):
         if name is None or len(name.strip()) == 0:
             name = generate_name(request.user.compute_groups)
 
-        authentication_method_id = params['authentication_method']
-        authentication_method = request.user.authentication_methods.filter(pk=authentication_method_id).first()
+        key_authentication_method_id = params.get('key_authentication_method')
+        if key_authentication_method_id != None:
+            key_authentication_method = request.user.authentication_methods.filter(pk=key_authentication_method_id).first()
+        else:
+            key_authentication_method = None
+
+        password_authentication_method_id = params.get('password_authentication_method')
+        if password_authentication_method_id != None:
+            password_authentication_method = request.user.authentication_methods.filter(pk=password_authentication_method_id).first()
+        else:
+            password_authentication_method = None
 
         provider_policy = {}
         for key in params:
@@ -418,7 +439,8 @@ def compute(request, group_id=None):
         group = ComputeGroup.objects.create(user=request.user, cpu=cpu, memory=memory,
                                             instance_count=instance_count, name=name, provider_policy=provider_policy,
                                             size_distribution={}, image=compute_image,
-                                            authentication_method=authentication_method)
+                                            key_authentication_method=key_authentication_method,
+                                            password_authentication_method=password_authentication_method)
 
         group.rebalance_instances()
 
@@ -427,7 +449,6 @@ def compute(request, group_id=None):
 
 provider_configuration_form_classes = {
     'aws': AWSProviderConfigurationForm,
-    'linode': LinodeProviderConfigurationForm,
 }
 
 
@@ -445,14 +466,14 @@ def aws_provider(request):
         data_state = compute_providers_data_state(request.user)
         context['data_state'] = data_state
         if data_state == ProviderConfiguration.ERROR:
-            first_aws_pc = AWSProviderConfiguration.objects.filter(user=request.user).first()
-            context['credentials_error'] = first_aws_pc.provider_credential_set.error_type
+            first_pc = AWSProviderConfiguration.objects.filter(user=request.user).first()
+            context['credentials_error'] = first_pc.provider_credential_set.error_type
 
-        aws_credential_set = AWSProviderCredentialSet.objects.filter(provider_configurations__user=request.user).first()
-        if aws_credential_set is not None:
-            context['aws_access_key_id'] = aws_credential_set.access_key_id
+        credential_set = AWSProviderCredentialSet.objects.filter(provider_configurations__user=request.user).first()
+        if credential_set is not None:
+            context['aws_access_key_id'] = credential_set.access_key_id
 
-        return render(request, 'stratosphere/aws_provider.html', context=context)
+        return render(request, 'stratosphere/aws/provider.html', context=context)
 
     elif request.method == 'POST':
         with transaction.atomic():
@@ -477,6 +498,56 @@ def aws_provider(request):
 
         if is_setup_complete(request.user):
             return redirect('/providers/aws/')
+        else:
+            return redirect('/')
+
+
+@login_required
+def azure_provider(request):
+    if request.method == 'GET':
+        provider_configurations = request.user.provider_configurations
+        context = {key: form_class(instance=provider_configurations.filter(provider_name=key).first())
+                   for key, form_class in provider_configuration_form_classes.items()}
+
+        context['left_nav_section'] = 'providers'
+        context['left_sub_nav_section'] = 'azure'
+        context['setup_progress'] = get_setup_progress(request.user)
+
+        data_state = compute_providers_data_state(request.user)
+        context['data_state'] = data_state
+        if data_state == ProviderConfiguration.ERROR:
+            first_pc = AzureProviderConfiguration.objects.filter(user=request.user).first()
+            context['credentials_error'] = first_pc.provider_credential_set.error_type
+
+        credential_set = AzureProviderCredentialSet.objects.filter(provider_configurations__user=request.user).first()
+        if credential_set is not None:
+            context['azure_subscription_id'] = credential_set.access_key_id
+
+        return render(request, 'stratosphere/azure/provider.html', context=context)
+
+    elif request.method == 'POST':
+        with transaction.atomic():
+            provider_configuration = request.user.provider_configurations.instance_of(AzureProviderConfiguration).first()
+
+            if provider_configuration is None:
+                AzureProviderConfiguration.create_account(request.user,
+                                request.POST['azure_subscription_id'], request.POST['azure_management_certificate'])
+
+            else:
+                provider_credential_set = provider_configuration.provider_credential_set
+                provider_credential_set.access_key_id = request.POST['azure_subscription_id']
+                provider_credential_set.secret_access_key = request.POST['azure_management_certificate']
+                provider_credential_set.error_type = None
+                provider_credential_set.save()
+
+                for provider_configuration in provider_credential_set.provider_configurations.all():
+                    provider_configuration.data_state = ProviderConfiguration.NOT_LOADED
+                    provider_configuration.save()
+
+                    load_provider_data.apply_async(args=[provider_configuration.pk])
+
+        if is_setup_complete(request.user):
+            return redirect('/providers/azure/')
         else:
             return redirect('/')
 

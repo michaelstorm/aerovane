@@ -42,7 +42,7 @@ class UserManager(BaseUserManager):
                                  **extra_fields)
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser, PermissionsMixin, HasLogger):
     """
     A class implementing a fully featured User model with
     admin-compliant permissions.
@@ -157,7 +157,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                     break
 
         if not_equal:
-            print('creating snapshot')
+            self.logger.info('Creating snapshot')
             with transaction.atomic():
                 user_snapshot.save()
 
