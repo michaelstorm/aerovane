@@ -197,7 +197,7 @@ def create_libcloud_node(compute_instance_id):
     else:
         libcloud_auth = NodeAuthPassword(password_authentication_method.password)
 
-    libcloud_name = '%s_%s' % (compute_instance.group.name, compute_instance.name)
+    libcloud_name = '%s-%s' % (compute_instance.group.name, compute_instance.name)
     libcloud_size = provider_size.to_libcloud_size()
     libcloud_image = compute_instance.provider_image.to_libcloud_image(provider_configuration)
 

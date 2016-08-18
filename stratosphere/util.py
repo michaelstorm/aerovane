@@ -162,7 +162,7 @@ def schedule_random_default_delay(task, *args):
 def generate_name(existing_query):
     try_count = 0
     while True:
-        name = haikunate(tokenlength=try_count)
+        name = haikunate(tokenlength=try_count, delimiter='')
         if not existing_query.filter(name=name).exists():
             return name
         else:
