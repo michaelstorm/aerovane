@@ -170,8 +170,6 @@ def dashboard(request):
     setup_progress = get_setup_progress(request.user)
     data_state = compute_providers_data_state(request.user)
 
-    print(setup_progress, data_state)
-
     context = {
         'left_nav_section': 'dashboard',
         'setup_progress': setup_progress,
@@ -463,7 +461,7 @@ def aws_provider(request):
         context['left_sub_nav_section'] = 'aws'
         context['setup_progress'] = get_setup_progress(request.user)
 
-        data_state = compute_providers_data_state(request.user)
+        data_state = compute_providers_data_state(request.user, 'aws_us_east_1', 'aws_us_west_1', 'aws_us_west_2')
         context['data_state'] = data_state
         if data_state == ProviderConfiguration.ERROR:
             first_pc = AWSProviderConfiguration.objects.filter(user=request.user).first()
@@ -513,7 +511,7 @@ def azure_provider(request):
         context['left_sub_nav_section'] = 'azure'
         context['setup_progress'] = get_setup_progress(request.user)
 
-        data_state = compute_providers_data_state(request.user)
+        data_state = compute_providers_data_state(request.user, 'azure_south_central_us')
         context['data_state'] = data_state
         if data_state == ProviderConfiguration.ERROR:
             first_pc = AzureProviderConfiguration.objects.filter(user=request.user).first()
@@ -521,7 +519,7 @@ def azure_provider(request):
 
         credential_set = AzureProviderCredentialSet.objects.filter(provider_configurations__user=request.user).first()
         if credential_set is not None:
-            context['azure_subscription_id'] = credential_set.access_key_id
+            context['azure_subscription_id'] = credential_set.subscription_id
 
         return render(request, 'stratosphere/azure/provider.html', context=context)
 
@@ -535,8 +533,8 @@ def azure_provider(request):
 
             else:
                 provider_credential_set = provider_configuration.provider_credential_set
-                provider_credential_set.access_key_id = request.POST['azure_subscription_id']
-                provider_credential_set.secret_access_key = request.POST['azure_management_certificate']
+                provider_credential_set.subscription_id = request.POST['azure_subscription_id']
+                provider_credential_set.management_certificate = request.POST['azure_management_certificate']
                 provider_credential_set.error_type = None
                 provider_credential_set.save()
 
@@ -570,10 +568,14 @@ def configure_provider(request, provider_name):
     return redirect('/providers/')
 
 
-def compute_providers_data_state(user):
-    if user.provider_configurations.filter(data_state=ProviderConfiguration.ERROR).exists():
+def compute_providers_data_state(user, *provider_names):
+    query = user.provider_configurations
+    if len(provider_names) > 0:
+        query = query.filter(provider__name__in=provider_names)
+
+    if query.filter(data_state=ProviderConfiguration.ERROR).exists():
         return ProviderConfiguration.ERROR
-    elif user.provider_configurations.filter(data_state=ProviderConfiguration.NOT_LOADED).exists():
+    elif query.filter(data_state=ProviderConfiguration.NOT_LOADED).exists():
         return ProviderConfiguration.NOT_LOADED
     else:
         return ProviderConfiguration.LOADED
